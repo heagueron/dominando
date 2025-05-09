@@ -1,15 +1,14 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --table-wood: #8B4513;
+  --table-wood-dark: #5D2906;
+  --domino-black: #1a1a1a;
+  --domino-white: #f5f5f5;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +21,22 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+}
+
+/* Estilos personalizados para el juego de dominó */
+.ficha-domino {
+  @apply bg-domino-white rounded-lg shadow-domino border-2 border-gray-300;
+}
+
+.mesa-domino {
+  @apply bg-table-wood rounded-xl shadow-xl p-8;
+}
+
+.linea-division {
+  @apply bg-black h-1 rounded-full;
+}
+
+.punto-domino {
+  @apply bg-black rounded-full;
 }

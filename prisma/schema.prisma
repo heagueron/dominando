@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id            String    @id @default(cuid())
+  nombre        String?
+  email         String    @unique
+  emailVerified DateTime?
+  imagen        String?
+  cuentas       Cuenta[]
+  sesiones      Sesion[]
+  partidas      Partida[]
+  estadisticas  Estadistica?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Cuenta {
+  id                String  @id @default(cuid())
+  usuarioId         String
+  tipo              String
+  proveedor         String
+  proveedorCuentaId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([proveedor, proveedorCuentaId])
+}
+
+model Sesion {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  usuarioId    String
+  expires      DateTime
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Partida {
+  id          String   @id @default(cuid())
+  creadorId   String
+  creador     Usuario  @relation(fields: [creadorId], references: [id])
+  jugadores   String[] // IDs de los jugadores
+  estado      String   @default("esperando") // esperando, jugando, finalizada
+  puntuacion  Json?    // Puntuación de cada jugador
+  movimientos Json[]   // Registro de movimientos
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Estadistica {
+  id             String @id @default(cuid())
+  usuarioId      String @unique
+  usuario        Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  partidasJugadas Int    @default(0)
+  partidasGanadas Int    @default(0)
+  puntosTotales   Int    @default(0)
+  nivelHabilidad  Float  @default(1000.0) // Sistema ELO o similar
+}
