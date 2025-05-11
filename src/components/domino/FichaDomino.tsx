@@ -75,20 +75,30 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   const fichaDominoVariants = {
     normal: {
       scale: 1,
-      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.5)',
     },
     seleccionada: {
-      scale: 1.05,
-      boxShadow: '0 8px 15px rgba(0, 0, 0, 0.2)',
+      scale: 1.20,
+      boxShadow: '0 8px 15px rgba(0, 0, 0, 0.6)',
     },
   };
 
+  // Usamos dimensiones fijas para la ficha, ya que ahora girará como un todo
+  // La ficha siempre tiene la misma forma base (vertical), y luego aplicamos la rotación
+  const dimensionesClase = 'w-6 h-12 sm:w-8 sm:h-16 md:w-10 md:h-20 lg:w-12 lg:h-24 xl:w-14 xl:h-28';
+
+  console.log(`Renderizando ficha ${valorSuperior}/${valorInferior} con rotación ${rotacion}°`);
+
   return (
     <motion.div
-      className={`ficha-domino relative w-6 h-12 sm:w-8 sm:h-16 md:w-10 md:h-20 lg:w-12 lg:h-24 xl:w-14 xl:h-28 cursor-pointer ${
+      className={`ficha-domino relative ${dimensionesClase} cursor-pointer ${
         seleccionada ? 'ring-2 ring-yellow-400' : ''
-      }`}
-      style={{ transform: `rotate(${rotacion}deg)` }}
+      } bg-white`}
+      style={{
+        // Aplicamos la rotación a toda la ficha
+        transform: `rotate(${rotacion}deg)`,
+        transformOrigin: 'center center'
+      }}
       onClick={onClick}
       drag={arrastrable}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
@@ -98,6 +108,10 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
       initial="normal"
       animate={seleccionada ? 'seleccionada' : 'normal'}
     >
+      {/* Estructura interna de la ficha - siempre en formato vertical */}
+      {/* La línea divisoria siempre es horizontal en la estructura base */}
+      {/* Al girar la ficha, toda esta estructura girará con ella */}
+
       {/* Mitad superior */}
       <div className="absolute top-0 left-0 w-full h-1/2 border-b border-gray-400 flex items-center justify-center">
         <div className="relative w-full h-full">

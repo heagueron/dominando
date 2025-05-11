@@ -22,6 +22,8 @@ interface MesaDominoProps {
 }
 
 const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, onFichaClick }) => {
+  // Log para depuración
+  console.log("Renderizando MesaDomino con fichas:", fichasEnMesa);
   // Estado para mantener la mesa cuadrada
   const [mesaSize, setMesaSize] = React.useState({ width: 800, height: 800 });
 
@@ -56,19 +58,7 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, onFichaClick }) =
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Función para convertir posición de cuadrícula a coordenadas en píxeles
-  const calcularPosicionPixeles = (posicionCuadricula: PosicionCuadricula) => {
-    // Calculamos el tamaño de cada celda basado en el tamaño de la mesa
-    const anchoCelda = mesaSize.width / COLUMNAS;
-    const altoCelda = mesaSize.height / FILAS;
-
-    // Calculamos las coordenadas en píxeles (centro de la celda)
-    // Restamos 1 porque las posiciones de la cuadrícula son base 1 (1-9), pero los índices son base 0 (0-8)
-    const x = ((posicionCuadricula.columna - 1) * anchoCelda) + (anchoCelda / 2);
-    const y = ((posicionCuadricula.fila - 1) * altoCelda) + (altoCelda / 2);
-
-    return { x, y };
-  };
+  // Ya no necesitamos calcular posiciones en píxeles, ya que usamos CSS Grid para posicionar las fichas
 
   return (
     <div className="flex justify-center items-center w-full">
@@ -94,13 +84,21 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, onFichaClick }) =
         {/* Borde de la mesa */}
         <div className="absolute inset-2 border-4 border-table-wood-dark rounded-lg opacity-50" />
 
-        {/* Cuadrícula */}
-        <div className="absolute inset-0 grid" style={{
-          gridTemplateRows: `repeat(${FILAS}, 1fr)`,
-          gridTemplateColumns: `repeat(${COLUMNAS}, 1fr)`,
-          padding: '10px',
-          pointerEvents: 'none' // Para que no interfiera con los clics en las fichas
-        }}>
+        {/* Contenedor principal que incluye cuadrícula y fichas */}
+        <div
+          className="absolute inset-0"
+          style={{
+            display: 'grid',
+            gridTemplateRows: `repeat(${FILAS}, 1fr)`,
+            gridTemplateColumns: `repeat(${COLUMNAS}, 1fr)`,
+            width: '100%',
+            height: '100%',
+            padding: '10px',
+            position: 'relative',
+            gridAutoFlow: 'dense', // Asegura que las celdas se llenen correctamente
+          }}
+          id="contenedor-principal"
+        >
           {Array.from({ length: FILAS * COLUMNAS }).map((_, index) => {
             const fila = Math.floor(index / COLUMNAS) + 1;
             const columna = (index % COLUMNAS) + 1;
@@ -111,60 +109,81 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, onFichaClick }) =
             return (
               <div
                 key={`celda-${fila}-${columna}`}
-                className={`border flex items-center justify-center ${
+                id={`celda-${fila}-${columna}`}
+                data-fila={fila}
+                data-columna={columna}
+                className={`celda relative border flex items-center justify-center ${
                   esCentroCuadricula
-                    ? 'border-yellow-400 border-opacity-70'
-                    : 'border-white border-opacity-20'
+                    ? 'border-yellow-400 border-opacity-90 bg-yellow-400 bg-opacity-10'
+                    : 'border-white border-opacity-30'
                 }`}
+                style={{
+                  aspectRatio: '1/1', // Asegura que las celdas sean cuadradas
+                  position: 'relative',
+                }}
               >
-                <span className={`text-xs sm:text-sm md:text-base ${
+                <span className={`text-xs sm:text-sm md:text-base pointer-events-none ${
                   esCentroCuadricula
                     ? 'text-yellow-400 text-opacity-70 font-bold'
                     : 'text-white text-opacity-50'
                 }`}>
-                  {fila},{columna}
+                  <small>{fila},{columna}</small>
                 </span>
               </div>
             );
           })}
         </div>
 
-        {/* Fichas en la mesa */}
-        {fichasEnMesa.map((ficha) => {
-          // Calcular la posición en píxeles basada en la posición de la cuadrícula
-          const posicionPixeles = calcularPosicionPixeles(ficha.posicionCuadricula);
+        {/* Fichas en la mesa - Versión simplificada para depuración */}
+        {fichasEnMesa.map((ficha, index) => {
+          console.log(`Renderizando ficha ${ficha.id} en posición (${ficha.posicionCuadricula.fila}, ${ficha.posicionCuadricula.columna})`);
+
+          // Obtener la celda correspondiente a la posición de la ficha
+          const celdaId = `celda-${ficha.posicionCuadricula.fila}-${ficha.posicionCuadricula.columna}`;
+          console.log(`Buscando celda con ID: ${celdaId}`);
 
           return (
-            <motion.div
+            <div
               key={ficha.id}
-              className="absolute"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                x: posicionPixeles.x,
-                y: posicionPixeles.y,
-                rotate: ficha.rotacion
+              className="ficha-en-celda absolute"
+              style={{
+                // Posicionamiento absoluto para depuración
+                top: `calc((100% / ${FILAS}) * ${ficha.posicionCuadricula.fila - 1} + 10px)`,
+                left: `calc((100% / ${COLUMNAS}) * ${ficha.posicionCuadricula.columna - 1} + 10px)`,
+                width: `calc(100% / ${COLUMNAS})`,
+                height: `calc(100% / ${FILAS})`,
+                zIndex: 30,
               }}
-              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              onClick={() => onFichaClick && onFichaClick(ficha.id)}
             >
-              <FichaDomino
-                valorSuperior={ficha.valorSuperior}
-                valorInferior={ficha.valorInferior}
-              />
-            </motion.div>
+              <div
+                className="w-full h-full flex items-center justify-center"
+                onClick={() => onFichaClick && onFichaClick(ficha.id)}
+              >
+                <FichaDomino
+                  valorSuperior={ficha.valorSuperior}
+                  valorInferior={ficha.valorInferior}
+                  rotacion={ficha.rotacion}
+                  // Añadir un borde para depuración
+                  // seleccionada={true}
+                />
+              </div>
+              <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-xs p-1 rounded-br-md shadow-sm">
+                Ficha {index+1}: {ficha.valorSuperior}/{ficha.valorInferior} en ({ficha.posicionCuadricula.fila}, {ficha.posicionCuadricula.columna}) - Rot: {ficha.rotacion}°
+              </div>
+            </div>
           );
         })}
 
         {/* Mensaje cuando no hay fichas */}
         {fichasEnMesa.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-domino-white text-xl font-medium">
-              Esperando a que comience el juego...
+            <p className="text-white text-opacity-70 text-lg">
+              Selecciona una ficha y haz clic en "Jugar Ficha" para comenzar
             </p>
           </div>
         )}
+
+        {/* Ya no necesitamos este mensaje, lo hemos movido arriba */}
       </motion.div>
     </div>
   );
