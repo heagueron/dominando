@@ -20,8 +20,8 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   onFichaClick,
 }) => {
   return (
-    <motion.div 
-      className="mano-jugador bg-table-wood-dark bg-opacity-80 p-4 rounded-t-xl fixed bottom-0 left-0 right-0 flex justify-center items-center gap-2 overflow-x-auto"
+    <motion.div
+      className="mano-jugador bg-table-wood-dark bg-opacity-90 p-2 sm:p-3 md:p-4 rounded-t-xl fixed bottom-0 left-0 right-0 flex justify-center items-center gap-2 overflow-x-auto z-10"
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
@@ -33,7 +33,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
           {fichas.map((ficha) => (
             <motion.div
               key={ficha.id}
-              whileHover={{ y: -10 }}
+              whileHover={{ y: -5 }}
               whileTap={{ scale: 1.05 }}
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}

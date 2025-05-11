@@ -60,7 +60,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
         {posiciones[valor as keyof typeof posiciones].map((pos, index) => (
           <div
             key={index}
-            className="punto-domino absolute w-[0.35em] h-[0.35em] sm:w-[0.4em] sm:h-[0.4em] md:w-[0.45em] md:h-[0.45em]"
+            className="punto-domino absolute w-[0.25em] h-[0.25em] sm:w-[0.3em] sm:h-[0.3em] md:w-[0.35em] md:h-[0.35em] lg:w-[0.4em] lg:h-[0.4em] xl:w-[0.45em] xl:h-[0.45em]"
             style={{
               top: pos.top,
               left: pos.left,
@@ -85,7 +85,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
 
   return (
     <motion.div
-      className={`ficha-domino relative w-8 h-16 sm:w-10 sm:h-20 md:w-12 md:h-24 cursor-pointer ${
+      className={`ficha-domino relative w-6 h-12 sm:w-8 sm:h-16 md:w-10 md:h-20 lg:w-12 lg:h-24 xl:w-14 xl:h-28 cursor-pointer ${
         seleccionada ? 'ring-2 ring-yellow-400' : ''
       }`}
       style={{ transform: `rotate(${rotacion}deg)` }}
