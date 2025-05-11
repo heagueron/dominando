@@ -10,8 +10,8 @@ module.exports = {
       colors: {
         'domino-black': '#1a1a1a',
         'domino-white': '#f5f5f5',
-        'table-wood': '#8B4513',
-        'table-wood-dark': '#5D2906',
+        'table-wood': '#587e76',
+        'table-wood-dark': '#7e4a35',
       },
       boxShadow: {
         'domino': '0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
