@@ -1,5 +1,5 @@
 import React from 'react';
-// import { motion } from 'framer-motion'; // Temporalmente comentado si volvemos a div simple
+import { motion } from 'framer-motion';
 import { DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
 
 interface FichaDominoProps {
@@ -14,14 +14,14 @@ interface FichaDominoProps {
 }
 
 const FichaDomino: React.FC<FichaDominoProps> = ({
-  // id,
+  // id, // Destructurado pero no usado directamente en el renderizado de puntos
   valorSuperior,
   valorInferior,
   rotacion = 0,
   seleccionada = false,
   onClick,
-  // arrastrable = false, // Comentado para la versión div simple
-  // esEnMano,
+  arrastrable = false,
+  // esEnMano, // Destructurado pero no usado directamente en el renderizado de puntos
 }) => {
   const renderizarPuntos = (valor: number) => {
     const posiciones = {
@@ -76,32 +76,40 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
     );
   };
 
-  // const fichaDominoVariants = { // Comentado para la versión div simple
-  //   normal: {
-  //     scale: 1,
-  //     boxShadow: '0 4px 6px rgba(0, 0, 0, 0.5)',
-  //   },
-  //   seleccionada: {
-  //     scale: 1.20,
-  //     boxShadow: '0 8px 15px rgba(0, 0, 0, 0.6)',
-  //   },
-  // };
+  const fichaDominoVariants = {
+    normal: {
+      scale: 1,
+      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)', // Sombra más sutil
+    },
+    seleccionada: {
+      scale: 1.15, // Ajuste ligero de escala para selección
+      boxShadow: '0 6px 12px rgba(0, 0, 0, 0.2)',
+    },
+  };
 
   console.log(`Renderizando ficha ${valorSuperior}/${valorInferior} con rotación ${rotacion}°`);
 
   return (
-    // Usando div simple para el elemento raíz de la ficha
-    <div
+    <motion.div
       className={`ficha-domino relative cursor-pointer ${
         seleccionada ? 'ring-2 ring-yellow-400' : ''
-      } bg-white`}
+      } bg-white rounded`} // Reintroducimos 'rounded', 'shadow-md' es manejado por variants
       style={{
         width: `${DOMINO_WIDTH_PX}px`,
         height: `${DOMINO_HEIGHT_PX}px`,
-        transform: `rotate(${rotacion}deg)`,
         transformOrigin: 'center center',
       }}
       onClick={onClick}
+      drag={arrastrable}
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      dragElastic={0.1} // Menos elasticidad para un arrastre más firme
+      whileTap={{ scale: arrastrable ? 1.1 : 1 }} // Solo escalar al tapear si es arrastrable
+      variants={fichaDominoVariants}
+      initial="normal"
+      animate={{
+        ...(seleccionada ? fichaDominoVariants.seleccionada : fichaDominoVariants.normal),
+        rotate: rotacion,
+      }}
     >
       {/* Estructura interna de la ficha */}
       {/* La línea divisoria siempre es horizontal en la estructura base */}
@@ -120,7 +128,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
           {renderizarPuntos(valorInferior)}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

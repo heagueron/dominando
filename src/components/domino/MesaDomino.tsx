@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import FichaDomino from './FichaDomino';
 import { FichaDomino as TipoFichaDomino } from '@/utils/dominoUtils'; // Renombrar si hay conflicto
-import { DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
+import { DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX, DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX } from '@/utils/dominoConstants';
 
 interface FichaParaLogica extends TipoFichaDomino {
   posicionCuadricula: { fila: number; columna: number };
@@ -27,36 +27,47 @@ interface MesaDominoProps {
 
 const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, onFichaClick }) => {
   const [fichasCalculadas, setFichasCalculadas] = useState<FichaRenderizable[]>([]);
+  const [scaleFactor, setScaleFactor] = useState(1);
   const mesaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!mesaRef.current) return;
-
-    const mesaWidth = mesaRef.current.offsetWidth;
-    const mesaHeight = mesaRef.current.offsetHeight;
+    // La lógica de cálculo de posición de fichas ahora usa las dimensiones de diseño
+    // en lugar de las dimensiones actuales del ref de la mesa.
+    const designWidth = DESIGN_TABLE_WIDTH_PX;
+    const designHeight = DESIGN_TABLE_HEIGHT_PX;
     const nuevasFichasCalculadas: FichaRenderizable[] = [];
+
+    // Actualizar el factor de escala cuando el tamaño de la mesa (mesaRef) cambie
+    const updateScale = () => {
+      if (mesaRef.current) {
+        const currentMesaWidth = mesaRef.current.offsetWidth;
+        // Asumimos que DESIGN_TABLE_WIDTH_PX es el ancho base para la escala 1
+        setScaleFactor(currentMesaWidth / DESIGN_TABLE_WIDTH_PX);
+      }
+    };
+    updateScale(); // Calcular escala inicial
 
     fichasEnMesa.forEach((fichaLogic, index) => {
       let nx: number, ny: number;
       const nRot = fichaLogic.rotacion;
       const nEsDoble = fichaLogic.valorSuperior === fichaLogic.valorInferior;
 
-      if (index > 0 && fichasEnMesa[index-1]?.id === '22' && fichaLogic.id === '23') { // Ejemplo para loguear f1=[2,2] -> f2=[2,3]
-        console.log(`--- Debugging f1(${fichasEnMesa[index-1]?.id}) -> f2(${fichaLogic.id}) ---`);
-      }
+      // if (index > 0 && fichasEnMesa[index-1]?.id === '22' && fichaLogic.id === '23') { // Ejemplo para loguear f1=[2,2] -> f2=[2,3]
+      //   console.log(`--- Debugging f1(${fichasEnMesa[index-1]?.id}) -> f2(${fichaLogic.id}) ---`);
+      // }
 
       // Debugging specific transitions - uncomment as needed
-      if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') {
-        console.log(`--- Debugging f1(${fichasEnMesa[index-1]?.id}) -> f2(${fichaLogic.id}) ---`);
-      }
+      // if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') {
+      //   console.log(`--- Debugging f1(${fichasEnMesa[index-1]?.id}) -> f2(${fichaLogic.id}) ---`);
+      // }
 
       // Dimensiones actuales de la nueva ficha según su rotación
       const nActualWidth = (nRot === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
       const nActualHeight = (nRot === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
 
       if (index === 0) {
-        nx = mesaWidth / 2;
-        ny = mesaHeight / 2;
+        nx = designWidth / 2;
+        ny = designHeight / 2;
       } else {
         const ultimaFichaCalculada = nuevasFichasCalculadas[index - 1];
         const ultimaFichaLogica = fichasEnMesa[index - 1]; // Para comparar posicionCuadricula
@@ -71,11 +82,11 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, onFichaClick }) =
         const uy = ultimaFichaCalculada.y;
         const uRot = ultimaFichaCalculada.rotacion;
 
-        if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') {
-          console.log("Prev Tile (f1):", { id: ultimaFichaLogica.id, ux, uy, uRot, uGrid: ultimaFichaLogica.posicionCuadricula });
-          console.log("DOMINO_WIDTH_PX:", DOMINO_WIDTH_PX, "DOMINO_HEIGHT_PX:", DOMINO_HEIGHT_PX);
-          console.log("New Tile (f2):", { id: fichaLogic.id, nRot, nGrid: fichaLogic.posicionCuadricula });
-        }
+        // if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') {
+        //   console.log("Prev Tile (f1):", { id: ultimaFichaLogica.id, ux, uy, uRot, uGrid: ultimaFichaLogica.posicionCuadricula });
+        //   console.log("DOMINO_WIDTH_PX:", DOMINO_WIDTH_PX, "DOMINO_HEIGHT_PX:", DOMINO_HEIGHT_PX);
+        //   console.log("New Tile (f2):", { id: fichaLogic.id, nRot, nGrid: fichaLogic.posicionCuadricula });
+        // }
         const uActualWidth = (uRot === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
         const uActualHeight = (uRot === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
 
@@ -85,79 +96,103 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, onFichaClick }) =
         // Note: This logic assumes strictly orthogonal movement (only changing row OR column, not both).
 
         if (fichaLogic.posicionCuadricula.columna > ultimaFichaLogica.posicionCuadricula.columna) { // Derecha
-          if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') console.log("Direction: Derecha");
+          // if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') console.log("Direction: Derecha");
           nx = ux + uActualWidth / 2 + nActualWidth / 2;
           ny = uy;
         } else if (fichaLogic.posicionCuadricula.columna < ultimaFichaLogica.posicionCuadricula.columna) { // Izquierda
-          if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') console.log("Direction: Izquierda");
+          // if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') console.log("Direction: Izquierda");
           // Position the new tile's center to the left of the previous tile's center
           nx = ux - uActualWidth / 2 - nActualWidth / 2;
           ny = uy;
         } else if (fichaLogic.posicionCuadricula.fila > ultimaFichaLogica.posicionCuadricula.fila) { // Abajo
-          if (index > 0 && fichasEnMesa[index-1]?.id === '22' && fichaLogic.id === '23') console.log("Direction: Abajo");
+          // if (index > 0 && fichasEnMesa[index-1]?.id === '22' && fichaLogic.id === '23') console.log("Direction: Abajo");
           nx = ux;
           ny = uy + uActualHeight / 2 + nActualHeight / 2;
         } else { // Arriba (o misma celda, lo que no debería pasar si la lógica de camino es correcta)
-          if (index > 0 && fichasEnMesa[index-1]?.id === '22' && fichaLogic.id === '23') console.log("Direction: Arriba/Else");
+          // if (index > 0 && fichasEnMesa[index-1]?.id === '22' && fichaLogic.id === '23') console.log("Direction: Arriba/Else");
           nx = ux;
           ny = uy - uActualHeight / 2 - nActualHeight / 2;
         }
-        if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') {
-          console.log("Prev Tile (f1) Actual Dims:", { uActualWidth, uActualHeight });
-          console.log("New Tile (f2) Actual Dims:", { nActualWidth, nActualHeight });
-          console.log("Calculated nx:", nx, "ny:", ny);
-          const f1_right_edge = ux + uActualWidth / 2; // Right edge of f1
-            const f2_left_edge = nx - nActualWidth / 2;
-            console.log(`f1 right edge: ${f1_right_edge}, f2 left edge: ${f2_left_edge}. Overlap: ${f1_right_edge - f2_left_edge > 0 ? f1_right_edge - f2_left_edge : 0}`);
-        }
+        // if (index > 0 && fichasEnMesa[index-1]?.id === '66' && fichaLogic.id === '26') {
+        //   console.log("Prev Tile (f1) Actual Dims:", { uActualWidth, uActualHeight });
+        //   console.log("New Tile (f2) Actual Dims:", { nActualWidth, nActualHeight });
+        //   console.log("Calculated nx:", nx, "ny:", ny);
+        //   const f1_right_edge = ux + uActualWidth / 2; // Right edge of f1
+        //     const f2_left_edge = nx - nActualWidth / 2;
+        //     console.log(`f1 right edge: ${f1_right_edge}, f2 left edge: ${f2_left_edge}. Overlap: ${f1_right_edge - f2_left_edge > 0 ? f1_right_edge - f2_left_edge : 0}`);
+        // }
       }
       nuevasFichasCalculadas.push({ ...fichaLogic, x: nx, y: ny });
     });
 
     setFichasCalculadas(nuevasFichasCalculadas);
+    // Observador para cambios de tamaño del contenedor de la mesa
+    const resizeObserver = new ResizeObserver(updateScale);
+    if (mesaRef.current) {
+      resizeObserver.observe(mesaRef.current);
+    }
+
+    return () => {
+      if (mesaRef.current) {
+        resizeObserver.unobserve(mesaRef.current);
+      }
+    };
   }, [fichasEnMesa]);
 
   return (
-    <div ref={mesaRef} className="p-1 bg-green-700 shadow-lg rounded-md h-[calc(100vh-200px)] overflow-auto relative">
-      {/* Opcional: Renderizar la cuadrícula de fondo si aún la quieres visualmente */}
-      {/* {Array.from({ length: 11 * 11 }).map((_, i) => (
-        <div key={i} className="bg-green-600 border border-green-800"></div>
-      ))} */}
-
-      {fichasCalculadas.map((ficha) => {
-        const tileW = (ficha.rotacion === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
-        const tileH = (ficha.rotacion === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
-        return (
-          <div
-            // This is the container for each FichaDomino on the table
-            key={ficha.id}
-            style={{
-              position: 'absolute',
-              left: `${ficha.x - tileW / 2}px`, // Ajustar de centro a top-left
-              top: `${ficha.y - tileH / 2}px`,   // Ajustar de centro a top-left
-              width: `${tileW}px`,
-              height: `${tileH}px`,
-              display: 'flex', // Added for centering
-              justifyContent: 'center', // Added for centering
-              alignItems: 'center', // Added for centering
-            }}
-          >
-            <FichaDomino
-              id={ficha.id}
-              valorSuperior={ficha.valorSuperior}
-              valorInferior={ficha.valorInferior}
-              rotacion={ficha.rotacion}
-              onClick={() => onFichaClick(ficha.id)}
-              arrastrable={false}
-              esEnMano={false}
-              // seleccionada={false} // O manejar selección en mesa
-            />
-          </div>
-        );
-      })}
+    <div
+      ref={mesaRef}
+      className="bg-green-700 shadow-lg rounded-md relative" // Clases base de la mesa responsiva
+      style={{
+        width: 'min(calc(100vh - 220px), 90vw)', // Ajusta '220px' y '90vw' según el espacio para header/mano
+        aspectRatio: '1 / 1',
+        border: '8px solid #7e4a35',
+        overflow: 'hidden', // Importante para que el contenido escalado no desborde visualmente
+      }}
+    >
+      <div // Este es el lienzo de diseño de tamaño fijo que se escalará
+        style={{
+          width: `${DESIGN_TABLE_WIDTH_PX}px`,
+          height: `${DESIGN_TABLE_HEIGHT_PX}px`,
+          position: 'relative', // Para posicionar las fichas de forma absoluta dentro de él
+          transform: `scale(${scaleFactor})`,
+          transformOrigin: 'top left', // Escalar desde la esquina superior izquierda
+        }}
+      >
+        {fichasCalculadas.map((ficha) => {
+          // Las dimensiones aquí son las dimensiones originales de la ficha (sin escalar)
+          const fichaOriginalWidth = (ficha.rotacion === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+          const fichaOriginalHeight = (ficha.rotacion === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+          return (
+            <div
+              key={ficha.id}
+              style={{
+                position: 'absolute',
+                // ficha.x e y son los centros calculados en el espacio de diseño
+                left: `${ficha.x - fichaOriginalWidth / 2}px`,
+                top: `${ficha.y - fichaOriginalHeight / 2}px`,
+                width: `${fichaOriginalWidth}px`,
+                height: `${fichaOriginalHeight}px`,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <FichaDomino
+                id={ficha.id}
+                valorSuperior={ficha.valorSuperior}
+                valorInferior={ficha.valorInferior}
+                rotacion={ficha.rotacion}
+                onClick={() => onFichaClick(ficha.id)}
+                arrastrable={false}
+                esEnMano={false}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
-
 
 export default MesaDomino;

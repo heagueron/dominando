@@ -25,7 +25,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
 
   return (
     <motion.div
-      className="mano-jugador bg-table-wood-dark bg-opacity-90 p-2 sm:p-3 md:p-4 rounded-t-xl fixed bottom-0 left-0 right-0 flex justify-center items-center gap-2 overflow-x-auto z-10"
+      className="mano-jugador bg-domino-black bg-opacity-20 rounded-t-xl fixed bottom-0 left-0 right-0 flex justify-center items-center gap-2 overflow-x-auto z-10"
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}

@@ -161,7 +161,7 @@ export default function JuegoPage() {
         <h1 className="text-xl sm:text-2xl font-bold text-center">Dominando</h1>
       </header>
 
-      <main className="flex-grow relative pt-1">
+      <main className="flex-grow relative flex justify-center items-center p-4"> 
         <MesaDomino
           fichasEnMesa={fichasEnMesa}
           onFichaClick={(id) => console.log('Ficha en mesa clickeada:', id)}
