@@ -19,6 +19,10 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   fichaSeleccionada,
   onFichaClick,
 }) => {
+  // Estas clases de dimensiones son para el contenedor de cada ficha en la mano
+  // Ajusta según sea necesario para el tamaño deseado en la mano
+  // const dimensionesFichaEnMano = 'w-10 h-20 sm:w-12 sm:h-24 md:w-14 md:h-28'; // Ya no es necesario aquí si FichaDomino tiene tamaño fijo
+
   return (
     <motion.div
       className="mano-jugador bg-table-wood-dark bg-opacity-90 p-2 sm:p-3 md:p-4 rounded-t-xl fixed bottom-0 left-0 right-0 flex justify-center items-center gap-2 overflow-x-auto z-10"
@@ -38,13 +42,16 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              // className={dimensionesFichaEnMano} // FichaDomino ahora se auto-dimensiona
             >
               <FichaDomino
+                id={ficha.id} // Pasar el id
                 valorSuperior={ficha.valorSuperior}
                 valorInferior={ficha.valorInferior}
                 seleccionada={ficha.id === fichaSeleccionada}
                 onClick={() => onFichaClick(ficha.id)}
-                arrastrable={true}
+                arrastrable={true} // Las fichas en mano son arrastrables
+                esEnMano={true}    // Indicar que esta ficha está en la mano
               />
             </motion.div>
           ))}

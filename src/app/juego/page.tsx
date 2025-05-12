@@ -8,10 +8,13 @@ import {
  FichaDomino,
  generarYRepartirFichas,
  ManoDeJugador as TipoManoDeJugador,
+ // FichaDominoEnMesa ya no se importa directamente si page.tsx no la usa para x,y
 } from '@/utils/dominoUtils';
+// Importa FichaDominoEnMesa si la usas para tipar el estado,
+// pero MesaDomino será quien le añada x,y internamente o reciba una versión extendida.
 
 // Interfaz para las fichas en la mesa
-interface FichaDominoEnMesa extends FichaDomino {
+interface FichaEnMesaParaLogica extends FichaDomino {
   posicionCuadricula: { fila: number; columna: number };
   rotacion: number;
 }
@@ -20,7 +23,7 @@ export default function JuegoPage() {
   const [manosJugadores, setManosJugadores] = useState<TipoManoDeJugador[]>([]);
   const [fichasSobrantes, setFichasSobrantes] = useState<FichaDomino[]>([]);
   const [fichasEnManoActual, setFichasEnManoActual] = useState<FichaDomino[]>([]);
-  const [fichasEnMesa, setFichasEnMesa] = useState<FichaDominoEnMesa[]>([]);
+  const [fichasEnMesa, setFichasEnMesa] = useState<FichaEnMesaParaLogica[]>([]);
   const [fichaSeleccionada, setFichaSeleccionada] = useState<string | undefined>();
 
   useEffect(() => {
@@ -54,25 +57,25 @@ export default function JuegoPage() {
 
     console.log("Ficha seleccionada para jugar:", fichaParaJugar);
 
-    const esDoble = fichaParaJugar.valorSuperior === fichaParaJugar.valorInferior;
+    //const esDoble = fichaParaJugar.valorSuperior === fichaParaJugar.valorInferior;
     let rotacionCalculada = 0; // Por defecto vertical
+    const esDoble = fichaParaJugar.valorSuperior === fichaParaJugar.valorInferior;
+
     let nuevaPosicion: { fila: number; columna: number };
 
     if (fichasEnMesa.length === 0) { // Condición para la PRIMERA ficha
       // Primera ficha siempre en el centro (5,5)
       nuevaPosicion = { fila: 5, columna: 5 };
-      if (!esDoble) {
-        rotacionCalculada = 90; // Primera ficha no doble se coloca horizontal
+      if (esDoble) {
+        rotacionCalculada = 0;
       } else {
-        rotacionCalculada = 0;  // Primera ficha doble (y por convención, la primera en general) se coloca vertical
+        rotacionCalculada = 90;  // Primera ficha no doble horizontal
       }
-    } else { // Condición para fichas SUBSECUENTES
-      console.log("DEBUG: Entrando al bloque else de handleJugarFicha.");
-      console.log("DEBUG: fichasEnMesa actual:", JSON.stringify(fichasEnMesa));
-      console.log("DEBUG: fichasEnMesa.length:", fichasEnMesa.length);
+    } else { // Fichas SUBSECUENTES
+      
       const ultimaFicha = fichasEnMesa[fichasEnMesa.length - 1];
       
-      console.log("DEBUG: ultimaFicha obtenida:", JSON.stringify(ultimaFicha));
+      
       if (!ultimaFicha) { // Si ultimaFicha es undefined (no debería pasar si length > 0, pero es una buena guarda)
         console.error("ERROR CRITICO: No se pudo obtener la última ficha de la mesa. Estado de fichasEnMesa:", fichasEnMesa);
         return; // Detener ejecución para evitar el crash
