@@ -167,9 +167,7 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, onFichaClick }) =
                   // seleccionada={true}
                 />
               </div>
-              <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-xs p-1 rounded-br-md shadow-sm">
-                Ficha {index+1}: {ficha.valorSuperior}/{ficha.valorInferior} en ({ficha.posicionCuadricula.fila}, {ficha.posicionCuadricula.columna}) - Rot: {ficha.rotacion}°
-              </div>
+              
             </div>
           );
         })}

@@ -94,11 +94,6 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
       className={`ficha-domino relative ${dimensionesClase} cursor-pointer ${
         seleccionada ? 'ring-2 ring-yellow-400' : ''
       } bg-white`}
-      style={{
-        // Aplicamos la rotación a toda la ficha
-        transform: `rotate(${rotacion}deg)`,
-        transformOrigin: 'center center'
-      }}
       onClick={onClick}
       drag={arrastrable}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
@@ -106,7 +101,11 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
       whileTap={{ scale: 1.1 }}
       variants={fichaDominoVariants}
       initial="normal"
-      animate={seleccionada ? 'seleccionada' : 'normal'}
+      animate={{
+        ...(seleccionada ? fichaDominoVariants.seleccionada : fichaDominoVariants.normal),
+        rotate: rotacion // Usar la prop rotacion aquí
+      }}
+      style={{ transformOrigin: 'center center' }} // transformOrigin puede permanecer en style
     >
       {/* Estructura interna de la ficha - siempre en formato vertical */}
       {/* La línea divisoria siempre es horizontal en la estructura base */}

@@ -1,184 +1,155 @@
+// /home/heagueron/projects/dominando/src/app/juego/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MesaDomino from '@/components/domino/MesaDomino';
-import ManoJugador from '@/components/domino/ManoJugador';
+import ManoJugadorComponent from '@/components/domino/ManoJugador'; // Renombrado para evitar colisión
+import {
+ FichaDomino,
+ generarYRepartirFichas,
+ ManoDeJugador as TipoManoDeJugador,
+} from '@/utils/dominoUtils';
 
-// Datos de ejemplo para demostración
-const fichasEjemplo = [
-  { id: '1', valorSuperior: 6, valorInferior: 6 },
-  { id: '2', valorSuperior: 6, valorInferior: 5 },
-  { id: '3', valorSuperior: 6, valorInferior: 4 },
-  { id: '4', valorSuperior: 6, valorInferior: 3 },
-  { id: '5', valorSuperior: 6, valorInferior: 2 },
-  { id: '6', valorSuperior: 6, valorInferior: 1 },
-  { id: '7', valorSuperior: 6, valorInferior: 0 },
-];
-
-// Comenzamos con una mesa vacía para que la primera ficha se coloque en (5,5)
-const fichasEnMesaEjemplo: any[] = [];
+// Interfaz para las fichas en la mesa
+interface FichaDominoEnMesa extends FichaDomino {
+  posicionCuadricula: { fila: number; columna: number };
+  rotacion: number;
+}
 
 export default function JuegoPage() {
-  const [fichasEnMano, setFichasEnMano] = useState(fichasEjemplo);
-  const [fichasEnMesa, setFichasEnMesa] = useState(fichasEnMesaEjemplo);
+  const [manosJugadores, setManosJugadores] = useState<TipoManoDeJugador[]>([]);
+  const [fichasSobrantes, setFichasSobrantes] = useState<FichaDomino[]>([]);
+  const [fichasEnManoActual, setFichasEnManoActual] = useState<FichaDomino[]>([]);
+  const [fichasEnMesa, setFichasEnMesa] = useState<FichaDominoEnMesa[]>([]);
   const [fichaSeleccionada, setFichaSeleccionada] = useState<string | undefined>();
+
+  useEffect(() => {
+    const { manos, sobrantes } = generarYRepartirFichas(4, 7); // 4 jugadores, 7 fichas cada uno
+    setManosJugadores(manos);
+    setFichasSobrantes(sobrantes);
+
+    // Asumimos que el jugador actual es "jugador1" para este ejemplo
+    const manoJugadorActual = manos.find(m => m.idJugador === "jugador1");
+    if (manoJugadorActual) {
+      setFichasEnManoActual(manoJugadorActual.fichas);
+    }
+    // Aquí podrías decidir quién empieza, etc.
+  }, []);
 
   const handleFichaClick = (id: string) => {
     setFichaSeleccionada(id === fichaSeleccionada ? undefined : id);
   };
 
   const handleJugarFicha = () => {
-    console.log("Iniciando handleJugarFicha");
     if (!fichaSeleccionada) {
       console.log("No hay ficha seleccionada");
       return;
     }
 
-    // Encontrar la ficha seleccionada
-    const ficha = fichasEnMano.find(f => f.id === fichaSeleccionada);
-    if (!ficha) {
+    const fichaParaJugar = fichasEnManoActual.find(f => f.id === fichaSeleccionada);
+    if (!fichaParaJugar) {
       console.log("No se encontró la ficha seleccionada en la mano");
       return;
     }
 
-    console.log("Ficha seleccionada:", ficha);
+    console.log("Ficha seleccionada para jugar:", fichaParaJugar);
 
-    // Determinar si la ficha es doble
-    const esDoble = ficha.valorSuperior === ficha.valorInferior;
+    const esDoble = fichaParaJugar.valorSuperior === fichaParaJugar.valorInferior;
+    let rotacionCalculada = 0; // Por defecto vertical
+    let nuevaPosicion: { fila: number; columna: number };
 
-    // Determinar la rotación según la posición
-    // Ahora todas las fichas tienen la misma forma base (vertical)
-    // Y aplicamos la rotación según la dirección de movimiento
-    let rotacion = 0; // Por defecto, sin rotación (vertical)
-
-    // Ajustar la rotación según la dirección de movimiento
-    if (fichasEnMesa.length > 0) {
-      const ultimaFicha = fichasEnMesa[fichasEnMesa.length - 1];
-      const ultimaPosicion = ultimaFicha.posicionCuadricula;
-
-      // Si nos movemos hacia la derecha en la fila 5 (desde el centro)
-      if (ultimaPosicion.fila === 5 && ultimaPosicion.columna >= 5 && ultimaPosicion.columna < 9) {
-        rotacion = 90; // Girar 90 grados (horizontal)
-      }
-      // Si nos movemos hacia la izquierda en la fila 5 (desde el centro)
-      else if (ultimaPosicion.fila === 5 && ultimaPosicion.columna <= 5 && ultimaPosicion.columna > 1) {
-        rotacion = 90; // Girar 90 grados (horizontal)
-      }
-      // Si nos movemos hacia arriba en la columna 1
-      else if (ultimaPosicion.columna === 1 && ultimaPosicion.fila > 3) {
-        rotacion = 0; // Sin rotación (vertical)
-      }
-      // Si nos movemos hacia la derecha en la fila 3
-      else if (ultimaPosicion.fila === 3) {
-        rotacion = 90; // Girar 90 grados (horizontal)
-      }
-      // Si nos movemos hacia abajo en la columna 9
-      else if (ultimaPosicion.columna === 9 && ultimaPosicion.fila < 7) {
-        rotacion = 0; // Sin rotación (vertical)
-      }
-      // Si nos movemos hacia la izquierda en la fila 7
-      else if (ultimaPosicion.fila === 7) {
-        rotacion = 90; // Girar 90 grados (horizontal)
-      }
-    }
-
-    // Las fichas dobles siempre van en posición vertical (0 grados)
-    if (esDoble) {
-      rotacion = 0;
-    }
-
-    console.log(`Ficha ${ficha.id} es doble: ${esDoble}, rotación: ${rotacion}°`);
-
-    // Determinar la posición de la ficha según las reglas
-    let nuevaPosicion;
-
-    if (fichasEnMesa.length === 0) {
+    if (fichasEnMesa.length === 0) { // Condición para la PRIMERA ficha
       // Primera ficha siempre en el centro (5,5)
       nuevaPosicion = { fila: 5, columna: 5 };
-    } else {
-      // Obtener la última ficha colocada
+      if (!esDoble) {
+        rotacionCalculada = 90; // Primera ficha no doble se coloca horizontal
+      } else {
+        rotacionCalculada = 0;  // Primera ficha doble (y por convención, la primera en general) se coloca vertical
+      }
+    } else { // Condición para fichas SUBSECUENTES
+      console.log("DEBUG: Entrando al bloque else de handleJugarFicha.");
+      console.log("DEBUG: fichasEnMesa actual:", JSON.stringify(fichasEnMesa));
+      console.log("DEBUG: fichasEnMesa.length:", fichasEnMesa.length);
       const ultimaFicha = fichasEnMesa[fichasEnMesa.length - 1];
-      const ultimaPosicion = ultimaFicha.posicionCuadricula;
-
-      // Reglas de posicionamiento:
-      // 1. Primero completamos la fila 5 (hacia derecha e izquierda)
-      // 2. Al llegar al extremo derecho (5,9), bajamos (6,9, 7,9, etc.) y formamos fila por la 7
-      // 3. Al llegar al extremo izquierdo (5,1), subimos (4,1, 3,1, etc.) y formamos fila por la 3
-
-      // Verificar si estamos en la fila 5 y podemos seguir a la derecha
-      if (ultimaPosicion.fila === 5 && ultimaPosicion.columna < 9) {
-        // Seguimos a la derecha en la fila 5
-        nuevaPosicion = { fila: 5, columna: ultimaPosicion.columna + 1 };
+      
+      console.log("DEBUG: ultimaFicha obtenida:", JSON.stringify(ultimaFicha));
+      if (!ultimaFicha) { // Si ultimaFicha es undefined (no debería pasar si length > 0, pero es una buena guarda)
+        console.error("ERROR CRITICO: No se pudo obtener la última ficha de la mesa. Estado de fichasEnMesa:", fichasEnMesa);
+        return; // Detener ejecución para evitar el crash
       }
-      // Verificar si estamos en la fila 5 y podemos seguir a la izquierda
-      else if (ultimaPosicion.fila === 5 && ultimaPosicion.columna > 1) {
-        // Seguimos a la izquierda en la fila 5
-        nuevaPosicion = { fila: 5, columna: ultimaPosicion.columna - 1 };
-      }
-      // Verificar si llegamos al extremo derecho (5,9)
-      else if (ultimaPosicion.fila === 5 && ultimaPosicion.columna === 9) {
-        // Bajamos a la fila 6
+      
+      const uPos = ultimaFicha.posicionCuadricula;
+
+      // Lógica de posicionamiento (basada en tu versión anterior)
+      // Esta lógica define un camino secuencial específico.
+      if (uPos.fila === 5 && uPos.columna < 9 && uPos.columna >= 5) { // Moviéndose a la derecha en la fila 5 desde el centro
+        nuevaPosicion = { fila: 5, columna: uPos.columna + 1 };
+        if (!esDoble) rotacionCalculada = 90;
+      } else if (uPos.fila === 5 && uPos.columna > 1 && uPos.columna <= 5) { // Moviéndose a la izquierda en la fila 5 desde el centro
+        nuevaPosicion = { fila: 5, columna: uPos.columna - 1 };
+        if (!esDoble) rotacionCalculada = 90;
+      } else if (uPos.fila === 5 && uPos.columna === 9) { // Llegó a (5,9), baja
         nuevaPosicion = { fila: 6, columna: 9 };
-      }
-      // Verificar si estamos bajando por la columna 9
-      else if (ultimaPosicion.columna === 9 && ultimaPosicion.fila < 7) {
-        // Seguimos bajando
-        nuevaPosicion = { fila: ultimaPosicion.fila + 1, columna: 9 };
-      }
-      // Verificar si llegamos a la posición (7,9)
-      else if (ultimaPosicion.fila === 7 && ultimaPosicion.columna === 9) {
-        // Comenzamos a movernos hacia la izquierda en la fila 7
+        if (!esDoble) rotacionCalculada = 0; // Movimiento vertical
+      } else if (uPos.columna === 9 && uPos.fila >= 6 && uPos.fila < 7) { // Bajando por la columna 9 (de 6,9 a 7,9)
+        nuevaPosicion = { fila: uPos.fila + 1, columna: 9 };
+        if (!esDoble) rotacionCalculada = 0; // Movimiento vertical
+      } else if (uPos.fila === 7 && uPos.columna === 9) { // Llegó a (7,9), va a la izquierda
         nuevaPosicion = { fila: 7, columna: 8 };
-      }
-      // Verificar si estamos en la fila 7 moviéndonos hacia la izquierda
-      else if (ultimaPosicion.fila === 7 && ultimaPosicion.columna > 1) {
-        // Seguimos hacia la izquierda
-        nuevaPosicion = { fila: 7, columna: ultimaPosicion.columna - 1 };
-      }
-      // Verificar si llegamos al extremo izquierdo (5,1)
-      else if (ultimaPosicion.fila === 5 && ultimaPosicion.columna === 1) {
-        // Subimos a la fila 4
+        if (!esDoble) rotacionCalculada = 90;
+      } else if (uPos.fila === 7 && uPos.columna > 1 && uPos.columna <= 8) { // Moviéndose a la izquierda en la fila 7
+        nuevaPosicion = { fila: 7, columna: uPos.columna - 1 };
+        if (!esDoble) rotacionCalculada = 90;
+      } else if (uPos.fila === 5 && uPos.columna === 1) { // Llegó a (5,1), sube
         nuevaPosicion = { fila: 4, columna: 1 };
-      }
-      // Verificar si estamos subiendo por la columna 1
-      else if (ultimaPosicion.columna === 1 && ultimaPosicion.fila > 3) {
-        // Seguimos subiendo
-        nuevaPosicion = { fila: ultimaPosicion.fila - 1, columna: 1 };
-      }
-      // Verificar si llegamos a la posición (3,1)
-      else if (ultimaPosicion.fila === 3 && ultimaPosicion.columna === 1) {
-        // Comenzamos a movernos hacia la derecha en la fila 3
+        if (!esDoble) rotacionCalculada = 0; // Movimiento vertical
+      } else if (uPos.columna === 1 && uPos.fila > 3 && uPos.fila <= 4) { // Subiendo por la columna 1 (de 4,1 a 3,1)
+        nuevaPosicion = { fila: uPos.fila - 1, columna: 1 };
+        if (!esDoble) rotacionCalculada = 0; // Movimiento vertical
+      } else if (uPos.fila === 3 && uPos.columna === 1) { // Llegó a (3,1), va a la derecha
         nuevaPosicion = { fila: 3, columna: 2 };
+        if (!esDoble) rotacionCalculada = 90;
+      } else if (uPos.fila === 3 && uPos.columna > 1 && uPos.columna < 9) { // Moviéndose a la derecha en la fila 3
+        nuevaPosicion = { fila: 3, columna: uPos.columna + 1 };
+        if (!esDoble) rotacionCalculada = 90;
       }
-      // Verificar si estamos en la fila 3 moviéndonos hacia la derecha
-      else if (ultimaPosicion.fila === 3 && ultimaPosicion.columna < 9) {
-        // Seguimos hacia la derecha
-        nuevaPosicion = { fila: 3, columna: ultimaPosicion.columna + 1 };
-      }
-      // Si no se cumple ninguna de las condiciones anteriores, colocamos la ficha en el centro
       else {
-        nuevaPosicion = { fila: 5, columna: 5 };
-        console.warn("No se pudo determinar la posición de la ficha, colocándola en el centro");
+        // Fallback si ninguna regla coincide (debería evitarse con una lógica de camino completa)
+        // O si la mesa está "llena" según este camino.
+        // Por ahora, si no hay regla, no se puede jugar en esta implementación simple.
+        console.warn("No se pudo determinar la siguiente posición válida para la ficha según el camino actual.", uPos);
+        // Podrías intentar colocarla al otro "extremo" si tuvieras esa lógica,
+        // o simplemente no permitir el movimiento.
+        // Para este ejemplo, si no hay un camino claro, no la colocamos.
+        // nuevaPosicion = { fila: uPos.fila, columna: uPos.columna }; // No mover
+        // rotacionCalculada = ultimaFicha.rotacion;
+        alert("No se puede colocar la ficha aquí según las reglas de camino actuales.");
+        return; // Detener el intento de jugar la ficha
+      }
+
+      // Las fichas dobles siempre son verticales (0 grados)
+      if (esDoble) {
+        rotacionCalculada = 0;
       }
     }
 
-    // Crear la nueva ficha para la mesa
     const nuevaFichaEnMesa = {
-      id: ficha.id,
-      valorSuperior: ficha.valorSuperior,
-      valorInferior: ficha.valorInferior,
+      ...fichaParaJugar,
       posicionCuadricula: nuevaPosicion,
-      rotacion: rotacion
+      rotacion: rotacionCalculada,
     };
 
-    console.log("Nueva ficha a colocar en la mesa:", nuevaFichaEnMesa);
+    setFichasEnMesa(prevMesa => [...prevMesa, nuevaFichaEnMesa]);
+    setFichasEnManoActual(prevMano => prevMano.filter(f => f.id !== fichaSeleccionada));
 
-    // Actualizar el estado
-    setFichasEnMesa([...fichasEnMesa, nuevaFichaEnMesa]);
-
-    // Remover la ficha de la mano del jugador
-    setFichasEnMano(fichasEnMano.filter(f => f.id !== fichaSeleccionada));
+    // Actualizar el estado general de manosJugadores
+    setManosJugadores(prevManos => prevManos.map(mano =>
+        mano.idJugador === "jugador1" // Asumiendo que "jugador1" es el jugador actual
+            ? { ...mano, fichas: mano.fichas.filter(f => f.id !== fichaSeleccionada) }
+            : mano
+    ));
     setFichaSeleccionada(undefined);
+    console.log("Ficha jugada y mesa actualizada:", nuevaFichaEnMesa, fichasEnMesa);
   };
 
   return (
@@ -201,10 +172,12 @@ export default function JuegoPage() {
             Jugar Ficha
           </button>
         )}
+        {/* Aquí podrías mostrar información de otros jugadores o fichas sobrantes si es relevante */}
+        {/* <p>Fichas sobrantes: {fichasSobrantes.length}</p> */}
       </main>
 
-      <ManoJugador
-        fichas={fichasEnMano}
+      <ManoJugadorComponent
+        fichas={fichasEnManoActual}
         fichaSeleccionada={fichaSeleccionada}
         onFichaClick={handleFichaClick}
       />
