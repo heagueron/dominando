@@ -11,29 +11,36 @@ interface FichaEnMano {
 interface ManoJugadorProps {
   fichas: FichaEnMano[];
   fichaSeleccionada?: string;
-  onFichaClick: (id: string) => void;
+  // Modificamos onFichaClick para que pueda recibir el id del jugador/mano
+  onFichaClick: (idFicha: string, idJugadorMano: string) => void; 
+  idJugadorMano: string; // Identificador de la mano/jugador
+  className?: string; // Para permitir estilos externos (posicionamiento)
+  layoutDirection?: 'row' | 'col'; // Para controlar la dirección del flex
 }
 
 const ManoJugador: React.FC<ManoJugadorProps> = ({
   fichas,
   fichaSeleccionada,
   onFichaClick,
+  idJugadorMano,
+  className = "",
+  layoutDirection = 'row',
 }) => {
-  // Estas clases de dimensiones son para el contenedor de cada ficha en la mano
-  // Ajusta según sea necesario para el tamaño deseado en la mano
-  // const dimensionesFichaEnMano = 'w-10 h-20 sm:w-12 sm:h-24 md:w-14 md:h-28'; // Ya no es necesario aquí si FichaDomino tiene tamaño fijo
+  const esManoPrincipal = idJugadorMano === "jugador1"; // O alguna otra lógica para identificar la mano principal
 
   return (
     <motion.div
-      className="mano-jugador bg-domino-black bg-opacity-20 rounded-t-xl fixed bottom-0 left-0 right-0 flex justify-center items-center gap-2 overflow-x-auto z-10"
-      initial={{ y: 100 }}
-      animate={{ y: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      // El posicionamiento y animación de entrada principal se manejarán externamente
+      // para la mano principal, o no se aplicarán a las otras.
+      className={`mano-jugador-base bg-domino-black bg-opacity-10 p-1 rounded-lg flex gap-1 z-10 ${className} ${
+        layoutDirection === 'row' ? 'flex-row overflow-x-auto justify-center' : 'flex-col overflow-y-auto items-center'
+      } ${esManoPrincipal ? 'rounded-t-xl' : 'rounded-md'}`}
+      // La animación de entrada se aplicará solo a la mano principal desde page.tsx
     >
       {fichas.length === 0 ? (
-        <p className="text-domino-white text-center py-4">No tienes fichas en tu mano</p>
+        <p className="text-domino-white text-xs text-center p-2">Mano Vacía</p>
       ) : (
-        <div className="flex justify-center items-center gap-2 py-2">
+        <div className={`flex gap-1 ${layoutDirection === 'row' ? 'flex-row items-center' : 'flex-col items-center'}`}>
           {fichas.map((ficha) => (
             <motion.div
               key={ficha.id}
@@ -49,7 +56,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
                 valorSuperior={ficha.valorSuperior}
                 valorInferior={ficha.valorInferior}
                 seleccionada={ficha.id === fichaSeleccionada}
-                onClick={() => onFichaClick(ficha.id)}
+                onClick={() => onFichaClick(ficha.id, idJugadorMano)}
                 arrastrable={true} // Las fichas en mano son arrastrables
                 esEnMano={true}    // Indicar que esta ficha está en la mano
               />

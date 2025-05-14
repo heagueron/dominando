@@ -120,13 +120,20 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
 
           if (fichaAnclaEnCalculadas) {
             console.log(`[MESA] Ficha Ancla encontrada: ${fichaAnclaEnCalculadas.id} en lienzo (x=${fichaAnclaEnCalculadas.x}, y=${fichaAnclaEnCalculadas.y})`);
-            // Queremos que el punto (fichaAnclaEnCalculadas.x, fichaAnclaEnCalculadas.y) del lienzo
-            // se mueva al centro del viewport (designWidth / 2, designHeight / 2).
-            translateX = (designWidth / 2) - fichaAnclaEnCalculadas.x;
-            translateY = (designHeight / 2) - fichaAnclaEnCalculadas.y;
+            const viewportCenterX = mesaRef.current.offsetWidth / 2;
+            const viewportCenterY = mesaRef.current.offsetHeight / 2;
+
+            // Nueva fórmula para translateX y translateY
+            translateX = viewportCenterX - (fichaAnclaEnCalculadas.x * currentScaleFactor);
+            translateY = viewportCenterY - (fichaAnclaEnCalculadas.y * currentScaleFactor);
+
+            // Recalcular AnchorVisualPos con la nueva fórmula de translateX/Y para el log
+            const anchorVisualX = (fichaAnclaEnCalculadas.x * currentScaleFactor) + translateX;
+            const anchorVisualY = (fichaAnclaEnCalculadas.y * currentScaleFactor) + translateY;
+            console.log(`[MESA] DEBUG CENTRADO: ViewportCenter=(${viewportCenterX.toFixed(2)}, ${viewportCenterY.toFixed(2)}), AnchorVisualPos=(${anchorVisualX.toFixed(2)}, ${anchorVisualY.toFixed(2)})`);
+            console.log(`[MESA] DEBUG CENTRADO: DiffX=${(viewportCenterX - anchorVisualX).toFixed(2)}, DiffY=${(viewportCenterY - anchorVisualY).toFixed(2)}`);
+
           } else {
-            // Esto podría pasar si la ficha ancla aún no está en `fichasEnMesa` o si hay un error.
-            // O si `fichasEnMesa` está vacío.
             console.log(`[MESA] Ficha Ancla (${posicionAnclaFija.fila},${posicionAnclaFija.columna}) NO encontrada en nuevasFichasCalculadas. Usando translateX/Y = 0.`);
           }
         }
