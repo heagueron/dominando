@@ -38,8 +38,11 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
     fichasEnMesa.forEach((fichaLogic, index) => {
       let nx: number, ny: number;
       const nRot = fichaLogic.rotacion;
-      const nActualWidth = (nRot === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
-      const nActualHeight = (nRot === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+      // Corrected dimension calculation based on rotation
+      const nIsVertical = Math.abs(nRot % 180) === 0;
+      const nActualWidth = nIsVertical ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+      const nActualHeight = nIsVertical ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+
 
       console.log(`[MESA] Procesando ficha ${fichaLogic.id} (idx ${index}): cuad=(${fichaLogic.posicionCuadricula.fila},${fichaLogic.posicionCuadricula.columna}), rot=${nRot}`);
 
@@ -48,7 +51,7 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
         // se coloca en el centro del lienzo de diseño como punto de partida para el cálculo.
         nx = designWidth / 2;
         ny = designHeight / 2;
-        console.log(`[MESA]   Ficha ${fichaLogic.id} (idx 0): nx=${nx}, ny=${ny} (centro del lienzo)`);
+        console.log(`[MESA]   Ficha ${fichaLogic.id} (idx 0) en lienzo: nx=${nx.toFixed(2)}, ny=${ny.toFixed(2)}`);
       } else {
         // Las fichas subsiguientes se posicionan RELATIVO a la ficha ANTERIORMENTE CALCULADA Y AÑADIDA a nuevasFichasCalculadas.
         const ultimaFichaCalculada = nuevasFichasCalculadas[index - 1]; 
@@ -59,11 +62,16 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
         const uy = ultimaFichaCalculada.y; // y de la ficha anterior en el lienzo
         const uRot = ultimaFichaCalculada.rotacion; // rotación de la ficha anterior en el lienzo
 
-        const uActualWidth = (uRot === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
-        const uActualHeight = (uRot === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
-
-        console.log(`[MESA]   Ficha ${fichaLogic.id} (idx ${index}): conectando a ${ultimaFichaCalculada.id} (ux=${ux}, uy=${uy}, uRot=${uRot})`);
+        // Corrected dimension calculation for the previous piece
+        const uIsVertical = Math.abs(uRot % 180) === 0;
+        const uActualWidth = uIsVertical ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+        const uActualHeight = uIsVertical ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+        
+        console.log(`[MESA]   Procesando ${fichaLogic.id} rel. a ${ultimaFichaCalculada.id}`);
+        console.log(`[MESA]     Prev: ${ultimaFichaCalculada.id} at (${ultimaFichaCalculada.posicionCuadricula.fila},${ultimaFichaCalculada.posicionCuadricula.columna}) rot=${uRot}, ux=${ux.toFixed(2)}, uy=${uy.toFixed(2)}, uH=${uActualHeight}, uW=${uActualWidth}`);
+        console.log(`[MESA]     Curr: ${fichaLogic.id} at (${fichaLogic.posicionCuadricula.fila},${fichaLogic.posicionCuadricula.columna}) rot=${nRot}, nH=${nActualHeight}, nW=${nActualWidth}`);
         console.log(`[MESA]     fichaLogic.pc=(${fichaLogic.posicionCuadricula.fila},${fichaLogic.posicionCuadricula.columna}), ultimaFichaLogica.pc=(${ultimaFichaLogica.posicionCuadricula.fila},${ultimaFichaLogica.posicionCuadricula.columna})`);
+
 
         if (fichaLogic.posicionCuadricula.columna > ultimaFichaLogica.posicionCuadricula.columna) { // Derecha
           console.log(`[MESA]     Calculando Derecha: ux=${ux}, uActualWidth=${uActualWidth}, nActualWidth=${nActualWidth}`);
@@ -78,24 +86,24 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
         } else if (fichaLogic.posicionCuadricula.fila > ultimaFichaLogica.posicionCuadricula.fila) { // Abajo
           nx = ux; 
           ny = uy + uActualHeight / 2 + nActualHeight / 2;
-          console.log(`[MESA]     Dirección: Abajo. nxBase=${nx}, nyBase=${ny}`);
-          // AJUSTE ESPECÍFICO para "T": Si la anterior (u) era horizontal y la nueva (n) es vertical
-          if (uRot === 90 && nRot === 0) { 
-            nx = ux + (uActualWidth / 2) - (nActualWidth / 2); // Alinear borde derecho de n con borde derecho de u
-            console.log(`[MESA]       Ajuste T (Abajo H->V): nx ajustado a ${nx}`);
+          console.log(`[MESA]     Dirección: Abajo. Ficha: ${fichaLogic.id}, Prev: ${ultimaFichaCalculada.id}`);
+          console.log(`[MESA]       uy_prev=${uy.toFixed(2)}, uActualHeight_prev=${uActualHeight}, nActualHeight_curr=${nActualHeight}`);
+          console.log(`[MESA]       ny_calc = ${uy.toFixed(2)} + ${uActualHeight/2} + ${nActualHeight/2} = ${ny.toFixed(2)}`);
+          if (ultimaFichaCalculada.rotacion === 0 && (nRot === 0 || nRot === 180)) {
+            console.log(`[MESA]       Vertical stack: Prev is double/vertical, Curr is vertical.`);
           }
         } else { // Arriba (fichaLogic.posicionCuadricula.fila < ultimaFichaLogica.posicionCuadricula.fila)
           nx = ux; 
           ny = uy - uActualHeight / 2 - nActualHeight / 2;
-          console.log(`[MESA]     Dirección: Arriba. nxBase=${nx}, nyBase=${ny}`);
-          // AJUSTE ESPECÍFICO para "T": Si la anterior (u) era horizontal y la nueva (n) es vertical
-          if (uRot === 90 && nRot === 0) { 
-            nx = ux - (uActualWidth / 2) + (nActualWidth / 2); // Alinear borde izquierdo de n con borde izquierdo de u
-            console.log(`[MESA]       Ajuste T (Arriba H->V): nx ajustado a ${nx}`);
+          console.log(`[MESA]     Dirección: Arriba. Ficha: ${fichaLogic.id}, Prev: ${ultimaFichaCalculada.id}`);
+          console.log(`[MESA]       uy_prev=${uy.toFixed(2)}, uActualHeight_prev=${uActualHeight}, nActualHeight_curr=${nActualHeight}`);
+          console.log(`[MESA]       ny_calc = ${uy.toFixed(2)} - ${uActualHeight/2} - ${nActualHeight/2} = ${ny.toFixed(2)}`);
+          if (ultimaFichaCalculada.rotacion === 0 && (nRot === 0 || nRot === 180)) {
+            console.log(`[MESA]       Vertical stack: Prev is double/vertical, Curr is vertical.`);
           }
         }
       }
-      console.log(`[MESA]   Ficha ${fichaLogic.id}: nxFinal=${nx}, nyFinal=${ny}`);
+      console.log(`[MESA]   Ficha ${fichaLogic.id}: nxFinal=${nx.toFixed(2)}, nyFinal=${ny.toFixed(2)}`);
 
       nuevasFichasCalculadas.push({ ...fichaLogic, x: nx, y: ny });
     });
