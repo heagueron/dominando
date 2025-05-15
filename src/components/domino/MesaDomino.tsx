@@ -51,7 +51,9 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
         // se coloca en el centro del lienzo de diseño como punto de partida para el cálculo.
         nx = designWidth / 2;
         ny = designHeight / 2;
-        console.log(`[MESA]   Ficha ${fichaLogic.id} (idx 0) en lienzo: nx=${nx.toFixed(2)}, ny=${ny.toFixed(2)}`);
+
+       
+        console.log(`[MESA]   Ficha ${fichaLogic.id} (idx 0) en lienzo: nx final=${nx.toFixed(2)}, ny=${ny.toFixed(2)}`);
       } else {
         // Las fichas subsiguientes se posicionan RELATIVO a la ficha ANTERIORMENTE CALCULADA Y AÑADIDA a nuevasFichasCalculadas.
         const ultimaFichaCalculada = nuevasFichasCalculadas[index - 1]; 
@@ -86,20 +88,32 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
         } else if (fichaLogic.posicionCuadricula.fila > ultimaFichaLogica.posicionCuadricula.fila) { // Abajo
           nx = ux; 
           ny = uy + uActualHeight / 2 + nActualHeight / 2;
-          console.log(`[MESA]     Dirección: Abajo. Ficha: ${fichaLogic.id}, Prev: ${ultimaFichaCalculada.id}`);
+          console.log(`[MESA]     Dirección: Abajo. Base: nx=${nx.toFixed(2)}, ny=${ny.toFixed(2)}`);
           console.log(`[MESA]       uy_prev=${uy.toFixed(2)}, uActualHeight_prev=${uActualHeight}, nActualHeight_curr=${nActualHeight}`);
           console.log(`[MESA]       ny_calc = ${uy.toFixed(2)} + ${uActualHeight/2} + ${nActualHeight/2} = ${ny.toFixed(2)}`);
-          if (ultimaFichaCalculada.rotacion === 0 && (nRot === 0 || nRot === 180)) {
-            console.log(`[MESA]       Vertical stack: Prev is double/vertical, Curr is vertical.`);
+          // Ajuste para T-Shape: si la anterior (u) era horizontal y la nueva (n) es vertical
+          if (!uIsVertical && nIsVertical) { // U es Bar (horizontal), N es Stem (vertical)
+            nx = ux + uActualWidth / 2 - nActualWidth / 2; // Alinea borde derecho de N con borde derecho de U
+            console.log(`[MESA]       Ajuste T (Abajo H->V): nx ajustado a ${nx.toFixed(2)}`);
+          } else if (uIsVertical && !nIsVertical && fichaLogic.posicionCuadricula.columna === ultimaFichaLogica.posicionCuadricula.columna) {
+            // Caso T-Invertida: U es Stem (vertical), N es Bar (horizontal)
+            nx = ux + (nActualWidth / 2) - (uActualWidth / 2); // Desplaza la Bar (N) a la derecha del Stem (U) para alinear bordes izquierdos
+            console.log(`[MESA]       Ajuste T-Invertida (Abajo V->H): nx de Bar ajustado a ${nx.toFixed(2)}`);
+          } else if (uIsVertical && nIsVertical) {
+            console.log(`[MESA]       Apilamiento Vertical (V->V). nx=${nx.toFixed(2)}`);
           }
         } else { // Arriba (fichaLogic.posicionCuadricula.fila < ultimaFichaLogica.posicionCuadricula.fila)
           nx = ux; 
           ny = uy - uActualHeight / 2 - nActualHeight / 2;
-          console.log(`[MESA]     Dirección: Arriba. Ficha: ${fichaLogic.id}, Prev: ${ultimaFichaCalculada.id}`);
+          console.log(`[MESA]     Dirección: Arriba. Base: nx=${nx.toFixed(2)}, ny=${ny.toFixed(2)}`);
           console.log(`[MESA]       uy_prev=${uy.toFixed(2)}, uActualHeight_prev=${uActualHeight}, nActualHeight_curr=${nActualHeight}`);
           console.log(`[MESA]       ny_calc = ${uy.toFixed(2)} - ${uActualHeight/2} - ${nActualHeight/2} = ${ny.toFixed(2)}`);
-          if (ultimaFichaCalculada.rotacion === 0 && (nRot === 0 || nRot === 180)) {
-            console.log(`[MESA]       Vertical stack: Prev is double/vertical, Curr is vertical.`);
+          // Ajuste para T-Shape invertida: si la anterior (u) era horizontal y la nueva (n) es vertical
+          if (!uIsVertical && nIsVertical) { // U es Bar (horizontal), N es Stem (vertical)
+            nx = ux - uActualWidth / 2 + nActualWidth / 2; // Alinea borde izquierdo de N con borde izquierdo de U
+            console.log(`[MESA]       Ajuste T (Arriba H->V): nx ajustado a ${nx.toFixed(2)}`);
+          } else if (uIsVertical && nIsVertical) {
+            console.log(`[MESA]       Apilamiento Vertical (V->V). nx=${nx.toFixed(2)}`);
           }
         }
       }
