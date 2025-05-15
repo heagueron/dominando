@@ -1,6 +1,7 @@
 // /home/heagueron/projects/dominando/src/app/juego/page.tsx
 'use client';
 
+import { motion } from 'framer-motion';
 import React, { useState, useEffect } from 'react';
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador';
@@ -15,6 +16,11 @@ interface FichaEnMesaParaLogica extends FichaDomino {
   rotacion: number;
 }
 
+interface FichaSeleccionadaInfo {
+  idFicha: string;
+  idJugadorMano: string;
+}
+
 const FILA_ANCLA_INICIAL = 5;
 const COLUMNA_ANCLA_INICIAL = 5;
 
@@ -25,6 +31,7 @@ const calcularRotacionHorizontalNoDoble = (
   valorConexionEnFicha: number // El valor en `ficha` que hace match con el extremo
 ): number => {
   // Si jugamos en el extremo DERECHO de la cadena, el lado IZQUIERDO de la nueva ficha debe conectar.
+  // Visualmente: [LadoConecta][OtroLado]
   if (extremoElegido === 'derecha') {
     if (valorConexionEnFicha === ficha.valorSuperior) {
       // Queremos que S (valorSuperior) quede a la IZQUIERDA. Rotación: -90 ([S][I])
@@ -33,8 +40,9 @@ const calcularRotacionHorizontalNoDoble = (
       // Queremos que I (valorInferior) quede a la IZQUIERDA. Rotación: 90 ([I][S])
       return 90;
     }
-  } 
+  }
   // Si jugamos en el extremo IZQUIERDO de la cadena, el lado DERECHO de la nueva ficha debe conectar.
+  // Visualmente: [OtroLado][LadoConecta]
   else { // extremoElegido === 'izquierda'
     if (valorConexionEnFicha === ficha.valorSuperior) {
       // Queremos que S (valorSuperior) quede a la DERECHA. Rotación: 90 ([I][S])
@@ -50,10 +58,12 @@ const calcularRotacionHorizontalNoDoble = (
 export default function JuegoPage() {
   const [manosJugadores, setManosJugadores] = useState<TipoManoDeJugador[]>([]);
   const [fichasSobrantes, setFichasSobrantes] = useState<FichaDomino[]>([]);
-  const [fichasEnManoActual, setFichasEnManoActual] = useState<FichaDomino[]>([]);
-  const [fichasEnMesa, setFichasEnMesa] = useState<FichaEnMesaParaLogica[]>([]);
-  const [fichaSeleccionada, setFichaSeleccionada] = useState<string | undefined>();
   
+  const [anclaFicha, setAnclaFicha] = useState<FichaEnMesaParaLogica | null>(null);
+  const [fichasIzquierda, setFichasIzquierda] = useState<FichaEnMesaParaLogica[]>([]);
+  const [fichasDerecha, setFichasDerecha] = useState<FichaEnMesaParaLogica[]>([]);
+  const [fichaSeleccionada, setFichaSeleccionada] = useState<FichaSeleccionadaInfo | undefined>();
+
   const [extremos, setExtremos] = useState<{ izquierda: number | null, derecha: number | null }>({
     izquierda: null,
     derecha: null,
@@ -67,22 +77,22 @@ export default function JuegoPage() {
   useEffect(() => {
     const { manos, sobrantes } = generarYRepartirFichas(4, 7);
     setManosJugadores(manos);
+    console.log("[PAGE] Manos generadas:", manos);
     setFichasSobrantes(sobrantes);
-    const manoJugadorActual = manos.find(m => m.idJugador === "jugador1");
-    if (manoJugadorActual) {
-      setFichasEnManoActual(manoJugadorActual.fichas);
-    }
   }, []);
 
-  const handleFichaClick = (id: string) => {
-    setFichaSeleccionada(id === fichaSeleccionada ? undefined : id);
+  const handleFichaClick = (idFicha: string, idJugadorMano: string) => {
+    if (fichaSeleccionada && fichaSeleccionada.idFicha === idFicha && fichaSeleccionada.idJugadorMano === idJugadorMano) {
+      setFichaSeleccionada(undefined); // Deseleccionar si se hace clic en la misma ficha
+    } else {
+      setFichaSeleccionada({ idFicha, idJugadorMano });
+    }
   };
 
   const determinarJugada = (
     ficha: FichaDomino,
     valorExtremo: number
   ): { puedeJugar: boolean; valorConexion?: number; valorNuevoExtremo?: number } => {
-    // Ya no necesitamos rotacionDefecto aquí, se calculará en handleJugarFicha
     if (ficha.valorSuperior === valorExtremo) {
       return { puedeJugar: true, valorConexion: ficha.valorSuperior, valorNuevoExtremo: ficha.valorInferior };
     }
@@ -94,40 +104,47 @@ export default function JuegoPage() {
 
   const handleJugarFicha = (extremoElegido: 'izquierda' | 'derecha') => {
     if (!fichaSeleccionada) return;
-    const fichaParaJugar = fichasEnManoActual.find(f => f.id === fichaSeleccionada);
+
+    const manoDelJugador = manosJugadores.find(m => m.idJugador === fichaSeleccionada.idJugadorMano);
+    if (!manoDelJugador) {
+      console.error(`[PAGE] No se encontró la mano del jugador ${fichaSeleccionada.idJugadorMano}`);
+      return;
+    }
+    const fichaParaJugar = manoDelJugador.fichas.find(f => f.id === fichaSeleccionada.idFicha);
+
     if (!fichaParaJugar) return;
 
-    console.log(`[PAGE] ===== INICIO HANDLE JUGAR FICHA (${fichaParaJugar.id}) EN EXTREMO: ${extremoElegido} =====`);
+    console.log(`[PAGE] ===== INICIO HANDLE JUGAR FICHA (${fichaParaJugar.id} de mano ${fichaSeleccionada.idJugadorMano}) EN EXTREMO: ${extremoElegido} =====`);
 
     const esDoble = fichaParaJugar.valorSuperior === fichaParaJugar.valorInferior;
     let rotacionCalculada: number;
     let nuevaPosicion: { fila: number; columna: number };
 
-    if (fichasEnMesa.length === 0) {
+    if (!anclaFicha) { // Primera ficha del juego
       nuevaPosicion = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
-      // CASO ESPECIAL: Primera ficha no doble se rota -90 para que valorSuperior quede a la izquierda visualmente.
-      // Las fichas dobles siempre son 0.
-      rotacionCalculada = esDoble ? 0 : -90; 
+      // La primera ficha no doble se rota -90, las dobles 0.
+      rotacionCalculada = esDoble ? 0 : -90;
       console.log(`[PAGE] Primera ficha: nuevaPosicion=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotacionCalculada=${rotacionCalculada}`);
-      const nuevaFichaEnMesa: FichaEnMesaParaLogica = {
+      const nuevaFichaAncla: FichaEnMesaParaLogica = {
         ...fichaParaJugar,
         posicionCuadricula: nuevaPosicion,
         rotacion: rotacionCalculada,
       };
-      setFichasEnMesa([nuevaFichaEnMesa]);
+      setAnclaFicha(nuevaFichaAncla); // Establecer la ancla
       setExtremos(esDoble ? {
-          izquierda: nuevaFichaEnMesa.valorSuperior,
-          derecha: nuevaFichaEnMesa.valorSuperior
+          izquierda: nuevaFichaAncla.valorSuperior,
+          derecha: nuevaFichaAncla.valorSuperior
         } : {
-          izquierda: nuevaFichaEnMesa.valorSuperior, 
-          derecha: nuevaFichaEnMesa.valorInferior
+          izquierda: nuevaFichaAncla.valorSuperior,
+          derecha: nuevaFichaAncla.valorInferior
         });
       setInfoExtremos({
         izquierda: { pos: nuevaPosicion, rot: rotacionCalculada },
         derecha: { pos: nuevaPosicion, rot: rotacionCalculada }
       });
+      // fichasIzquierda y fichasDerecha permanecen vacíos
     } else { // Fichas SUBSECUENTES
-      const valorExtremoActual = extremoElegido === 'izquierda' ? extremos.izquierda : extremos.derecha;
+      const valorExtremoActual = extremoElegido === 'izquierda' ? extremos.izquierda : extremos.derecha; // Valor del extremo al que conectamos
       const infoExtremoActual = extremoElegido === 'izquierda' ? infoExtremos.izquierda : infoExtremos.derecha;
 
       if (valorExtremoActual === null || !infoExtremoActual) {
@@ -142,94 +159,121 @@ export default function JuegoPage() {
       }
 
       const uPos = infoExtremoActual.pos;
-      const uRot = infoExtremoActual.rot; // Rotación de la ficha de conexión
+      const uRot = infoExtremoActual.rot;
       console.log(`[PAGE] Conectando a: uPos=(${uPos.fila},${uPos.columna}), uRot=${uRot}. Ficha nueva ${esDoble ? 'DOBLE' : 'NO DOBLE'}`);
 
-      // --- INICIO LÓGICA DE CAMINO Y ROTACIÓN ---
-      // Primero, determinar la nuevaPosicion basándose en el crecimiento lineal
-      if (extremoElegido === 'derecha') {
-        if (uRot === 90 || uRot === -90) { // Conectando a HORIZONTAL
-          nuevaPosicion = { fila: uPos.fila, columna: uPos.columna + 1 }; 
-        } else { // uRot === 0 // Conectando a VERTICAL
-          nuevaPosicion = { fila: uPos.fila, columna: uPos.columna + 1 }; // Por defecto, intentar crecer horizontalmente
-          // Si la nueva ficha es doble, se ajustará para crecer verticalmente abajo
-          if (esDoble) {
-            nuevaPosicion = { fila: uPos.fila + 1, columna: uPos.columna };
-          }
-        }
-      } else { // extremoElegido === 'izquierda'
-        if (uRot === 90 || uRot === -90) { // Conectando a HORIZONTAL
-          nuevaPosicion = { fila: uPos.fila, columna: uPos.columna - 1 }; 
-        } else { // uRot === 0 // Conectando a VERTICAL
-          nuevaPosicion = { fila: uPos.fila, columna: uPos.columna - 1 }; // Por defecto, intentar crecer horizontalmente
-          // Si la nueva ficha es doble, se ajustará para crecer verticalmente arriba
-          if (esDoble) {
-            nuevaPosicion = { fila: uPos.fila - 1, columna: uPos.columna };
-          }
-        }
-      }
-      console.log(`[PAGE] Posición inicial calculada para nueva ficha: (${nuevaPosicion.fila},${nuevaPosicion.columna})`);
 
-      // Ahora, determinar la rotacionCalculada
-      if (esDoble) {
-        rotacionCalculada = 0;
-        console.log(`[PAGE]   Ficha es DOBLE. rotCalc=0`);
-      } else { // No es doble
-        // Caso 1: Giro en "T" (conectando a Horizontal, pero nueva ficha va Vertical)
-        if ((uRot === 90 || uRot === -90) && nuevaPosicion.fila !== uPos.fila) {
+      // --- LÓGICA DE GIRO EN BORDES DE FILA 5 ---
+      if (uPos.fila === FILA_ANCLA_INICIAL && extremoElegido === 'derecha' && uPos.columna === 9) {
+        nuevaPosicion = { fila: uPos.fila + 1, columna: uPos.columna }; // Celda (6,9)
+        if (jugadaDeterminada.valorConexion === fichaParaJugar.valorSuperior) {
           rotacionCalculada = 0;
-          console.log(`[PAGE]   Giro T (H->V): uRot=${uRot}. rotCalc=0`);
-        } 
-        // Caso 2: Crecimiento lineal Vertical (conectando a Vertical, nueva ficha sigue Vertical)
-        // Esto ocurre si la nuevaPosicion implica cambio de fila y uRot era 0 (y la nueva no es doble, pero se fuerza a vertical)
-        // Esta condición es cubierta si la nuevaPosicion ya fue ajustada para ser vertical (ej. doble conectando a vertical)
-        // Para una no-doble conectando a vertical y continuando vertical, es un giro.
-        // Si una no-doble conecta a una vertical y la nuevaPosicion indica cambio de fila, es un giro.
-        else if (uRot === 0 && nuevaPosicion.fila !== uPos.fila) {
-             rotacionCalculada = 0; // Forzar vertical si es un giro V->V (no doble)
-             console.log(`[PAGE]   Giro (V->V no-doble): uRot=${uRot}. rotCalc=0`);
+        } else {
+          rotacionCalculada = 180;
         }
-        // Caso 3: Colocación Horizontal (H->H o V->H)
-        else {
-          rotacionCalculada = calcularRotacionHorizontalNoDoble(
-            fichaParaJugar,
-            extremoElegido,
-            jugadaDeterminada.valorConexion // Este es el valor de fichaParaJugar que hace match
-          );
-          console.log(`[PAGE]   Colocación Horizontal (H->H o V->H). rotCalc=${rotacionCalculada} (de calcularRotacionHorizontalNoDoble)`);
+        console.log(`[PAGE] Giro en borde DERECHO (5,9)->(6,9): nuevaPos=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotCalc=${rotacionCalculada}`);
+      } else if (uPos.fila === FILA_ANCLA_INICIAL && extremoElegido === 'izquierda' && uPos.columna === 1) {
+        nuevaPosicion = { fila: uPos.fila - 1, columna: uPos.columna }; // Celda (4,1)
+        if (jugadaDeterminada.valorConexion === fichaParaJugar.valorInferior) {
+          rotacionCalculada = 0;
+        } else {
+          rotacionCalculada = 180;
+        }
+        console.log(`[PAGE] Giro en borde IZQUIERDO (5,1)->(4,1): nuevaPos=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotCalc=${rotacionCalculada}`);
+      } else {
+        // --- LÓGICA DE CAMINO Y ROTACIÓN GENERAL (no hubo giro en borde) ---
+        if (extremoElegido === 'derecha') { // Crecimiento a la derecha (no en borde de giro 5,9)
+          if (uRot === 90 || uRot === -90) { // Conectando a HORIZONTAL
+            nuevaPosicion = { fila: uPos.fila, columna: uPos.columna + 1 };
+          } else { // uRot === 0 // Conectando a VERTICAL
+            nuevaPosicion = { fila: uPos.fila, columna: uPos.columna + 1 };
+            if (esDoble) {
+              nuevaPosicion = { fila: uPos.fila + 1, columna: uPos.columna };
+            }
+          }
+        } else { // extremoElegido === 'izquierda' // Crecimiento a la izquierda (no en borde de giro 5,1)
+          if (uRot === 90 || uRot === -90) { // Conectando a HORIZONTAL (no en borde de giro 5,1)
+            nuevaPosicion = { fila: uPos.fila, columna: uPos.columna - 1 };
+          } else { // uRot === 0 // Conectando a VERTICAL
+            nuevaPosicion = { fila: uPos.fila, columna: uPos.columna - 1 };
+            if (esDoble) {
+              nuevaPosicion = { fila: uPos.fila - 1, columna: uPos.columna };
+            }
+          }
+        }
+        console.log(`[PAGE] Posición (no giro borde) calculada para nueva ficha: (${nuevaPosicion.fila},${nuevaPosicion.columna})`);
+
+        if (esDoble) {
+          rotacionCalculada = 0;
+          console.log(`[PAGE]   Ficha es DOBLE (no giro borde). rotCalc=0`);
+        } else {
+          if ((uRot === 90 || uRot === -90) && nuevaPosicion.fila !== uPos.fila) { // Giro en "T"
+            rotacionCalculada = 0;
+            console.log(`[PAGE]   Giro T (H->V) (no giro borde): uRot=${uRot}. rotCalc=0`);
+          } else if (uRot === 0 && nuevaPosicion.fila !== uPos.fila) { // Giro V->V (no doble)
+            rotacionCalculada = 0;
+            console.log(`[PAGE]   Giro (V->V no-doble) (no giro borde): uRot=${uRot}. rotCalc=0`);
+          } else { // Colocación Horizontal
+            rotacionCalculada = calcularRotacionHorizontalNoDoble(
+              fichaParaJugar,
+              extremoElegido,
+              jugadaDeterminada.valorConexion // valorConexion está garantizado por la guarda anterior
+            );
+            console.log(`[PAGE]   Colocación Horizontal (no giro borde). rotCalc=${rotacionCalculada} (de calcularRotacionHorizontalNoDoble)`);
+          }
         }
       }
       console.log(`[PAGE] FINAL antes de crear ficha: nuevaPos=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotCalc=${rotacionCalculada}`);
-      // --- FIN LÓGICA DE CAMINO Y ROTACIÓN ---
-
+      
       const nuevaFichaEnMesa: FichaEnMesaParaLogica = {
         ...fichaParaJugar,
         posicionCuadricula: nuevaPosicion,
         rotacion: rotacionCalculada,
       };
 
+      // Añadir la ficha al array de rama correcto y actualizar el extremo correspondiente
       if (extremoElegido === 'izquierda') {
-        setFichasEnMesa(prevMesa => [nuevaFichaEnMesa, ...prevMesa]);
+        setFichasIzquierda(prevFichas => [nuevaFichaEnMesa, ...prevFichas]); // Añadir al principio
         setExtremos(prev => ({ ...prev, izquierda: jugadaDeterminada.valorNuevoExtremo! }));
         setInfoExtremos(prev => ({ ...prev, izquierda: { pos: nuevaPosicion, rot: rotacionCalculada } }));
-      } else {
-        setFichasEnMesa(prevMesa => [...prevMesa, nuevaFichaEnMesa]);
+      } else { // extremoElegido === 'derecha'
+        setFichasDerecha(prevFichas => [...prevFichas, nuevaFichaEnMesa]); // Añadir al final
         setExtremos(prev => ({ ...prev, derecha: jugadaDeterminada.valorNuevoExtremo! }));
         setInfoExtremos(prev => ({ ...prev, derecha: { pos: nuevaPosicion, rot: rotacionCalculada } }));
       }
     }
 
-    setFichasEnManoActual(prevMano => prevMano.filter(f => f.id !== fichaSeleccionada));
-    setManosJugadores(prevManos => prevManos.map(mano =>
-        mano.idJugador === "jugador1"
-            ? { ...mano, fichas: mano.fichas.filter(f => f.id !== fichaSeleccionada) }
+    if (fichaSeleccionada) {
+      const { idFicha, idJugadorMano } = fichaSeleccionada;
+      setManosJugadores(prevManos =>
+        prevManos.map(mano =>
+          mano.idJugador === idJugadorMano
+            ? { ...mano, fichas: mano.fichas.filter(f => f.id !== idFicha) }
             : mano
-    ));
-    setFichaSeleccionada(undefined);
+        ));
+      setFichaSeleccionada(undefined);
+    }
     console.log(`[PAGE] ===== FIN HANDLE JUGAR FICHA =====`);
   };
 
-  const fichaSeleccionadaActual = fichasEnManoActual.find(f => f.id === fichaSeleccionada);
+  // Combinar las fichas para pasarlas a MesaDomino en el orden visual correcto
+  const combinedFichasParaMesa: FichaEnMesaParaLogica[] = [
+    ...fichasIzquierda.slice().reverse(), // Invertir la rama izquierda para que vaya del extremo al centro
+    ...(anclaFicha ? [anclaFicha] : []), // Añadir la ancla si existe
+    ...fichasDerecha, // La rama derecha ya está en orden
+  ];
+
+  // Obtener la ficha seleccionada de la mano correcta para mostrar en la UI
+  let fichaRealmenteSeleccionada: FichaDomino | undefined = undefined;
+  if (fichaSeleccionada) {
+    const manoOrigen = manosJugadores.find(m => m.idJugador === fichaSeleccionada.idJugadorMano);
+    if (manoOrigen) {
+      fichaRealmenteSeleccionada = manoOrigen.fichas.find(f => f.id === fichaSeleccionada.idFicha);
+    }
+  }
+
+  const fichaSeleccionadaActual = fichaRealmenteSeleccionada;
+
   let puedeJugarIzquierda = false;
   let textoBotonIzquierda = "Punta Izquierda";
   let puedeJugarDerecha = false;
@@ -237,10 +281,10 @@ export default function JuegoPage() {
   let mostrarJuegoCerrado = false;
 
   if (fichaSeleccionadaActual) {
-    if (fichasEnMesa.length === 0) {
-      puedeJugarIzquierda = true; 
+    if (!anclaFicha) { // Si no hay ancla, es la primera jugada
+      puedeJugarIzquierda = true;
       textoBotonIzquierda = `Jugar ${fichaSeleccionadaActual.valorSuperior}-${fichaSeleccionadaActual.valorInferior}`;
-      puedeJugarDerecha = false; 
+      puedeJugarDerecha = false; // Para la primera ficha, solo hay un botón que actúa como "jugar"
     } else {
       if (extremos.izquierda !== null) {
         puedeJugarIzquierda = determinarJugada(fichaSeleccionadaActual, extremos.izquierda).puedeJugar;
@@ -260,24 +304,29 @@ export default function JuegoPage() {
     }
   }
 
+  const manoJugador1 = manosJugadores.find(m => m.idJugador === "jugador1");
+  const manoJugador2 = manosJugadores.find(m => m.idJugador === "jugador2");
+  const manoJugador3 = manosJugadores.find(m => m.idJugador === "jugador3");
+  const manoJugador4 = manosJugadores.find(m => m.idJugador === "jugador4");
+
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">
       <header className="bg-domino-black text-domino-white p-2 sm:p-3">
         <h1 className="text-xl sm:text-2xl font-bold text-center">Dominando</h1>
       </header>
-      <main className="flex-grow relative flex justify-center items-center p-4"> 
+      <main className="flex-grow relative flex justify-center items-center p-4">
         <MesaDomino
-          fichasEnMesa={fichasEnMesa}
-          posicionAnclaFija={{ fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL }}
+          fichasEnMesa={combinedFichasParaMesa} // Pasar el array combinado
+          posicionAnclaFija={anclaFicha ? anclaFicha.posicionCuadricula : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL }}
           onFichaClick={(id) => console.log('[MESA] Ficha en mesa clickeada:', id)}
         />
         {fichaSeleccionadaActual && (
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end p-2 bg-black bg-opacity-75 rounded shadow-lg z-10">
             <p className="text-white text-sm font-semibold">Jugar: {fichaSeleccionadaActual.valorSuperior}-{fichaSeleccionadaActual.valorInferior}</p>
-            {fichasEnMesa.length === 0 ? (
-               <button
+            {!anclaFicha ? ( // Si no hay ancla, es la primera jugada
+               <button 
                 className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded text-sm w-full text-center"
-                onClick={() => handleJugarFicha('derecha')} 
+                onClick={() => handleJugarFicha('derecha')} // Primera jugada siempre es "derecha" conceptualmente
               >
                 {textoBotonIzquierda} 
               </button>
@@ -309,11 +358,63 @@ export default function JuegoPage() {
           </div>
         )}
       </main>
-      <ManoJugadorComponent
-        fichas={fichasEnManoActual}
-        fichaSeleccionada={fichaSeleccionada}
-        onFichaClick={handleFichaClick}
-      />
+
+      {/* Mano del Jugador Principal (Abajo) */}
+      {manoJugador1 && (
+        <motion.div
+          className="fixed bottom-0 left-0 right-0 z-20 flex justify-center"
+          initial={{ y: 120 }}
+          animate={{ y: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+        >
+          <ManoJugadorComponent
+            fichas={manoJugador1.fichas}
+            fichaSeleccionada={fichaSeleccionada?.idFicha}
+            onFichaClick={handleFichaClick}
+            idJugadorMano={manoJugador1.idJugador}
+            className="max-w-full"
+          />
+        </motion.div>
+      )}
+
+      {/* Mano del Jugador 2 (Izquierda) */}
+      {manoJugador2 && (
+        <div className="fixed left-2 top-1/2 -translate-y-1/2 z-20 p-1 bg-domino-black bg-opacity-10 rounded-md max-h-[80vh]">
+          <ManoJugadorComponent
+            fichas={manoJugador2.fichas}
+            fichaSeleccionada={fichaSeleccionada?.idFicha}
+            onFichaClick={handleFichaClick}
+            idJugadorMano={manoJugador2.idJugador}
+            layoutDirection="col"
+          />
+        </div>
+      )}
+
+      {/* Mano del Jugador 3 (Arriba) */}
+      {manoJugador3 && (
+         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-20 p-1 bg-domino-black bg-opacity-10 rounded-md max-w-[80vw]">
+          <ManoJugadorComponent
+            fichas={manoJugador3.fichas}
+            fichaSeleccionada={fichaSeleccionada?.idFicha}
+            onFichaClick={handleFichaClick}
+            idJugadorMano={manoJugador3.idJugador}
+            layoutDirection="row"
+          />
+        </div>
+      )}
+
+      {/* Mano del Jugador 4 (Derecha) */}
+      {manoJugador4 && (
+        <div className="fixed right-2 top-1/2 -translate-y-1/2 z-20 p-1 bg-domino-black bg-opacity-10 rounded-md max-h-[80vh]">
+          <ManoJugadorComponent
+            fichas={manoJugador4.fichas}
+            fichaSeleccionada={fichaSeleccionada?.idFicha}
+            onFichaClick={handleFichaClick}
+            idJugadorMano={manoJugador4.idJugador}
+            layoutDirection="col"
+          />
+        </div>
+      )}
     </div>
   );
 }
