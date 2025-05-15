@@ -1,3 +1,4 @@
+// /home/heagueron/projects/dominando/src/components/domino/MesaDomino.tsx
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -116,6 +117,23 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
             console.log(`[MESA]       Apilamiento Vertical (V->V). nx=${nx.toFixed(2)}`);
           }
         }
+        
+        // AJUSTE ESPECIAL para ficha horizontal en (7,9) conectando a (6,9) vertical
+        if (ultimaFichaCalculada && // Asegurarse de que hay una ficha previa
+            ultimaFichaLogica.posicionCuadricula.fila === 6 &&
+            ultimaFichaLogica.posicionCuadricula.columna === 9 &&
+            (Math.abs(ultimaFichaLogica.rotacion % 180) === 0) && // Ficha previa (6,9) es vertical
+            fichaLogic.posicionCuadricula.fila === 7 &&
+            fichaLogic.posicionCuadricula.columna === 9 &&
+            (Math.abs(fichaLogic.rotacion % 180) === 90) // Ficha actual (7,9) es horizontal
+        ) {
+          // Para formar la "L con base a la izquierda", el centro de (6,9) [ux]
+          // debe alinearse con el centro de la mitad derecha de la ficha (7,9) [nx_nuevo + DOMINO_HEIGHT_PX / 4].
+          // Entonces, nx_nuevo = ux - DOMINO_HEIGHT_PX / 4.
+          const desplazamiento = DOMINO_HEIGHT_PX / 4; 
+          nx = ux - desplazamiento; // Mover el centro de la ficha (7,9) a la izquierda.
+          console.log(`[MESA]     AJUSTE "L" HORIZONTAL (7,9): ux=${ux.toFixed(2)}, nx original era ${ux.toFixed(2)}, desplazado en -${desplazamiento.toFixed(2)}, nuevo nx=${nx.toFixed(2)}`);
+        }
       }
       console.log(`[MESA]   Ficha ${fichaLogic.id}: nxFinal=${nx.toFixed(2)}, nyFinal=${ny.toFixed(2)}`);
 
@@ -220,8 +238,8 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
         }}
       >
         {fichasCalculadas.map((ficha) => {
-          const fichaOriginalWidth = (ficha.rotacion === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
-          const fichaOriginalHeight = (ficha.rotacion === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+          const fichaOriginalWidth = (ficha.rotacion === 0 || Math.abs(ficha.rotacion % 180) === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+          const fichaOriginalHeight = (ficha.rotacion === 0 || Math.abs(ficha.rotacion % 180) === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
           return (
             <div
               key={ficha.id}

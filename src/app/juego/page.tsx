@@ -103,6 +103,7 @@ export default function JuegoPage() {
   };
 
   const handleJugarFicha = (extremoElegido: 'izquierda' | 'derecha') => {
+    console.log("¡¡¡ HANDLE JUGAR FICHA INVOCADO !!!"); // Log de prueba muy simple
     if (!fichaSeleccionada) return;
 
     const manoDelJugador = manosJugadores.find(m => m.idJugador === fichaSeleccionada.idJugadorMano);
@@ -117,8 +118,8 @@ export default function JuegoPage() {
     console.log(`[PAGE] ===== INICIO HANDLE JUGAR FICHA (${fichaParaJugar.id} de mano ${fichaSeleccionada.idJugadorMano}) EN EXTREMO: ${extremoElegido} =====`);
 
     const esDoble = fichaParaJugar.valorSuperior === fichaParaJugar.valorInferior;
-    let rotacionCalculada: number;
-    let nuevaPosicion: { fila: number; columna: number };
+    let rotacionCalculada: number = 0; // Inicializar para satisfacer a TypeScript
+    let nuevaPosicion: { fila: number; columna: number } = { fila: -1, columna: -1 }; // Inicializar para satisfacer a TypeScript
 
     if (!anclaFicha) { // Primera ficha del juego
       nuevaPosicion = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
@@ -162,9 +163,68 @@ export default function JuegoPage() {
       const uRot = infoExtremoActual.rot;
       console.log(`[PAGE] Conectando a: uPos=(${uPos.fila},${uPos.columna}), uRot=${uRot}. Ficha nueva ${esDoble ? 'DOBLE' : 'NO DOBLE'}`);
 
+      let haSidoProcesadoPorLogicaDeGiroEspecial = false;
 
-      // --- LÓGICA DE GIRO EN BORDES DE FILA 5 ---
-      if (uPos.fila === FILA_ANCLA_INICIAL && extremoElegido === 'derecha' && uPos.columna === 9) {
+      // --- LÓGICA DE GIROS ESPECIALES ---
+
+      // Prioritize Case 2: Inicio de fila 7 desde (6,9)
+      const condFila6 = uPos.fila === 6;
+      const condCol9 = uPos.columna === 9;
+      const condExtremoDer = extremoElegido === 'derecha';
+      const condRotVertical = (uRot === 0 || uRot === 180);
+      
+      console.log(`[PAGE] DEBUG (6,9)->(7,9) CHECK:`);
+      console.log(`  uPos.fila === 6: ${uPos.fila} === 6 -> ${condFila6}`);
+      console.log(`  uPos.columna === 9: ${uPos.columna} === 9 -> ${condCol9}`);
+      console.log(`  extremoElegido === 'derecha': ${extremoElegido} === 'derecha' -> ${condExtremoDer}`);
+      console.log(`  (uRot === 0 || uRot === 180): ${uRot} (0||180) -> ${condRotVertical}`);
+      const combinedCondFila7 = condFila6 && condCol9 && condExtremoDer && condRotVertical;
+      console.log(`  Combined condition for (6,9)->(7,9): ${combinedCondFila7}`);
+
+      if (combinedCondFila7) { 
+        console.log(`[PAGE] DETECTADO: Inicio fila 7 desde (6,9). uRot=${uRot}, fichaParaJugar=${fichaParaJugar.valorSuperior}/${fichaParaJugar.valorInferior}, esDoble=${esDoble}`);
+        nuevaPosicion = { fila: uPos.fila + 1, columna: uPos.columna }; // Celda (7,9)
+        if (esDoble) {
+          rotacionCalculada = 90; // Doble en (7,9) se acuesta para iniciar fila 7
+          console.log(`[PAGE]   Ficha para (7,9) es DOBLE. rotCalc=90`);
+        } else {
+          // Para (7,9), si NO es doble, también va horizontal.
+          // Si valorSuperior conecta, rotar 90. Si valorInferior conecta, rotar -90.
+          if (jugadaDeterminada.valorConexion === fichaParaJugar.valorSuperior) {
+            rotacionCalculada = 90; 
+            console.log(`[PAGE]   Ficha para (7,9) NO DOBLE. Conexion por Superior. rotCalc=90`);
+          } else {
+            rotacionCalculada = -90;
+            console.log(`[PAGE]   Ficha para (7,9) NO DOBLE. Conexion por Inferior. rotCalc=-90`);
+          }
+        }
+        console.log(`[PAGE]   CALCULADO para (7,9): nuevaPos=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotCalc=${rotacionCalculada}`);
+        haSidoProcesadoPorLogicaDeGiroEspecial = true;
+      }
+      
+      // Caso: Crecimiento en Fila 7 hacia la izquierda (desde (7,c) a (7,c-1))
+      // Esto se verifica DESPUÉS del inicio de la fila 7, pero ANTES de los giros generales de la fila 5.
+      else if (extremoElegido === 'derecha' && uPos.fila === 7 && uPos.columna > 1) {
+        console.log(`[PAGE] DETECTADO: Crecimiento en Fila 7 hacia la izquierda desde (${uPos.fila},${uPos.columna})`);
+        nuevaPosicion = { fila: 7, columna: uPos.columna - 1 };
+        if (esDoble) {
+          rotacionCalculada = 0; // Los dobles en esta línea se colocan verticalmente
+          console.log(`[PAGE]   Ficha para (${nuevaPosicion.fila},${nuevaPosicion.columna}) es DOBLE. rotCalc=0`);
+        } else {
+          // Lógica de rotación específica para no dobles en Fila 7 creciendo hacia la izquierda
+          if (jugadaDeterminada.valorConexion === fichaParaJugar.valorSuperior) {
+            rotacionCalculada = 90;
+          } else { // jugadaDeterminada.valorConexion === fichaParaJugar.valorInferior
+            rotacionCalculada = -90;
+          }
+          console.log(`[PAGE]   Ficha para (${nuevaPosicion.fila},${nuevaPosicion.columna}) NO es DOBLE (Fila 7 Izq). valorConexion=${jugadaDeterminada.valorConexion}, fichaSup=${fichaParaJugar.valorSuperior}. rotCalc=${rotacionCalculada}`);
+        }
+        haSidoProcesadoPorLogicaDeGiroEspecial = true;
+      }
+      // Caso: Giro de (5,9) a (6,9)
+      // This will only be checked if the (6,9)->(7,9) case was not met
+      else if (uPos.fila === FILA_ANCLA_INICIAL && uPos.columna === 9 && extremoElegido === 'derecha') {
+        console.log(`[PAGE] DETECTADO: Giro (5,9)->(6,9)`);
         nuevaPosicion = { fila: uPos.fila + 1, columna: uPos.columna }; // Celda (6,9)
         if (jugadaDeterminada.valorConexion === fichaParaJugar.valorSuperior) {
           rotacionCalculada = 0;
@@ -172,31 +232,40 @@ export default function JuegoPage() {
           rotacionCalculada = 180;
         }
         console.log(`[PAGE] Giro en borde DERECHO (5,9)->(6,9): nuevaPos=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotCalc=${rotacionCalculada}`);
-      } else if (uPos.fila === FILA_ANCLA_INICIAL && extremoElegido === 'izquierda' && uPos.columna === 1) {
+        haSidoProcesadoPorLogicaDeGiroEspecial = true;
+      }
+      
+      // Caso: Giro de (5,1) a (4,1)
+      else if (uPos.fila === FILA_ANCLA_INICIAL && extremoElegido === 'izquierda' && uPos.columna === 1) {
+        console.log(`[PAGE] DETECTADO: Giro (5,1)->(4,1)`);
         nuevaPosicion = { fila: uPos.fila - 1, columna: uPos.columna }; // Celda (4,1)
         if (jugadaDeterminada.valorConexion === fichaParaJugar.valorInferior) {
           rotacionCalculada = 0;
         } else {
           rotacionCalculada = 180;
         }
-        console.log(`[PAGE] Giro en borde IZQUIERDO (5,1)->(4,1): nuevaPos=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotCalc=${rotacionCalculada}`);
-      } else {
-        // --- LÓGICA DE CAMINO Y ROTACIÓN GENERAL (no hubo giro en borde) ---
+        console.log(`[PAGE] Giro en borde IZQUIERDO (5,1)->(4,1) o inicio fila 3: nuevaPos=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotCalc=${rotacionCalculada}`);
+        haSidoProcesadoPorLogicaDeGiroEspecial = true;
+      }
+      
+      // LÓGICA DE CAMINO Y ROTACIÓN GENERAL (si no hubo giro especial)
+      if (!haSidoProcesadoPorLogicaDeGiroEspecial) {
+        console.log(`[PAGE] NO GIRO ESPECIAL: Entrando a lógica general.`);
         if (extremoElegido === 'derecha') { // Crecimiento a la derecha (no en borde de giro 5,9)
           if (uRot === 90 || uRot === -90) { // Conectando a HORIZONTAL
             nuevaPosicion = { fila: uPos.fila, columna: uPos.columna + 1 };
-          } else { // uRot === 0 // Conectando a VERTICAL
+          } else { // uRot === 0 o 180 // Conectando a VERTICAL
             nuevaPosicion = { fila: uPos.fila, columna: uPos.columna + 1 };
-            if (esDoble) {
+            if (esDoble) { // Si la ficha que se juega es doble y se conecta a una vertical, la nueva ficha se coloca debajo/encima
               nuevaPosicion = { fila: uPos.fila + 1, columna: uPos.columna };
             }
           }
         } else { // extremoElegido === 'izquierda' // Crecimiento a la izquierda (no en borde de giro 5,1)
           if (uRot === 90 || uRot === -90) { // Conectando a HORIZONTAL (no en borde de giro 5,1)
             nuevaPosicion = { fila: uPos.fila, columna: uPos.columna - 1 };
-          } else { // uRot === 0 // Conectando a VERTICAL
+          } else { // uRot === 0 o 180 // Conectando a VERTICAL
             nuevaPosicion = { fila: uPos.fila, columna: uPos.columna - 1 };
-            if (esDoble) {
+            if (esDoble) { // Si la ficha que se juega es doble y se conecta a una vertical, la nueva ficha se coloca debajo/encima
               nuevaPosicion = { fila: uPos.fila - 1, columna: uPos.columna };
             }
           }
@@ -207,10 +276,13 @@ export default function JuegoPage() {
           rotacionCalculada = 0;
           console.log(`[PAGE]   Ficha es DOBLE (no giro borde). rotCalc=0`);
         } else {
-          if ((uRot === 90 || uRot === -90) && nuevaPosicion.fila !== uPos.fila) { // Giro en "T"
-            rotacionCalculada = 0;
+          // Si la ficha anterior era horizontal y la nueva cambia de fila, es un giro en T
+          if ((uRot === 90 || uRot === -90) && nuevaPosicion.fila !== uPos.fila) { 
+            rotacionCalculada = 0; // Las fichas en T (no dobles) se colocan verticalmente
             console.log(`[PAGE]   Giro T (H->V) (no giro borde): uRot=${uRot}. rotCalc=0`);
-          } else if (uRot === 0 && nuevaPosicion.fila !== uPos.fila) { // Giro V->V (no doble)
+          } 
+          // Si la ficha anterior era vertical y la nueva cambia de fila (y no es doble), también es vertical
+          else if ((uRot === 0 || uRot === 180) && nuevaPosicion.fila !== uPos.fila) { 
             rotacionCalculada = 0;
             console.log(`[PAGE]   Giro (V->V no-doble) (no giro borde): uRot=${uRot}. rotCalc=0`);
           } else { // Colocación Horizontal
@@ -312,7 +384,7 @@ export default function JuegoPage() {
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">
       <header className="bg-domino-black text-domino-white p-2 sm:p-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-center">Dominando</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-center">PRUEBA VISUAL 12345</h1>
       </header>
       <main className="flex-grow relative flex justify-center items-center p-4">
         <MesaDomino
