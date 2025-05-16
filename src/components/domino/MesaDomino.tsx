@@ -92,16 +92,49 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
           console.log(`[MESA]     Dirección: Abajo. Base: nx=${nx.toFixed(2)}, ny=${ny.toFixed(2)}`);
           console.log(`[MESA]       uy_prev=${uy.toFixed(2)}, uActualHeight_prev=${uActualHeight}, nActualHeight_curr=${nActualHeight}`);
           console.log(`[MESA]       ny_calc = ${uy.toFixed(2)} + ${uActualHeight/2} + ${nActualHeight/2} = ${ny.toFixed(2)}`);
-          // Ajuste para T-Shape: si la anterior (u) era horizontal y la nueva (n) es vertical
-          if (!uIsVertical && nIsVertical) { // U es Bar (horizontal), N es Stem (vertical)
-            nx = ux + uActualWidth / 2 - nActualWidth / 2; // Alinea borde derecho de N con borde derecho de U
-            console.log(`[MESA]       Ajuste T (Abajo H->V): nx ajustado a ${nx.toFixed(2)}`);
+          
+          // Ajuste para T-Shape o L-Shape: si la anterior (u) era horizontal y la nueva (n) es vertical
+          if (!uIsVertical && nIsVertical) { // U (anterior) es Horizontal, N (actual) es Vertical
+            // Check for specific (7,1) -> (8,1) L-shape adjustment
+            if (ultimaFichaLogica.posicionCuadricula.fila === 7 &&
+                ultimaFichaLogica.posicionCuadricula.columna === 1 && // Previous piece is (7,1)
+                ! (ultimaFichaLogica.valorSuperior === ultimaFichaLogica.valorInferior) && // And (7,1) is NOT a double (hence horizontal)
+                fichaLogic.posicionCuadricula.fila === 8 && // Current piece is (8,1)
+                fichaLogic.posicionCuadricula.columna === 1 &&
+                nIsVertical) { // Current piece is Vertical
+                
+                // Para alinear bordes izquierdos de (7,1)H y (8,1)V:
+                // nx_nuevo = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2
+                const desplazamiento = (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                nx = ux - desplazamiento; // nx was initially ux, move left by 'desplazamiento'
+                console.log(`[MESA]       AJUSTE "L" ALIGN-LEFT (8,1)V from (7,1)H: nx ajustado a ${nx.toFixed(2)} (desplazado -${desplazamiento.toFixed(2)})`);
+            } else if (!uIsVertical && nIsVertical) { // Generic T-shape adjustment for other H->V "Abajo" connections
+                // Generic T-shape adjustment for other H->V "Abajo" connections
+                // Alinea borde derecho de N con borde derecho de U
+                nx = ux + uActualWidth / 2 - nActualWidth / 2; 
+                console.log(`[MESA]       Ajuste T (Abajo H->V): nx ajustado a ${nx.toFixed(2)}`);
+            }
           } else if (uIsVertical && !nIsVertical && fichaLogic.posicionCuadricula.columna === ultimaFichaLogica.posicionCuadricula.columna) {
             // Caso T-Invertida: U es Stem (vertical), N es Bar (horizontal)
             nx = ux + (nActualWidth / 2) - (uActualWidth / 2); // Desplaza la Bar (N) a la derecha del Stem (U) para alinear bordes izquierdos
             console.log(`[MESA]       Ajuste T-Invertida (Abajo V->H): nx de Bar ajustado a ${nx.toFixed(2)}`);
           } else if (uIsVertical && nIsVertical) {
             console.log(`[MESA]       Apilamiento Vertical (V->V). nx=${nx.toFixed(2)}`);
+          }
+
+          // NUEVO AJUSTE: (8,1)V -> (9,1)H
+          if (ultimaFichaLogica.posicionCuadricula.fila === 8 &&
+              ultimaFichaLogica.posicionCuadricula.columna === 1 && // Previous piece is (8,1)
+              uIsVertical && // And (8,1) is Vertical
+              fichaLogic.posicionCuadricula.fila === 9 && // Current piece is (9,1)
+              fichaLogic.posicionCuadricula.columna === 1 &&
+              !nIsVertical) { // Current piece is Horizontal
+              
+              // Para alinear bordes izquierdos de (8,1)V y (9,1)H:
+              // nx_nuevo = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2
+              const desplazamiento = (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+              nx = ux + desplazamiento; // nx was initially ux, move right by 'desplazamiento'
+              console.log(`[MESA]       AJUSTE "L" ALIGN-LEFT (9,1)H from (8,1)V: nx ajustado a ${nx.toFixed(2)} (desplazado +${desplazamiento.toFixed(2)})`);
           }
         } else { // Arriba (fichaLogic.posicionCuadricula.fila < ultimaFichaLogica.posicionCuadricula.fila)
           nx = ux; 
@@ -118,21 +151,21 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
           }
         }
         
-        // AJUSTE ESPECIAL para ficha horizontal en (7,9) conectando a (6,9) vertical
+        // AJUSTE ESPECIAL para ficha horizontal en (7,11) conectando a (6,11) vertical
         if (ultimaFichaCalculada && 
           ultimaFichaLogica.posicionCuadricula.fila === 6 &&
-          ultimaFichaLogica.posicionCuadricula.columna === 11 && // <-- CAMBIADO
+          ultimaFichaLogica.posicionCuadricula.columna === 11 && 
           (Math.abs(ultimaFichaLogica.rotacion % 180) === 0) && 
           fichaLogic.posicionCuadricula.fila === 7 &&
-          fichaLogic.posicionCuadricula.columna === 11 && // <-- CAMBIADO
+          fichaLogic.posicionCuadricula.columna === 11 && 
           (Math.abs(fichaLogic.rotacion % 180) === 90) 
         ) {
-          // Para formar la "L con base a la izquierda", el centro de (6,9) [ux]
-          // debe alinearse con el centro de la mitad derecha de la ficha (7,9) [nx_nuevo + DOMINO_HEIGHT_PX / 4].
+          // Para formar la "L con base a la izquierda", el centro de (6,11) [ux]
+          // debe alinearse con el centro de la mitad derecha de la ficha (7,11) [nx_nuevo + DOMINO_HEIGHT_PX / 4].
           // Entonces, nx_nuevo = ux - DOMINO_HEIGHT_PX / 4.
           const desplazamiento = DOMINO_HEIGHT_PX / 4; 
-          nx = ux - desplazamiento; // Mover el centro de la ficha (7,9) a la izquierda.
-          console.log(`[MESA]     AJUSTE "L" HORIZONTAL (7,9): ux=${ux.toFixed(2)}, nx original era ${ux.toFixed(2)}, desplazado en -${desplazamiento.toFixed(2)}, nuevo nx=${nx.toFixed(2)}`);
+          nx = ux - desplazamiento; // Mover el centro de la ficha (7,11) a la izquierda.
+          console.log(`[MESA]     AJUSTE "L" HORIZONTAL (7,11): ux=${ux.toFixed(2)}, nx original era ${ux.toFixed(2)}, desplazado en -${desplazamiento.toFixed(2)}, nuevo nx=${nx.toFixed(2)}`);
         }
       }
       console.log(`[MESA]   Ficha ${fichaLogic.id}: nxFinal=${nx.toFixed(2)}, nyFinal=${ny.toFixed(2)}`);
