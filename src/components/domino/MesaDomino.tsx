@@ -119,13 +119,13 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
         }
         
         // AJUSTE ESPECIAL para ficha horizontal en (7,9) conectando a (6,9) vertical
-        if (ultimaFichaCalculada && // Asegurarse de que hay una ficha previa
-            ultimaFichaLogica.posicionCuadricula.fila === 6 &&
-            ultimaFichaLogica.posicionCuadricula.columna === 9 &&
-            (Math.abs(ultimaFichaLogica.rotacion % 180) === 0) && // Ficha previa (6,9) es vertical
-            fichaLogic.posicionCuadricula.fila === 7 &&
-            fichaLogic.posicionCuadricula.columna === 9 &&
-            (Math.abs(fichaLogic.rotacion % 180) === 90) // Ficha actual (7,9) es horizontal
+        if (ultimaFichaCalculada && 
+          ultimaFichaLogica.posicionCuadricula.fila === 6 &&
+          ultimaFichaLogica.posicionCuadricula.columna === 11 && // <-- CAMBIADO
+          (Math.abs(ultimaFichaLogica.rotacion % 180) === 0) && 
+          fichaLogic.posicionCuadricula.fila === 7 &&
+          fichaLogic.posicionCuadricula.columna === 11 && // <-- CAMBIADO
+          (Math.abs(fichaLogic.rotacion % 180) === 90) 
         ) {
           // Para formar la "L con base a la izquierda", el centro de (6,9) [ux]
           // debe alinearse con el centro de la mitad derecha de la ficha (7,9) [nx_nuevo + DOMINO_HEIGHT_PX / 4].
@@ -201,7 +201,7 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
       className="bg-green-700 shadow-lg rounded-md relative"
       style={{
         width: 'min(calc(100vh - 220px), 90vw)',
-        aspectRatio: '1 / 1',
+        aspectRatio: `${DESIGN_TABLE_WIDTH_PX} / ${DESIGN_TABLE_HEIGHT_PX}`, // Ajuste para el nuevo aspect ratio
         border: '8px solid #7e4a35',
         overflow: 'hidden', // Muy importante
       }}
