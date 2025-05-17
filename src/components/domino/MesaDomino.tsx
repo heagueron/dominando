@@ -309,15 +309,21 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
       ref={mesaRef}
       className="bg-green-700 shadow-lg rounded-md relative"
       style={{
-        width: 'min(calc(100vh - 220px), 90vw)', // Reducido de 90vw a 80vw
+        // 1. Establecer un ancho responsivo, limitado por 80vw y el ancho de diseño.
+        // Esto evita que las fichas en la mesa se escalen a más de 1x su tamaño de diseño.
+        width: `min(80vw, ${DESIGN_TABLE_WIDTH_PX}px)`,
+        // 2. Mantener la relación de aspecto del diseño. La altura se derivará de este ancho.
         aspectRatio: `${DESIGN_TABLE_WIDTH_PX} / ${DESIGN_TABLE_HEIGHT_PX}`,
+        // 3. Limitar la altura máxima. Si la altura calculada por aspectRatio y el ancho
+        //    excede este maxHeight, el navegador debería reducir el tamaño general
+        //    (incluyendo el ancho) para ajustarse, manteniendo el aspectRatio.
+        maxHeight: 'calc(100vh - 220px)', // Ajusta este valor según sea necesario (header + mano inferior + márgenes)
+        
         border: '8px solid #7e4a35',
         overflow: 'hidden',
+        position: 'relative', // Necesario para el posicionamiento absoluto del lienzo interno
       }}
     >
-      {/* Guiding lines removed for simplicity during debugging */}
-      {/* <div style={{ position: 'absolute', ... }} /> */}
-      {/* <div style={{ position: 'absolute', ... }} /> */}
 
       <div 
         style={{
@@ -328,38 +334,38 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
           left: 0, 
           transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale})`,
           transformOrigin: 'top left',
-          // backgroundColor: 'rgba(255,0,0,0.1)', // Temp background to see canvas
         }}
       >
         {fichasCalculadas.map((ficha) => {
-          const fichaOriginalWidth = (Math.abs(ficha.rotacion % 180) === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
-          const fichaOriginalHeight = (Math.abs(ficha.rotacion % 180) === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
-          return (
-            <div
-              key={ficha.id}
-              style={{
-                position: 'absolute',
-                left: `${ficha.x - fichaOriginalWidth / 2}px`, 
-                top: `${ficha.y - fichaOriginalHeight / 2}px`,  
-                width: `${fichaOriginalWidth}px`,
-                height: `${fichaOriginalHeight}px`,
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <FichaDomino
-                id={ficha.id}
-                valorSuperior={ficha.valorSuperior}
-                valorInferior={ficha.valorInferior}
-                rotacion={ficha.rotacion}
-                onClick={() => onFichaClick(ficha.id)}
-                arrastrable={false}
-                esEnMano={false}
-              />
-            </div>
-          );
-        })}
+            const fichaOriginalWidth = (Math.abs(ficha.rotacion % 180) === 0) ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+            const fichaOriginalHeight = (Math.abs(ficha.rotacion % 180) === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+            return (
+              <div
+                key={ficha.id}
+                style={{
+                  position: 'absolute',
+                  left: `${ficha.x - fichaOriginalWidth / 2}px`, 
+                  top: `${ficha.y - fichaOriginalHeight / 2}px`,  
+                  width: `${fichaOriginalWidth}px`,
+                  height: `${fichaOriginalHeight}px`,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <FichaDomino
+                  id={ficha.id}
+                  valorSuperior={ficha.valorSuperior}
+                  valorInferior={ficha.valorInferior}
+                  rotacion={ficha.rotacion}
+                  onClick={() => onFichaClick(ficha.id)}
+                  arrastrable={false}
+                  esEnMano={false}
+                />
+              </div>
+            );
+          }
+        )}
       </div>
     </div>
   );
