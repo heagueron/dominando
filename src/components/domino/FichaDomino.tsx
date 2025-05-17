@@ -87,7 +87,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
     },
   };
 
-  console.log(`Renderizando ficha ${valorSuperior}/${valorInferior} con rotación ${rotacion}°`);
+  // console.log(`Renderizando ficha ${valorSuperior}/${valorInferior} con rotación ${rotacion}°`);
 
   return (
     <motion.div
