@@ -11,6 +11,7 @@ interface FichaDominoProps {
   onClick?: () => void;
   arrastrable?: boolean;
   esEnMano?: boolean;
+  sizeClass?: string; // Nueva prop para clases de tamaño
 }
 
 const FichaDomino: React.FC<FichaDominoProps> = ({
@@ -22,6 +23,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   onClick,
   arrastrable = false,
   // esEnMano, // Destructurado pero no usado directamente en el renderizado de puntos
+  sizeClass = 'w-[48px] h-[96px] sm:w-[64px] sm:h-[128px]', // Clases de tamaño por defecto (ejemplo: 48x96px en móvil, 64x128px en sm+)
 }) => {
   const renderizarPuntos = (valor: number) => {
     const posiciones = {
@@ -91,12 +93,10 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
 
   return (
     <motion.div
-      className={`ficha-domino relative cursor-pointer ${
+    className={`ficha-domino relative cursor-pointer bg-white rounded ${sizeClass} ${ // Aplicamos sizeClass aquí
         seleccionada ? 'ring-2 ring-yellow-400' : ''
-      } bg-white rounded`} // Reintroducimos 'rounded', 'shadow-md' es manejado por variants
+    }`}
       style={{
-        width: `${DOMINO_WIDTH_PX}px`,
-        height: `${DOMINO_HEIGHT_PX}px`,
         transformOrigin: 'center center',
       }}
       onClick={onClick}

@@ -21,9 +21,10 @@ interface MesaDominoProps {
   fichasEnMesa: FichaParaLogica[];
   posicionAnclaFija: { fila: number; columna: number }; // La celda lógica que debe permanecer centrada
   onFichaClick: (id: string) => void;
+  onMesaDimensionsChange?: (width: number, height: number, scale: number) => void; // Nueva prop
 }
 
-const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija, onFichaClick }) => {
+const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija, onFichaClick, onMesaDimensionsChange }) => {
   const [fichasCalculadas, setFichasCalculadas] = useState<FichaRenderizable[]>([]);
   const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 1 });
   const mesaRef = useRef<HTMLDivElement>(null);
@@ -255,8 +256,8 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
         const currentMesaHeight = mesaRef.current.offsetHeight; 
         let currentScaleFactor = currentMesaWidth / DESIGN_TABLE_WIDTH_PX; 
 
-        const scaleBasedOnHeight = currentMesaHeight / DESIGN_TABLE_HEIGHT_PX;
-        currentScaleFactor = Math.min(currentScaleFactor, scaleBasedOnHeight); 
+        //const scaleBasedOnHeight = currentMesaHeight / DESIGN_TABLE_HEIGHT_PX;
+        //currentScaleFactor = Math.min(currentScaleFactor, scaleBasedOnHeight); 
 
         let translateX = 0;
         let translateY = 0;
@@ -284,6 +285,9 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
 
         setCanvasTransform({ x: translateX, y: translateY, scale: currentScaleFactor });
         console.log(`[MESA] updateTransform: scale=${currentScaleFactor.toFixed(4)}, translateX=${translateX.toFixed(2)}, translateY=${translateY.toFixed(2)}`);
+        if (onMesaDimensionsChange && mesaRef.current) {
+          onMesaDimensionsChange(mesaRef.current.offsetWidth, mesaRef.current.offsetHeight, currentScaleFactor);
+        }
       }
     };
     updateTransform();
@@ -307,17 +311,17 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
   return (
     <div
       ref={mesaRef}
-      className="bg-green-700 shadow-lg rounded-md relative"
+      className="bg-green-800 shadow-lg rounded-md relative"
       style={{
         // 1. Establecer un ancho responsivo, limitado por 80vw y el ancho de diseño.
         // Esto evita que las fichas en la mesa se escalen a más de 1x su tamaño de diseño.
-        width: `min(80vw, ${DESIGN_TABLE_WIDTH_PX}px)`,
+        width: `min(85vw, ${DESIGN_TABLE_WIDTH_PX}px)`, // Aumentado a 85vw para dar un poco más de espacio si es posible
         // 2. Mantener la relación de aspecto del diseño. La altura se derivará de este ancho.
         aspectRatio: `${DESIGN_TABLE_WIDTH_PX} / ${DESIGN_TABLE_HEIGHT_PX}`,
         // 3. Limitar la altura máxima. Si la altura calculada por aspectRatio y el ancho
         //    excede este maxHeight, el navegador debería reducir el tamaño general
-        //    (incluyendo el ancho) para ajustarse, manteniendo el aspectRatio.
-        maxHeight: 'calc(100vh - 220px)', // Ajusta este valor según sea necesario (header + mano inferior + márgenes)
+        //    (incluyendo el ancho) para ajustarse, manteniendo el aspectRatio. 
+        maxHeight: 'calc(100vh - 20px)', // Reducido aún más, asumiendo mano inferior más pequeña (ajustar según sea necesario)
         
         border: '8px solid #7e4a35',
         overflow: 'hidden',
@@ -359,6 +363,8 @@ const MesaDomino: React.FC<MesaDominoProps> = ({ fichasEnMesa, posicionAnclaFija
                   valorInferior={ficha.valorInferior}
                   rotacion={ficha.rotacion}
                   onClick={() => onFichaClick(ficha.id)}
+                // Asegurar que las fichas en la mesa usen las dimensiones base definidas por las constantes
+                sizeClass={`w-[${DOMINO_WIDTH_PX}px] h-[${DOMINO_HEIGHT_PX}px]`}
                   arrastrable={false}
                   esEnMano={false}
                 />

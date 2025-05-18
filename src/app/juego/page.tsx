@@ -1,8 +1,8 @@
 // /home/heagueron/projects/dominando/src/app/juego/page.tsx
 'use client';
 
-import { motion } from 'framer-motion';
-import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion'; // Asegúrate que React se importa completo si usas useMemo/useCallback explícitamente
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador';
 import {
@@ -10,7 +10,10 @@ import {
  generarYRepartirFichas,
  ManoDeJugador as TipoManoDeJugador,
 } from '@/utils/dominoUtils';
-import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX } from '@/utils/dominoConstants';
+import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
+//import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Importar el nuevo componente
+// En page.tsx
+import DebugInfoOverlay from '../../components/debug/DebugInfoOverlay';
 
 interface FichaEnMesaParaLogica extends FichaDomino {
   posicionCuadricula: { fila: number; columna: number };
@@ -76,12 +79,38 @@ export default function JuegoPage() {
     derecha: { pos: { fila: number, columna: number }, rot: number } | null,
   }>({ izquierda: null, derecha: null });
 
+  // Estado para la información de depuración
+  const [viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
+  const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 0 });
+
   useEffect(() => {
     const { manos, sobrantes } = generarYRepartirFichas(4, 7);
     setManosJugadores(manos);
     console.log("[PAGE] Manos generadas:", manos);
     setFichasSobrantes(sobrantes);
   }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportDims({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Llamada inicial
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleMesaDimensionsChange = useCallback((width: number, height: number, scale: number) => {
+    setMesaDims(prevDims => {
+      // Solo actualizar si los valores realmente cambian para evitar re-renders innecesarios
+      if (prevDims.width === width && prevDims.height === height && prevDims.scale === scale) {
+        return prevDims;
+      }
+      return { width, height, scale };
+    });
+  }, []); // setMesaDims es estable, por lo que el array de dependencias puede estar vacío
+
+
+
 
   const handleFichaClick = (idFicha: string, idJugadorMano: string) => {
     if (fichaSeleccionada && fichaSeleccionada.idFicha === idFicha && fichaSeleccionada.idJugadorMano === idJugadorMano) {
@@ -469,11 +498,19 @@ export default function JuegoPage() {
     console.log(`[PAGE] ===== FIN HANDLE JUGAR FICHA =====`);
   };
 
-  const combinedFichasParaMesa: FichaEnMesaParaLogica[] = [
-    ...fichasIzquierda.slice().reverse(), 
-    ...(anclaFicha ? [anclaFicha] : []), 
-    ...fichasDerecha, 
-  ];
+  const combinedFichasParaMesa = useMemo(() => {
+    console.log("[PAGE] Recalculando combinedFichasParaMesa");
+    return [
+      ...fichasIzquierda.slice().reverse(),
+      ...(anclaFicha ? [anclaFicha] : []),
+      ...fichasDerecha,
+    ];
+  }, [fichasIzquierda, anclaFicha, fichasDerecha]);
+
+  const memoizedPosicionAnclaFija = useMemo(() => {
+    console.log("[PAGE] Recalculando memoizedPosicionAnclaFija");
+    return anclaFicha ? anclaFicha.posicionCuadricula : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
+  }, [anclaFicha]); // FILA_ANCLA_INICIAL y COLUMNA_ANCLA_INICIAL son constantes
 
   let fichaRealmenteSeleccionada: FichaDomino | undefined = undefined;
   if (fichaSeleccionada) {
@@ -520,18 +557,28 @@ export default function JuegoPage() {
   const manoJugador3 = manosJugadores.find(m => m.idJugador === "jugador3");
   const manoJugador4 = manosJugadores.find(m => m.idJugador === "jugador4");
   
-  console.log(`[PAGE] VALORES DE ANCLA ANTES DE RENDERIZAR MESA: FILA_ANCLA_INICIAL=${FILA_ANCLA_INICIAL}, COLUMNA_ANCLA_INICIAL=${COLUMNA_ANCLA_INICIAL}`);
+  // console.log(`[PAGE] VALORES DE ANCLA ANTES DE RENDERIZAR MESA: FILA_ANCLA_INICIAL=${FILA_ANCLA_INICIAL}, COLUMNA_ANCLA_INICIAL=${COLUMNA_ANCLA_INICIAL}`);
 
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">
-      <header className="bg-domino-black text-domino-white p-2 sm:p-3">
+      {/* <header className="bg-domino-black text-domino-white p-2 sm:p-3">
         <h1 className="text-xl sm:text-2xl font-bold text-center">Dominando</h1>
-      </header>
+      </header> */} {/* Header eliminado completamente */}
       <main className="flex-grow relative flex justify-center items-center p-4">
         <MesaDomino
           fichasEnMesa={combinedFichasParaMesa} 
-          posicionAnclaFija={anclaFicha ? anclaFicha.posicionCuadricula : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL }}
+          posicionAnclaFija={memoizedPosicionAnclaFija}
           onFichaClick={(id) => console.log('[MESA] Ficha en mesa clickeada:', id)}
+          onMesaDimensionsChange={handleMesaDimensionsChange} // Pasar la nueva callback
+        />
+        <DebugInfoOverlay
+          viewportWidth={viewportDims.width}
+          viewportHeight={viewportDims.height}
+          mesaWidth={mesaDims.width}
+          mesaHeight={mesaDims.height}
+          mesaScale={mesaDims.scale}
+          dominoConstWidth={DOMINO_WIDTH_PX}
+          dominoConstHeight={DOMINO_HEIGHT_PX}
         />
         {fichaSeleccionadaActual && (
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end p-2 bg-black bg-opacity-75 rounded shadow-lg z-10">

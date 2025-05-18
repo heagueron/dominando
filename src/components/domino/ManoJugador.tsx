@@ -27,7 +27,13 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   layoutDirection = 'row',
 }) => {
   const esManoPrincipal = idJugadorMano === "jugador1"; // O alguna otra lógica para identificar la mano principal
-
+  // Definir clases de tamaño para las fichas en mano según el jugador y el breakpoint
+  // Ahora, esta constante `fichaSizeClass` se pasará correctamente a cada FichaDomino.
+  // Puedes ajustar los valores aquí (por ejemplo, tu prueba con w-[2px] h-[4px])
+  // y deberían reflejarse.
+  const fichaSizeClass = esManoPrincipal
+    ? 'w-[30px] h-[60px] sm:w-[30px] sm:h-[60px] md:w-[30px] md:h-[60px] lg:w-[48px] lg:h-[96px] xl:w-[48px] xl:h-[96px] 2xl:w-[48px] 2xl:h-[96px]' // Jugador 1 (ejemplo con más breakpoints)
+    : 'w-[23px] h-[46px] sm:w-[23px] sm:h-[46px] md:w-[23px] md:h-[46px] lg:w-[40px] lg:h-[80px] xl:w-[40px] xl:h-[80px] 2xl:w-[40px] 2xl:h-[80px]'; // Otros jugadores (ejemplo con más breakpoints)
   return (
     <motion.div
       // El posicionamiento y animación de entrada principal se manejarán externamente
@@ -59,6 +65,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
                 onClick={() => onFichaClick(ficha.id, idJugadorMano)}
                 arrastrable={true} // Las fichas en mano son arrastrables
                 esEnMano={true}    // Indicar que esta ficha está en la mano
+                sizeClass={fichaSizeClass} // <--- AQUÍ ESTÁ LA CORRECCIÓN
               />
             </motion.div>
           ))}
