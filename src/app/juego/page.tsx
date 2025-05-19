@@ -7,18 +7,17 @@ import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador';
 import {
  FichaDomino,
+ FichaEnMesaParaLogica,
  generarYRepartirFichas,
  ManoDeJugador as TipoManoDeJugador,
 } from '@/utils/dominoUtils';
 import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
 //import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Importar el nuevo componente
+import { calcularRotacionHorizontalNoDoble } from '@/utils/posicionamientoUtils'; // Importar desde la nueva ubicación
 // En page.tsx
 import DebugInfoOverlay from '../../components/debug/DebugInfoOverlay';
 
-interface FichaEnMesaParaLogica extends FichaDomino {
-  posicionCuadricula: { fila: number; columna: number };
-  rotacion: number;
-}
+
 
 interface FichaSeleccionadaInfo {
   idFicha: string;
@@ -28,37 +27,6 @@ interface FichaSeleccionadaInfo {
 const FILA_ANCLA_INICIAL = 5;
 const COLUMNA_ANCLA_INICIAL = 6; // Ajuste para la nueva celda ancla (5,6)
 const COLUMNA_BORDE_IZQUIERDO = 1;
-
-// --- Función Auxiliar para Calcular Rotación de Fichas Horizontales No Dobles ---
-const calcularRotacionHorizontalNoDoble = (
-  ficha: FichaDomino,
-  extremoElegido: 'izquierda' | 'derecha',
-  valorConexionEnFicha: number // El valor en `ficha` que hace match con el extremo
-): number => {
-  // Si jugamos en el extremo DERECHO de la cadena, el lado IZQUIERDO de la nueva ficha debe conectar.
-  // Visualmente: [LadoConecta][OtroLado]
-  if (extremoElegido === 'derecha') {
-    if (valorConexionEnFicha === ficha.valorSuperior) {
-      // Queremos que S (valorSuperior) quede a la IZQUIERDA. Rotación: -90 ([S][I])
-      return -90;
-    } else { // valorConexionEnFicha === ficha.valorInferior
-      // Queremos que I (valorInferior) quede a la IZQUIERDA. Rotación: 90 ([I][S])
-      return 90;
-    }
-  }
-  // Si jugamos en el extremo IZQUIERDO de la cadena, el lado DERECHO de la nueva ficha debe conectar.
-  // Visualmente: [OtroLado][LadoConecta]
-  else { // extremoElegido === 'izquierda'
-    if (valorConexionEnFicha === ficha.valorSuperior) {
-      // Queremos que S (valorSuperior) quede a la DERECHA. Rotación: 90 ([I][S])
-      return 90;
-    } else { // valorConexionEnFicha === ficha.valorInferior
-      // Queremos que I (valorInferior) quede a la DERECHA. Rotación: -90 ([S][I])
-      return -90;
-    }
-  }
-};
-// --- Fin Función Auxiliar ---
 
 export default function JuegoPage() {
   const [manosJugadores, setManosJugadores] = useState<TipoManoDeJugador[]>([]);

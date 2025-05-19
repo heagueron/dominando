@@ -7,6 +7,11 @@ export interface FichaDomino {
   valorInferior: number; // Valor en la parte inferior de la ficha
 }
 
+export interface FichaEnMesaParaLogica extends FichaDomino {
+  posicionCuadricula: { fila: number; columna: number };
+  rotacion: number;
+}
+
 /**
  * Interfaz que representa la mano de un jugador.
  */
