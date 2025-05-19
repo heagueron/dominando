@@ -21,6 +21,9 @@ import {
   COLUMNA_BORDE_IZQUIERDO, // Importar constante
   COLUMNA_ANCLA_INICIAL // Importar constante
 } from '@/utils/posicionamientoUtils';
+
+import { determinarPrimerJugador } from '@/utils/turnosUtils'; // Nueva importación
+
 import DebugInfoOverlay from '../../components/debug/DebugInfoOverlay';
 
 
@@ -54,13 +57,45 @@ export default function JuegoPage() {
   // Estado para la información de depuración
   const [viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
   const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 0 });
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
+  const [playableFichaIds, setPlayableFichaIds] = useState<string[]>([]);
 
   useEffect(() => {
     const { manos, sobrantes } = generarYRepartirFichas(4, 7);
-    setManosJugadores(manos);
-    console.log("[PAGE] Manos generadas:", manos);
+
+    // Asumimos que generarYRepartirFichas devuelve las manos en el orden visual: [Bottom, Left, Top, Right]
+    // Queremos que el estado manosJugadores esté ordenado según el turno (sentido anti-horario): [Bottom, Right, Top, Left]
+    if (manos.length === 4) {
+      const reorderedManos = [
+        manos[0], // Posición Bottom (jugador1 en el turno)
+        manos[3], // Posición Right (jugador2 en el turno)
+        manos[2], // Posición Top (jugador3 en el turno)
+        manos[1], // Posición Left (jugador4 en el turno)
+      ];
+      // Actualizar los IDs en las manos para que coincidan con el nuevo orden de turno (1, 2, 3, 4)
+      reorderedManos[0].idJugador = "jugador1"; // Bottom es jugador1
+      reorderedManos[1].idJugador = "jugador2"; // Right es jugador2
+      reorderedManos[2].idJugador = "jugador3"; // Top es jugador3
+      reorderedManos[3].idJugador = "jugador4"; // Left es jugador4
+
+      setManosJugadores(reorderedManos);
+      console.log("[PAGE] Manos generadas y reordenadas para el orden de turno:", reorderedManos);
+    } else {
+       // Manejar casos con diferente número de jugadores si es necesario, o asumir 4 jugadores
+       setManosJugadores(manos); // Mantener el orden original si no son 4 jugadores
+       console.log("[PAGE] Manos generadas (no reordenadas, no 4 jugadores):", manos);
+    }
     setFichasSobrantes(sobrantes);
   }, []);
+
+  // Determinar el primer jugador una vez que las manos están listas
+  useEffect(() => {
+    if (manosJugadores.length > 0 && !currentPlayerId) {
+      const primerJugador = determinarPrimerJugador(manosJugadores);
+      setCurrentPlayerId(primerJugador);
+      console.log(`[PAGE] Primer jugador determinado: ${primerJugador}`);
+    }
+  }, [manosJugadores, currentPlayerId]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -107,6 +142,41 @@ export default function JuegoPage() {
     });
   }, []); // setMesaDims es estable, por lo que el array de dependencias puede estar vacío
 
+  // Efecto para calcular las fichas jugables del jugador actual
+  useEffect(() => {
+    if (!currentPlayerId || manosJugadores.length === 0) {
+      setPlayableFichaIds([]);
+      return;
+    }
+
+    const manoActual = manosJugadores.find(m => m.idJugador === currentPlayerId);
+    if (!manoActual) {
+      setPlayableFichaIds([]);
+      return;
+    }
+
+    const idsJugables: string[] = [];
+    if (!anclaFicha) { // Si es el primer turno, todas las fichas son jugables para iniciar
+      idsJugables.push(...manoActual.fichas.map(f => f.id));
+    } else {
+      manoActual.fichas.forEach(ficha => {
+        let puedeJugarEstaFicha = false;
+        if (extremos.izquierda !== null) {
+          if (determinarJugada(ficha, extremos.izquierda).puedeJugar) {
+            puedeJugarEstaFicha = true;
+          }
+        }
+        if (!puedeJugarEstaFicha && extremos.derecha !== null) { // Solo comprobar derecha si no pudo por la izquierda
+          if (determinarJugada(ficha, extremos.derecha).puedeJugar) {
+            puedeJugarEstaFicha = true;
+          }
+        }
+        if (puedeJugarEstaFicha) idsJugables.push(ficha.id);
+      });
+    }
+    setPlayableFichaIds(idsJugables);
+    console.log(`[PAGE] Fichas jugables para ${currentPlayerId}:`, idsJugables);
+  }, [currentPlayerId, manosJugadores, anclaFicha, extremos]);
 
 
 
@@ -131,8 +201,28 @@ export default function JuegoPage() {
     return { puedeJugar: false };
   };
 
+  const avanzarTurno = () => {
+    if (!currentPlayerId || manosJugadores.length === 0) return;
+
+    const currentIndex = manosJugadores.findIndex(m => m.idJugador === currentPlayerId);
+    if (currentIndex === -1) {
+      console.error("[PAGE] No se pudo encontrar el jugador actual para avanzar el turno.");
+      return;
+    }
+
+    const nextIndex = (currentIndex + 1) % manosJugadores.length;
+    const nextPlayerId = manosJugadores[nextIndex].idJugador;
+    setCurrentPlayerId(nextPlayerId);
+    setFichaSeleccionada(undefined); // Deseleccionar cualquier ficha al cambiar de turno
+    console.log(`[PAGE] Turno avanzado a: ${nextPlayerId}`);
+  };
+
   const handleJugarFicha = (extremoElegido: 'izquierda' | 'derecha') => {
     console.log("¡¡¡ HANDLE JUGAR FICHA INVOCADO !!!"); 
+    if (fichaSeleccionada?.idJugadorMano !== currentPlayerId) {
+      console.warn(`[PAGE] Intento de jugar ficha por ${fichaSeleccionada?.idJugadorMano}, pero es turno de ${currentPlayerId}`);
+      return; // Solo el jugador actual puede jugar
+    }
     if (!fichaSeleccionada) return;
 
     const manoDelJugador = manosJugadores.find(m => m.idJugador === fichaSeleccionada.idJugadorMano);
@@ -232,6 +322,7 @@ export default function JuegoPage() {
             : mano
         ));
       setFichaSeleccionada(undefined);
+      avanzarTurno(); // Avanzar el turno después de una jugada exitosa
     }
     console.log(`[PAGE] ===== FIN HANDLE JUGAR FICHA =====`);
   };
@@ -266,45 +357,54 @@ export default function JuegoPage() {
   let textoBotonDerecha = "Punta Derecha";
   let mostrarJuegoCerrado = false;
 
-  if (fichaSeleccionadaActual) {
-    if (!anclaFicha) { 
-      puedeJugarIzquierda = true;
-      textoBotonIzquierda = `Jugar ${fichaSeleccionadaActual.valorSuperior}-${fichaSeleccionadaActual.valorInferior}`;
-      puedeJugarDerecha = false; 
+  // La lógica de los botones de jugar ahora también debe considerar si es el turno del jugador que seleccionó la ficha
+  if (fichaSeleccionadaActual && fichaSeleccionada?.idJugadorMano === currentPlayerId) {
+    // Solo mostrar opciones de juego si la ficha seleccionada pertenece al jugador actual
+    if (!playableFichaIds.includes(fichaSeleccionadaActual.id)) {
+      // Si la ficha seleccionada no es jugable, no mostrar opciones de juego para ella.
+      // Esto podría ocurrir si el cálculo de playableFichaIds aún no se ha actualizado
+      // o si hay alguna discrepancia. Por seguridad, no mostramos botones.
+      console.warn(`[PAGE] Ficha seleccionada ${fichaSeleccionadaActual.id} no está en la lista de jugables.`);
     } else {
-      const extremosSonIguales = extremos.izquierda !== null && extremos.izquierda === extremos.derecha;
+      if (!anclaFicha) { 
+        puedeJugarIzquierda = true;
+        textoBotonIzquierda = `Jugar ${fichaSeleccionadaActual.valorSuperior}-${fichaSeleccionadaActual.valorInferior}`;
+        puedeJugarDerecha = false; 
+      } else {
+        const extremosSonIguales = extremos.izquierda !== null && extremos.izquierda === extremos.derecha;
 
-      if (extremosSonIguales) {
-        const lenIzquierda = fichasIzquierda.length;
-        const lenDerecha = fichasDerecha.length;
+        if (extremosSonIguales) {
+          const lenIzquierda = fichasIzquierda.length;
+          const lenDerecha = fichasDerecha.length;
 
-        if (lenIzquierda <= lenDerecha) { // Izquierda es más corta o igual
+          if (lenIzquierda <= lenDerecha) { // Izquierda es más corta o igual
+            if (extremos.izquierda !== null) {
+              puedeJugarIzquierda = determinarJugada(fichaSeleccionadaActual, extremos.izquierda).puedeJugar;
+              textoBotonIzquierda = `Jugar en Izquierda (${extremos.izquierda})`;
+            }
+            puedeJugarDerecha = false; // No mostrar botón derecho
+            textoBotonDerecha = `Punta Derecha (${extremos.derecha})`; // Texto de respaldo
+          } else { // Derecha es más corta
+            puedeJugarIzquierda = false; // No mostrar botón izquierdo
+            textoBotonIzquierda = `Punta Izquierda (${extremos.izquierda})`; // Texto de respaldo
+            if (extremos.derecha !== null) {
+              puedeJugarDerecha = determinarJugada(fichaSeleccionadaActual, extremos.derecha).puedeJugar;
+              textoBotonDerecha = `Jugar en Derecha (${extremos.derecha})`;
+            }
+          }
+        } else { // Extremos diferentes
           if (extremos.izquierda !== null) {
             puedeJugarIzquierda = determinarJugada(fichaSeleccionadaActual, extremos.izquierda).puedeJugar;
-            textoBotonIzquierda = `Jugar en Izquierda (${extremos.izquierda})`;
+            textoBotonIzquierda = `Punta Izquierda (${extremos.izquierda})`;
+          } else {
+             puedeJugarIzquierda = false;
           }
-          puedeJugarDerecha = false; // No mostrar botón derecho
-          textoBotonDerecha = `Punta Derecha (${extremos.derecha})`; // Texto de respaldo
-        } else { // Derecha es más corta
-          puedeJugarIzquierda = false; // No mostrar botón izquierdo
-          textoBotonIzquierda = `Punta Izquierda (${extremos.izquierda})`; // Texto de respaldo
           if (extremos.derecha !== null) {
             puedeJugarDerecha = determinarJugada(fichaSeleccionadaActual, extremos.derecha).puedeJugar;
-            textoBotonDerecha = `Jugar en Derecha (${extremos.derecha})`;
+            textoBotonDerecha = `Punta Derecha (${extremos.derecha})`;
+          } else {
+            puedeJugarDerecha = false;
           }
-        }
-      } else { // Extremos diferentes
-        if (extremos.izquierda !== null) {
-          puedeJugarIzquierda = determinarJugada(fichaSeleccionadaActual, extremos.izquierda).puedeJugar;
-          textoBotonIzquierda = `Punta Izquierda (${extremos.izquierda})`;
-        } else {
-           puedeJugarIzquierda = false;
-        }
-        if (extremos.derecha !== null) {
-          puedeJugarDerecha = determinarJugada(fichaSeleccionadaActual, extremos.derecha).puedeJugar;
-          textoBotonDerecha = `Punta Derecha (${extremos.derecha})`;
-        } else {
-          puedeJugarDerecha = false;
         }
       }
 
@@ -313,10 +413,11 @@ export default function JuegoPage() {
       }
     }
   }
-  const manoJugador1 = manosJugadores.find(m => m.idJugador === "jugador1");
-  const manoJugador2 = manosJugadores.find(m => m.idJugador === "jugador2");
-  const manoJugador3 = manosJugadores.find(m => m.idJugador === "jugador3");
-  const manoJugador4 = manosJugadores.find(m => m.idJugador === "jugador4");
+  // Referenciar las manos por su posición en el array reordenado, que ahora sigue el orden de turno
+  const manoJugador1 = manosJugadores[0]; // Bottom (ID: jugador1)
+  const manoJugador2 = manosJugadores[3]; // Left (ID: jugador4)
+  const manoJugador3 = manosJugadores[2]; // Top (ID: jugador3)
+  const manoJugador4 = manosJugadores[1]; // Right (ID: jugador2)
   
   // console.log(`[PAGE] VALORES DE ANCLA ANTES DE RENDERIZAR MESA: FILA_ANCLA_INICIAL=${FILA_ANCLA_INICIAL}, COLUMNA_ANCLA_INICIAL=${COLUMNA_ANCLA_INICIAL}`);
 
@@ -365,7 +466,8 @@ export default function JuegoPage() {
           dominoConstWidth={DOMINO_WIDTH_PX}
           dominoConstHeight={DOMINO_HEIGHT_PX}
         />
-        {fichaSeleccionadaActual && (
+        {currentPlayerId && <div className="absolute bottom-4 right-4 text-white bg-black bg-opacity-75 p-2 rounded shadow-lg z-10">Turno de: {currentPlayerId}</div>}
+        {fichaSeleccionadaActual && fichaSeleccionada && fichaSeleccionada.idJugadorMano === currentPlayerId && (
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end p-2 bg-black bg-opacity-75 rounded shadow-lg z-10">
             <p className="text-white text-sm font-semibold">Jugar: {fichaSeleccionadaActual.valorSuperior}-{fichaSeleccionadaActual.valorInferior}</p>
             {!anclaFicha ? ( 
@@ -400,6 +502,15 @@ export default function JuegoPage() {
               </div>
             )}
             <button onClick={() => setFichaSeleccionada(undefined)} className="text-xs text-gray-300 hover:text-white mt-1">Cancelar selección</button>
+          </div>
+        )}
+        {/* Botón de Pasar Turno */}
+        {currentPlayerId && playableFichaIds.length === 0 && anclaFicha && ( // Solo mostrar si HAY ancla y no hay fichas jugables
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+            <button
+              onClick={avanzarTurno}
+              className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-md"
+            >Pasar Turno</button>
           </div>
         )}
       </main>
