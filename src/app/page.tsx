@@ -16,10 +16,11 @@ export default function HomePage() {
           ¡Tu juego de dominó en línea favorito!
         </p>
 
-        <Link href="/juego" legacyBehavior>
-          <a className="mt-6 px-6 py-3 text-lg font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition duration-150 ease-in-out">
-            Ir al Juego
-          </a>
+        <Link 
+          href="/juego" 
+          className="mt-6 px-6 py-3 text-lg font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition duration-150 ease-in-out"
+        >
+          Ir al Juego
         </Link>
       </main>
       <footer className="flex items-center justify-center w-full h-24 border-t">

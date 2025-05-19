@@ -148,6 +148,23 @@ export default function JuegoPage() {
 
     console.log(`[PAGE] ===== INICIO HANDLE JUGAR FICHA (${fichaParaJugar.id} de mano ${fichaSeleccionada.idJugadorMano}) EN EXTREMO: ${extremoElegido} =====`);
 
+    // --- REGLA: Si los extremos son iguales, forzar a jugar en la punta más corta ---
+    // Esta lógica se mantiene como una salvaguarda del backend, aunque la UI ahora debería prevenirlo.
+    if (anclaFicha && extremos.izquierda !== null && extremos.izquierda === extremos.derecha) {
+      const lengthIzquierda = fichasIzquierda.length;
+      const lengthDerecha = fichasDerecha.length;
+
+      const shorterEnd = (lengthIzquierda <= lengthDerecha) ? 'izquierda' : 'derecha';
+      const longerEnd = (shorterEnd === 'izquierda') ? 'derecha' : 'izquierda';
+
+      if (extremoElegido === longerEnd) {
+        console.warn(`[PAGE] Regla aplicada (salvaguarda): Los extremos son iguales (${extremos.izquierda}). Se intentó jugar en la punta más larga (${longerEnd}). Jugada abortada.`);
+        // Aquí podrías añadir lógica para mostrar un mensaje al usuario en la UI si esto llegara a ocurrir
+        return; // Abortar la jugada si intenta jugar en la punta más larga
+      }
+      console.log(`[PAGE] Regla (salvaguarda): Extremos iguales (${extremos.izquierda}). Jugando en la punta más corta (${shorterEnd}).`);
+    }
+
     const esDoble = fichaParaJugar.valorSuperior === fichaParaJugar.valorInferior;
     let rotacionCalculada: number = 0; 
     let nuevaPosicion: { fila: number; columna: number } = { fila: -1, columna: -1 }; 
@@ -534,24 +551,47 @@ export default function JuegoPage() {
       textoBotonIzquierda = `Jugar ${fichaSeleccionadaActual.valorSuperior}-${fichaSeleccionadaActual.valorInferior}`;
       puedeJugarDerecha = false; 
     } else {
-      if (extremos.izquierda !== null) {
-        puedeJugarIzquierda = determinarJugada(fichaSeleccionadaActual, extremos.izquierda).puedeJugar;
-        textoBotonIzquierda = `Punta Izquierda (${extremos.izquierda})`;
-      } else {
-         puedeJugarIzquierda = false;
+      const extremosSonIguales = extremos.izquierda !== null && extremos.izquierda === extremos.derecha;
+
+      if (extremosSonIguales) {
+        const lenIzquierda = fichasIzquierda.length;
+        const lenDerecha = fichasDerecha.length;
+
+        if (lenIzquierda <= lenDerecha) { // Izquierda es más corta o igual
+          if (extremos.izquierda !== null) {
+            puedeJugarIzquierda = determinarJugada(fichaSeleccionadaActual, extremos.izquierda).puedeJugar;
+            textoBotonIzquierda = `Jugar en Izquierda (${extremos.izquierda})`;
+          }
+          puedeJugarDerecha = false; // No mostrar botón derecho
+          textoBotonDerecha = `Punta Derecha (${extremos.derecha})`; // Texto de respaldo
+        } else { // Derecha es más corta
+          puedeJugarIzquierda = false; // No mostrar botón izquierdo
+          textoBotonIzquierda = `Punta Izquierda (${extremos.izquierda})`; // Texto de respaldo
+          if (extremos.derecha !== null) {
+            puedeJugarDerecha = determinarJugada(fichaSeleccionadaActual, extremos.derecha).puedeJugar;
+            textoBotonDerecha = `Jugar en Derecha (${extremos.derecha})`;
+          }
+        }
+      } else { // Extremos diferentes
+        if (extremos.izquierda !== null) {
+          puedeJugarIzquierda = determinarJugada(fichaSeleccionadaActual, extremos.izquierda).puedeJugar;
+          textoBotonIzquierda = `Punta Izquierda (${extremos.izquierda})`;
+        } else {
+           puedeJugarIzquierda = false;
+        }
+        if (extremos.derecha !== null) {
+          puedeJugarDerecha = determinarJugada(fichaSeleccionadaActual, extremos.derecha).puedeJugar;
+          textoBotonDerecha = `Punta Derecha (${extremos.derecha})`;
+        } else {
+          puedeJugarDerecha = false;
+        }
       }
-      if (extremos.derecha !== null) {
-        puedeJugarDerecha = determinarJugada(fichaSeleccionadaActual, extremos.derecha).puedeJugar;
-        textoBotonDerecha = `Punta Derecha (${extremos.derecha})`;
-      } else {
-        puedeJugarDerecha = false;
-      }
+
       if (!puedeJugarIzquierda && !puedeJugarDerecha) {
         mostrarJuegoCerrado = true;
       }
     }
   }
-
   const manoJugador1 = manosJugadores.find(m => m.idJugador === "jugador1");
   const manoJugador2 = manosJugadores.find(m => m.idJugador === "jugador2");
   const manoJugador3 = manosJugadores.find(m => m.idJugador === "jugador3");
