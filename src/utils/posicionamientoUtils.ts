@@ -202,8 +202,8 @@ export const calcularPosicionRotacionSiguienteFicha = (
     fichaParaJugar: FichaDomino,
     esDoble: boolean
   ): {
-    nuevaFichaAncla: FichaEnMesaParaLogica;
-    nuevosExtremos: { izquierda: number; derecha: number };
+    nuevaFichaAncla: FichaEnMesaParaLogica; // La ficha que se convierte en ancla
+    nuevosExtremos: { izquierda: number; derecha: number }; // Los valores numéricos de los extremos
     nuevaInfoExtremos: {
       izquierda: { pos: { fila: number; columna: number }; rot: number };
       derecha: { pos: { fila: number; columna: number }; rot: number };
@@ -223,9 +223,9 @@ export const calcularPosicionRotacionSiguienteFicha = (
       : { izquierda: nuevaFichaAncla.valorSuperior, derecha: nuevaFichaAncla.valorInferior };
   
     const nuevaInfoExtremos = {
-      izquierda: { pos: nuevaPosicion, rot: rotacionCalculada },
-      derecha: { pos: nuevaPosicion, rot: rotacionCalculada },
-    };
+        izquierda: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: nuevosExtremos.izquierda },
+        derecha: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: nuevosExtremos.derecha },
+      };
     
     console.log(`[POS_UTIL] PRIMERA FICHA (Ancla Definida: ${FILA_ANCLA_INICIAL},${COLUMNA_ANCLA_INICIAL}): nuevaPosicion=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotacionCalculada=${rotacionCalculada}`);
   
