@@ -16,8 +16,10 @@ import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_
 // En page.tsx
 import {
   calcularPosicionRotacionSiguienteFicha,
+  configurarPrimeraFicha, // Importar nueva función
   FILA_ANCLA_INICIAL, // Importar constante
-  COLUMNA_BORDE_IZQUIERDO // Importar constante
+  COLUMNA_BORDE_IZQUIERDO, // Importar constante
+  COLUMNA_ANCLA_INICIAL // Importar constante
 } from '@/utils/posicionamientoUtils';
 import DebugInfoOverlay from '../../components/debug/DebugInfoOverlay';
 
@@ -28,8 +30,7 @@ interface FichaSeleccionadaInfo {
   idJugadorMano: string;
 }
 
-// FILA_ANCLA_INICIAL y COLUMNA_BORDE_IZQUIERDO se mueven a posicionamientoUtils.ts
-const COLUMNA_ANCLA_INICIAL = 6; // Ajuste para la nueva celda ancla (5,6)
+// FILA_ANCLA_INICIAL, COLUMNA_BORDE_IZQUIERDO y COLUMNA_ANCLA_INICIAL se mueven a posicionamientoUtils.ts
 
 export default function JuegoPage() {
   const [manosJugadores, setManosJugadores] = useState<TipoManoDeJugador[]>([]);
@@ -141,26 +142,14 @@ export default function JuegoPage() {
     let nuevaPosicion: { fila: number; columna: number } = { fila: -1, columna: -1 }; 
 
     if (!anclaFicha) { 
-      nuevaPosicion = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
-      rotacionCalculada = esDoble ? 0 : -90;
-      console.log(`[PAGE] PRIMERA FICHA (Ancla Definida: ${FILA_ANCLA_INICIAL},${COLUMNA_ANCLA_INICIAL}): nuevaPosicion=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotacionCalculada=${rotacionCalculada}`);
-      const nuevaFichaAncla: FichaEnMesaParaLogica = {
-        ...fichaParaJugar,
-        posicionCuadricula: nuevaPosicion,
-        rotacion: rotacionCalculada,
-      };
-      setAnclaFicha(nuevaFichaAncla); 
-      setExtremos(esDoble ? {
-          izquierda: nuevaFichaAncla.valorSuperior,
-          derecha: nuevaFichaAncla.valorSuperior
-        } : {
-          izquierda: nuevaFichaAncla.valorSuperior,
-          derecha: nuevaFichaAncla.valorInferior
-        });
-      setInfoExtremos({
-        izquierda: { pos: nuevaPosicion, rot: rotacionCalculada },
-        derecha: { pos: nuevaPosicion, rot: rotacionCalculada }
-      });
+      const { nuevaFichaAncla, nuevosExtremos, nuevaInfoExtremos } = configurarPrimeraFicha(
+        fichaParaJugar,
+        esDoble
+      );
+      setAnclaFicha(nuevaFichaAncla);
+      setExtremos(nuevosExtremos);
+      setInfoExtremos(nuevaInfoExtremos);
+      // La posición y rotación ya están dentro de nuevaFichaAncla, no es necesario setearlas por separado aquí.
     } else { 
       const valorExtremoActual = extremoElegido === 'izquierda' ? extremos.izquierda : extremos.derecha; 
       const infoExtremoActual = extremoElegido === 'izquierda' ? infoExtremos.izquierda : infoExtremos.derecha;

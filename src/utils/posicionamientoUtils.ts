@@ -1,9 +1,10 @@
 // /home/heagueron/projects/dominando/src/utils/posicionamientoUtils.ts
-import { FichaDomino } from './dominoUtils';
+import { FichaDomino, FichaEnMesaParaLogica } from './dominoUtils';
 
 // Constantes de posicionamiento
 export const FILA_ANCLA_INICIAL = 5;
 export const COLUMNA_BORDE_IZQUIERDO = 1;
+export const COLUMNA_ANCLA_INICIAL = 6;
 
 // --- Función Auxiliar para Calcular Rotación de Fichas Horizontales No Dobles ---
 export const calcularRotacionHorizontalNoDoble = (
@@ -195,4 +196,38 @@ export const calcularPosicionRotacionSiguienteFicha = (
     }
     console.log(`[POS_UTIL] FINAL: nuevaPos=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotCalc=${rotacionCalculada}`);
     return { nuevaPosicion, rotacionCalculada };
+  };
+
+  export const configurarPrimeraFicha = (
+    fichaParaJugar: FichaDomino,
+    esDoble: boolean
+  ): {
+    nuevaFichaAncla: FichaEnMesaParaLogica;
+    nuevosExtremos: { izquierda: number; derecha: number };
+    nuevaInfoExtremos: {
+      izquierda: { pos: { fila: number; columna: number }; rot: number };
+      derecha: { pos: { fila: number; columna: number }; rot: number };
+    };
+  } => {
+    const nuevaPosicion = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
+    const rotacionCalculada = esDoble ? 0 : -90;
+  
+    const nuevaFichaAncla: FichaEnMesaParaLogica = {
+      ...fichaParaJugar,
+      posicionCuadricula: nuevaPosicion,
+      rotacion: rotacionCalculada,
+    };
+  
+    const nuevosExtremos = esDoble
+      ? { izquierda: nuevaFichaAncla.valorSuperior, derecha: nuevaFichaAncla.valorSuperior }
+      : { izquierda: nuevaFichaAncla.valorSuperior, derecha: nuevaFichaAncla.valorInferior };
+  
+    const nuevaInfoExtremos = {
+      izquierda: { pos: nuevaPosicion, rot: rotacionCalculada },
+      derecha: { pos: nuevaPosicion, rot: rotacionCalculada },
+    };
+    
+    console.log(`[POS_UTIL] PRIMERA FICHA (Ancla Definida: ${FILA_ANCLA_INICIAL},${COLUMNA_ANCLA_INICIAL}): nuevaPosicion=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotacionCalculada=${rotacionCalculada}`);
+  
+    return { nuevaFichaAncla, nuevosExtremos, nuevaInfoExtremos };
   };
