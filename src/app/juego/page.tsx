@@ -47,8 +47,8 @@ export default function JuegoPage() {
   });
 
   const [infoExtremos, setInfoExtremos] = useState<{
-    izquierda: { pos: { fila: number, columna: number }, rot: number } | null,
-    derecha: { pos: { fila: number, columna: number }, rot: number } | null,
+    izquierda: { pos: { fila: number, columna: number }, rot: number, valorExtremo: number } | null,
+    derecha: { pos: { fila: number, columna: number }, rot: number, valorExtremo: number } | null,
   }>({ izquierda: null, derecha: null });
 
   // Estado para la información de depuración
@@ -69,6 +69,32 @@ export default function JuegoPage() {
     window.addEventListener('resize', handleResize);
     handleResize(); // Llamada inicial
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const [showRotateMessage, setShowRotateMessage] = useState(false);
+
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      const isPortrait = window.matchMedia("(orientation: portrait)").matches;
+      // Usamos un umbral de ancho para considerar "móvil", puedes ajustarlo.
+      const isMobileThreshold = window.innerWidth < 768; 
+
+      if (isPortrait && isMobileThreshold) {
+        setShowRotateMessage(true);
+      } else {
+        setShowRotateMessage(false);
+      }
+    };
+
+    // Comprobar al montar
+    handleOrientationChange(); 
+
+    window.addEventListener('resize', handleOrientationChange);
+    // Opcionalmente, podrías escuchar screen.orientation.onchange si necesitas una detección más precisa y está disponible.
+
+    return () => {
+      window.removeEventListener('resize', handleOrientationChange);
+    };
   }, []);
 
   const handleMesaDimensionsChange = useCallback((width: number, height: number, scale: number) => {
@@ -189,11 +215,11 @@ export default function JuegoPage() {
       if (extremoElegido === 'izquierda') {
         setFichasIzquierda(prevFichas => [nuevaFichaEnMesa, ...prevFichas]); 
         setExtremos(prev => ({ ...prev, izquierda: jugadaDeterminada.valorNuevoExtremo! }));
-        setInfoExtremos(prev => ({ ...prev, izquierda: { pos: nuevaPosicion, rot: rotacionCalculada } }));
+        setInfoExtremos(prev => ({ ...prev, izquierda: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: jugadaDeterminada.valorNuevoExtremo! } }));
       } else { 
         setFichasDerecha(prevFichas => [...prevFichas, nuevaFichaEnMesa]); 
         setExtremos(prev => ({ ...prev, derecha: jugadaDeterminada.valorNuevoExtremo! }));
-        setInfoExtremos(prev => ({ ...prev, derecha: { pos: nuevaPosicion, rot: rotacionCalculada } }));
+        setInfoExtremos(prev => ({ ...prev, derecha: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: jugadaDeterminada.valorNuevoExtremo! } }));
       }
     }
 
@@ -296,6 +322,30 @@ export default function JuegoPage() {
 
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">
+      {showRotateMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.95)', // Fondo oscuro semi-transparente
+            color: 'white',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            textAlign: 'center',
+            zIndex: 10000, // Asegurar que esté por encima de todo
+            padding: '20px',
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '20px' }}><path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2M10.534 16.5C11.357 19.763 13.048 22 15 22c2.761 0 5-4.477 5-10s-2.239-10-5-10c-.342 0-.677.069-1 .2"/></svg>
+          <h2 style={{ fontSize: '1.5em', marginBottom: '10px' }}>Por favor, rota tu dispositivo</h2>
+          <p>Para una mejor experiencia, usa el modo horizontal.</p>
+        </div>
+      )}
       {/* <header className="bg-domino-black text-domino-white p-2 sm:p-3">
         <h1 className="text-xl sm:text-2xl font-bold text-center">Dominando</h1>
       </header> */} {/* Header eliminado completamente */}

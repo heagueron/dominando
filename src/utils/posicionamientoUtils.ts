@@ -204,9 +204,9 @@ export const calcularPosicionRotacionSiguienteFicha = (
   ): {
     nuevaFichaAncla: FichaEnMesaParaLogica; // La ficha que se convierte en ancla
     nuevosExtremos: { izquierda: number; derecha: number }; // Los valores numéricos de los extremos
-    nuevaInfoExtremos: {
-      izquierda: { pos: { fila: number; columna: number }; rot: number };
-      derecha: { pos: { fila: number; columna: number }; rot: number };
+    nuevaInfoExtremos: { // Tipo corregido para incluir valorExtremo
+      izquierda: { pos: { fila: number; columna: number }; rot: number; valorExtremo: number };
+      derecha: { pos: { fila: number; columna: number }; rot: number; valorExtremo: number };
     };
   } => {
     const nuevaPosicion = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
@@ -222,10 +222,10 @@ export const calcularPosicionRotacionSiguienteFicha = (
       ? { izquierda: nuevaFichaAncla.valorSuperior, derecha: nuevaFichaAncla.valorSuperior }
       : { izquierda: nuevaFichaAncla.valorSuperior, derecha: nuevaFichaAncla.valorInferior };
   
-    const nuevaInfoExtremos = {
-        izquierda: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: nuevosExtremos.izquierda },
-        derecha: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: nuevosExtremos.derecha },
-      };
+    const nuevaInfoExtremos = { // Objeto construido correctamente con valorExtremo
+      izquierda: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: nuevosExtremos.izquierda },
+      derecha: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: nuevosExtremos.derecha },
+    };
     
     console.log(`[POS_UTIL] PRIMERA FICHA (Ancla Definida: ${FILA_ANCLA_INICIAL},${COLUMNA_ANCLA_INICIAL}): nuevaPosicion=(${nuevaPosicion.fila},${nuevaPosicion.columna}), rotacionCalculada=${rotacionCalculada}`);
   
