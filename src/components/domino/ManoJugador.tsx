@@ -13,7 +13,8 @@ interface ManoJugadorProps {
   fichaSeleccionada?: string;
   // Modificamos onFichaClick para que pueda recibir el id del jugador/mano
   onFichaClick: (idFicha: string, idJugadorMano: string) => void; 
-  idJugadorMano: string; // Identificador de la mano/jugador
+  idJugadorMano: string; 
+  playableFichaIds?: string[]; // Nueva prop
   className?: string; // Para permitir estilos externos (posicionamiento)
   layoutDirection?: 'row' | 'col'; // Para controlar la dirección del flex
 }
@@ -23,9 +24,11 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   fichaSeleccionada,
   onFichaClick,
   idJugadorMano,
+  playableFichaIds = [], // Valor por defecto por si no se pasa (ej. manos de otros jugadores)
   className = "",
   layoutDirection = 'row',
 }) => {
+  console.log(`[ManoJugador ${idJugadorMano}] Render. Received playableFichaIds:`, playableFichaIds);
   const esManoPrincipal = idJugadorMano === "jugador1"; // O alguna otra lógica para identificar la mano principal
   // Definir clases de tamaño para las fichas en mano según el jugador y el breakpoint
   // Ahora, esta constante `fichaSizeClass` se pasará correctamente a cada FichaDomino.
@@ -47,28 +50,32 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
         <p className="text-domino-white text-xs text-center p-2">Mano Vacía</p>
       ) : (
         <div className={`flex gap-1 ${layoutDirection === 'row' ? 'flex-row items-center' : 'flex-col items-center'}`}>
-          {fichas.map((ficha) => (
-            <motion.div
-              key={ficha.id}
-              whileHover={{ y: -5 }}
-              whileTap={{ scale: 1.05 }}
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              // className={dimensionesFichaEnMano} // FichaDomino ahora se auto-dimensiona
-            >
-              <FichaDomino
-                id={ficha.id} // Pasar el id
-                valorSuperior={ficha.valorSuperior}
-                valorInferior={ficha.valorInferior}
-                seleccionada={ficha.id === fichaSeleccionada}
-                onClick={() => onFichaClick(ficha.id, idJugadorMano)}
-                arrastrable={true} // Las fichas en mano son arrastrables
-                esEnMano={true}    // Indicar que esta ficha está en la mano
-                sizeClass={fichaSizeClass} // <--- AQUÍ ESTÁ LA CORRECCIÓN
-              />
-            </motion.div>
-          ))}
+          {fichas.map((ficha) => {
+            const isFichaPlayable = playableFichaIds.includes(ficha.id);
+            return (
+              <motion.div
+                key={ficha.id}
+                whileHover={{ y: -5 }}
+                whileTap={{ scale: 1.05 }}
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                // className={dimensionesFichaEnMano} // FichaDomino ahora se auto-dimensiona
+              >
+                <FichaDomino
+                  id={ficha.id} // Pasar el id
+                  valorSuperior={ficha.valorSuperior}
+                  valorInferior={ficha.valorInferior}
+                  seleccionada={ficha.id === fichaSeleccionada}
+                  onClick={() => onFichaClick(ficha.id, idJugadorMano)}
+                  arrastrable={true} // Las fichas en mano son arrastrables
+                  esEnMano={true}    // Indicar que esta ficha está en la mano
+                  isPlayable={isFichaPlayable} // Pasar si esta ficha es jugable
+                  sizeClass={fichaSizeClass} // <--- AQUÍ ESTÁ LA CORRECCIÓN
+                />
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </motion.div>

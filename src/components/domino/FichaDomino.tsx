@@ -11,6 +11,7 @@ interface FichaDominoProps {
   onClick?: () => void;
   arrastrable?: boolean;
   esEnMano?: boolean;
+  isPlayable?: boolean; // Indica si la ficha es jugable en el turno actual (solo relevante si esEnMano)
   sizeClass?: string; // Nueva prop para clases de tamaño
 }
 
@@ -22,7 +23,8 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   seleccionada = false,
   onClick,
   arrastrable = false,
-  // esEnMano, // Destructurado pero no usado directamente en el renderizado de puntos
+  esEnMano = false, // Destructurado y usado en la lógica de clases
+  isPlayable = true, // Por defecto, una ficha es jugable a menos que se especifique lo contrario
   sizeClass = 'w-[48px] h-[96px] sm:w-[64px] sm:h-[128px]', // Clases de tamaño por defecto (ejemplo: 48x96px en móvil, 64x128px en sm+)
 }) => {
   const renderizarPuntos = (valor: number) => {
@@ -91,15 +93,21 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
 
   // console.log(`Renderizando ficha ${valorSuperior}/${valorInferior} con rotación ${rotacion}°`);
 
+  const baseClasses = `
+    ficha-domino relative cursor-pointer bg-white rounded
+    ${sizeClass}
+    ${seleccionada ? 'ring-2 ring-yellow-400' : ''}
+    ${esEnMano && !isPlayable ? 'opacity-50 grayscale' : ''} // Estilo para fichas no jugables en mano
+  `;
+
+
   return (
     <motion.div
-    className={`ficha-domino relative cursor-pointer bg-white rounded ${sizeClass} ${ // Aplicamos sizeClass aquí
-        seleccionada ? 'ring-2 ring-yellow-400' : ''
-    }`}
+      className={baseClasses}
       style={{
         transformOrigin: 'center center',
       }}
-      onClick={onClick}
+      onClick={isPlayable ? onClick : undefined} // Solo permitir clic si la ficha es jugable
       drag={arrastrable}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       dragElastic={0.1} // Menos elasticidad para un arrastre más firme
@@ -129,6 +137,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
         </div>
       </div>
     </motion.div>
+
   );
 };
 
