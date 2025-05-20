@@ -96,3 +96,31 @@ export function generarYRepartirFichas(
   const sobrantes = fichasBarajadas.slice(indiceFichaActual);
   return { manos, sobrantes };
 }
+
+/**
+ * Calcula la suma de los puntos de las fichas en una mano.
+ * @param fichas Array de fichas en la mano.
+ * @returns La suma total de los puntos.
+ */
+export const calcularPuntosMano = (fichas: FichaDomino[]): number => {
+  return fichas.reduce((sum, ficha) => sum + ficha.valorSuperior + ficha.valorInferior, 0);
+};
+
+/**
+ * Determina el ganador en un juego trancado basado en el menor puntaje.
+ * @param manos Array de las manos de todos los jugadores.
+ * @returns Objeto con el id del ganador y su puntaje, o null si no se puede determinar.
+ */
+export const determinarGanadorJuegoTrancado = (
+  manos: ManoDeJugador[]
+): { ganadorId: string; puntajeMinimo: number } | null => {
+  if (manos.length === 0) return null;
+
+  return manos.reduce((mejorResultado, manoActual) => {
+    const puntosManoActual = calcularPuntosMano(manoActual.fichas);
+    if (puntosManoActual < mejorResultado.puntajeMinimo) {
+      return { ganadorId: manoActual.idJugador, puntajeMinimo: puntosManoActual };
+    }
+    return mejorResultado;
+  }, { ganadorId: manos[0]?.idJugador || '', puntajeMinimo: calcularPuntosMano(manos[0]?.fichas || []) });
+};

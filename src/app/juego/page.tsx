@@ -10,7 +10,9 @@ import {
  FichaEnMesaParaLogica,
  generarYRepartirFichas,
  ManoDeJugador as TipoManoDeJugador,
+ determinarGanadorJuegoTrancado, // Importar nueva utilidad
 } from '@/utils/dominoUtils';
+
 import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
 import {
   calcularPosicionRotacionSiguienteFicha,
@@ -47,6 +49,13 @@ export default function JuegoPage() {
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [playableFichaIds, setPlayableFichaIds] = useState<string[]>([]);
   const [showRotateMessage, setShowRotateMessage] = useState(false);
+  const [resultadoMano, setResultadoMano] = useState<{
+    ganadorId: string;
+    tipoFin: 'domino' | 'trancado';
+    detalle: string;
+  } | null>(null);
+  const [pasesConsecutivos, setPasesConsecutivos] = useState(0);
+
 
   useEffect(() => {
     const { manos, sobrantes } = generarYRepartirFichas(4, 7);
@@ -106,9 +115,9 @@ export default function JuegoPage() {
   }, []);
 
   const handleMesaDimensionsChange = useCallback((width: number, height: number, scale: number) => {
-    setMesaDims(prevDims => 
-      (prevDims.width === width && prevDims.height === height && prevDims.scale === scale) 
-      ? prevDims 
+    setMesaDims(prevDims =>
+      (prevDims.width === width && prevDims.height === height && prevDims.scale === scale)
+      ? prevDims
       : { width, height, scale }
     );
   }, []);
@@ -138,6 +147,7 @@ export default function JuegoPage() {
   }, [currentPlayerId, manosJugadores, anclaFicha, extremos]);
 
   const handleFichaClick = (idFicha: string, idJugadorMano: string) => {
+    if (resultadoMano) return; // No permitir clics si la mano ha terminado
     if (idJugadorMano !== currentPlayerId) return;
     if (anclaFicha && !playableFichaIds.includes(idFicha)) return;
     setFichaSeleccionada(prev =>
@@ -153,17 +163,48 @@ export default function JuegoPage() {
     return { puedeJugar: false };
   };
 
-  const avanzarTurno = () => {
-    if (!currentPlayerId || manosJugadores.length === 0) return;
+  const _avanzarTurnoAlSiguienteJugador = () => {
+    if (resultadoMano || !currentPlayerId || manosJugadores.length === 0) return;
     const currentIndex = manosJugadores.findIndex(m => m.idJugador === currentPlayerId);
     if (currentIndex === -1) return;
     const nextIndex = (currentIndex + 1) % manosJugadores.length;
-    setCurrentPlayerId(manosJugadores[nextIndex].idJugador);
-    setFichaSeleccionada(undefined);
-    console.log(`[PAGE] Turno avanzado a: ${manosJugadores[nextIndex].idJugador}`);
+    const siguienteJugadorId = manosJugadores[nextIndex]?.idJugador;
+    if (siguienteJugadorId) {
+      setCurrentPlayerId(siguienteJugadorId);
+      setFichaSeleccionada(undefined);
+      console.log(`[PAGE] Turno avanzado a: ${siguienteJugadorId}`);
+    }
+  };
+
+  const handleFinManoPorTrancado = () => {
+    const resultadoTrancado = determinarGanadorJuegoTrancado(manosJugadores);
+    if (resultadoTrancado) {
+      setResultadoMano({
+        ganadorId: resultadoTrancado.ganadorId,
+        tipoFin: 'trancado',
+        detalle: `Juego Trancado. Ganador: ${resultadoTrancado.ganadorId} con ${resultadoTrancado.puntajeMinimo} puntos.`,
+      });
+    } else {
+      console.error("[PAGE] No se pudo determinar el ganador en juego trancado.");
+      // Fallback o manejo de error adicional si es necesario
+    }
+  };
+
+  const handlePasarTurno = () => {
+    if (resultadoMano) return;
+
+    const nuevosPases = pasesConsecutivos + 1;
+    setPasesConsecutivos(nuevosPases);
+
+    if (nuevosPases >= manosJugadores.length) { // Asumiendo que manosJugadores.length es el número de jugadores activos
+      handleFinManoPorTrancado();
+    } else {
+      _avanzarTurnoAlSiguienteJugador();
+    }
   };
 
   const handleJugarFicha = (extremoElegido: 'izquierda' | 'derecha') => {
+    if (resultadoMano) return; // No jugar si la mano ya terminó
     if (!fichaSeleccionada || fichaSeleccionada.idJugadorMano !== currentPlayerId) return;
     const manoDelJugador = manosJugadores.find(m => m.idJugador === fichaSeleccionada.idJugadorMano);
     if (!manoDelJugador) return;
@@ -199,7 +240,7 @@ export default function JuegoPage() {
       }
       const jugadaDeterminada = determinarJugada(fichaParaJugar, valorExtremoNumerico);
       if (!jugadaDeterminada.puedeJugar || jugadaDeterminada.valorConexion === undefined || jugadaDeterminada.valorNuevoExtremo === undefined) return;
-      
+
       const { nuevaPosicion, rotacionCalculada } = calcularPosicionRotacionSiguienteFicha(
         fichaParaJugar, infoExtremoObjeto.pos, infoExtremoObjeto.rot, extremoElegido, esDoble, jugadaDeterminada.valorConexion
       );
@@ -214,13 +255,38 @@ export default function JuegoPage() {
         setInfoExtremos(prev => ({ ...prev, derecha: { pos: nuevaPosicion, rot: rotacionCalculada, valorExtremo: jugadaDeterminada.valorNuevoExtremo! } }));
       }
     }
-    setManosJugadores(prevManos => prevManos.map(mano =>
-      mano.idJugador === fichaSeleccionada.idJugadorMano
-        ? { ...mano, fichas: mano.fichas.filter(f => f.id !== fichaSeleccionada.idFicha) }
-        : mano
-    ));
+
+    const jugadorQueJugoId = fichaSeleccionada.idJugadorMano;
+    
+    // Determinar si el jugador gana ANTES de actualizar el estado de las manos
+    // Necesitamos saber cómo quedará la mano del jugador después de jugar esta ficha.
+    // 'manoDelJugador' y 'fichaParaJugar' ya están definidos y validados arriba.
+    const manoActualizadaDelJugador = manoDelJugador.fichas.filter(f => f.id !== fichaParaJugar.id);
+    const ganoPorDomino = manoActualizadaDelJugador.length === 0;
+
+    setManosJugadores(prevManos => {
+      const nuevasManos = prevManos.map(mano => {
+        if (mano.idJugador === jugadorQueJugoId) {
+          // Usamos la mano ya calculada para la actualización
+          return { ...mano, fichas: manoActualizadaDelJugador };
+        }
+        return mano;
+      });
+      return nuevasManos;
+    });
+
     setFichaSeleccionada(undefined);
-    avanzarTurno();
+
+    if (ganoPorDomino) {
+      setResultadoMano({
+        ganadorId: jugadorQueJugoId,
+        tipoFin: 'domino',
+        detalle: `¡${jugadorQueJugoId} ha dominado!`,
+      });
+    } else {
+      setPasesConsecutivos(0); // Reset pases on a successful play
+      _avanzarTurnoAlSiguienteJugador();
+    }
   };
 
   const combinedFichasParaMesa = useMemo(() => [
@@ -229,7 +295,7 @@ export default function JuegoPage() {
     ...fichasDerecha,
   ], [fichasIzquierda, anclaFicha, fichasDerecha]);
 
-  const memoizedPosicionAnclaFija = useMemo(() => 
+  const memoizedPosicionAnclaFija = useMemo(() =>
     anclaFicha ? anclaFicha.posicionCuadricula : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL }
   , [anclaFicha]);
 
@@ -241,7 +307,7 @@ export default function JuegoPage() {
 
   let puedeJugarIzquierda = false, textoBotonIzquierda = "Punta Izquierda";
   let puedeJugarDerecha = false, textoBotonDerecha = "Punta Derecha";
-  
+
   if (fichaSeleccionadaActual && fichaSeleccionada && fichaSeleccionada.idJugadorMano === currentPlayerId && playableFichaIds.includes(fichaSeleccionadaActual.id)) {
     if (!anclaFicha) {
       puedeJugarIzquierda = true;
@@ -312,7 +378,7 @@ export default function JuegoPage() {
       )}
       <main className="flex-grow relative flex justify-center items-center p-4">
         <MesaDomino
-          fichasEnMesa={combinedFichasParaMesa} 
+          fichasEnMesa={combinedFichasParaMesa}
           posicionAnclaFija={memoizedPosicionAnclaFija}
           onFichaClick={(id) => console.log('[MESA] Ficha en mesa clickeada:', id)}
           onMesaDimensionsChange={handleMesaDimensionsChange}
@@ -323,7 +389,7 @@ export default function JuegoPage() {
           dominoConstWidth={DOMINO_WIDTH_PX} dominoConstHeight={DOMINO_HEIGHT_PX}
         />
         {currentPlayerId && <div className="absolute bottom-4 right-4 text-white bg-black bg-opacity-75 p-2 rounded shadow-lg z-10">Turno de: {currentPlayerId}</div>}
-        
+
         {fichaSeleccionadaActual && fichaSeleccionada && fichaSeleccionada.idJugadorMano === currentPlayerId && (
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end p-2 bg-black bg-opacity-75 rounded shadow-lg z-10">
             <p className="text-white text-sm font-semibold">Jugar: {fichaSeleccionadaActual.valorSuperior}-{fichaSeleccionadaActual.valorInferior}</p>
@@ -353,9 +419,9 @@ export default function JuegoPage() {
           </div>
         )}
         {/* Usar la variable precalculada fichasDelJugadorActualCount para la condición */}
-        {currentPlayerId && anclaFicha && playableFichaIds.length === 0 && fichasDelJugadorActualCount > 0 && (
+        {currentPlayerId && anclaFicha && playableFichaIds.length === 0 && fichasDelJugadorActualCount > 0 && !resultadoMano && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-            <button onClick={avanzarTurno} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-md">
+            <button onClick={handlePasarTurno} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-md">
               Pasar Turno
             </button>
           </div>
@@ -367,7 +433,7 @@ export default function JuegoPage() {
         <motion.div className="fixed bottom-0 left-0 right-0 z-20 flex justify-center" initial={{ y: 120 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 20 }}>
           <ManoJugadorComponent
             fichas={mano1.fichas}
-            fichaSeleccionada={fichaSeleccionada?.idFicha} 
+            fichaSeleccionada={fichaSeleccionada?.idFicha}
             onFichaClick={handleFichaClick}
             idJugadorMano={mano1.idJugador}
             layoutDirection="row"
@@ -381,7 +447,7 @@ export default function JuegoPage() {
         <div className="fixed left-0 top-1/2 -translate-y-1/2 z-20 bg-domino-black bg-opacity-10 rounded-md max-h-[80vh]">
           <ManoJugadorComponent
             fichas={mano4.fichas}
-            fichaSeleccionada={fichaSeleccionada?.idFicha} 
+            fichaSeleccionada={fichaSeleccionada?.idFicha}
             onFichaClick={handleFichaClick}
             idJugadorMano={mano4.idJugador}
             layoutDirection="col"
@@ -395,7 +461,7 @@ export default function JuegoPage() {
          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-20 p-1 bg-domino-black bg-opacity-10 rounded-md max-w-[80vw]">
           <ManoJugadorComponent
             fichas={mano3.fichas}
-            fichaSeleccionada={fichaSeleccionada?.idFicha} 
+            fichaSeleccionada={fichaSeleccionada?.idFicha}
             onFichaClick={handleFichaClick}
             idJugadorMano={mano3.idJugador}
             layoutDirection="row"
@@ -409,12 +475,26 @@ export default function JuegoPage() {
         <div className="fixed right-0 top-1/2 -translate-y-1/2 z-20 bg-domino-black bg-opacity-10 rounded-md max-h-[80vh]">
           <ManoJugadorComponent
             fichas={mano2.fichas}
-            fichaSeleccionada={fichaSeleccionada?.idFicha} 
+            fichaSeleccionada={fichaSeleccionada?.idFicha}
             onFichaClick={handleFichaClick}
             idJugadorMano={mano2.idJugador}
             layoutDirection="col"
             playableFichaIds={pIds2}
           />
+        </div>
+      )}
+
+      {resultadoMano && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+          <motion.div
+            className="bg-domino-white p-6 sm:p-8 rounded-xl shadow-2xl text-center max-w-md w-full"
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-domino-black">¡Mano Terminada!</h2>
+            <p className="text-md sm:text-lg mb-6 text-gray-700">{resultadoMano.detalle}</p>
+            {/* Aquí podrías añadir un botón para "Siguiente Mano" o "Ver Puntuaciones" */}
+          </motion.div>
         </div>
       )}
     </div>
