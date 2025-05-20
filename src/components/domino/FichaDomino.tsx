@@ -96,8 +96,8 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   const baseClasses = `
     ficha-domino relative cursor-pointer bg-white rounded
     ${sizeClass}
-    ${seleccionada ? 'ring-2 ring-yellow-400' : ''}
-    ${esEnMano && !isPlayable ? 'opacity-50 grayscale' : ''} // Estilo para fichas no jugables en mano
+    ${seleccionada ? 'ring-2 ring-yellow-400 bg-yellow-200' : ''} // Highlight selected ficha with ring and background color
+    
   `;
 
 

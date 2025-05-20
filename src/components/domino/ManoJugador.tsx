@@ -41,7 +41,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
     <motion.div
       // El posicionamiento y animación de entrada principal se manejarán externamente
       // para la mano principal, o no se aplicarán a las otras.
-      className={`mano-jugador-base bg-domino-black bg-opacity-10 p-1 rounded-lg flex gap-1 z-10 ${className} ${
+      className={`mano-jugador-base bg-domino-black bg-opacity-10 px-1 pb-1 pt-6 rounded-lg flex gap-1 z-10 ${className} ${
         layoutDirection === 'row' ? 'flex-row overflow-x-auto justify-center' : 'flex-col overflow-y-auto items-center'
       } ${esManoPrincipal ? 'rounded-t-xl' : 'rounded-md'}`}
       // La animación de entrada se aplicará solo a la mano principal desde page.tsx
@@ -53,12 +53,21 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
           {fichas.map((ficha) => {
             const isFichaPlayable = playableFichaIds.includes(ficha.id);
             return (
+              // motion.div para animar la posición y la entrada
               <motion.div
                 key={ficha.id}
-                whileHover={{ y: -5 }}
+                // Animación al pasar el ratón: desplaza -5px desde la posición actual (0 o -20)
+                whileHover={{ y: isFichaPlayable ? -25 : -5 }} // Si es jugable, desplaza un poco más al pasar el ratón
                 whileTap={{ scale: 1.05 }}
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
+                // Definimos variantes para la animación de entrada y el estado jugable/normal
+                variants={{
+                  initial: { opacity: 0, y: 50 }, // Estado inicial (entrada)
+                  normal: { opacity: 1, y: 0 }, // Estado normal (no jugable o después de la entrada)
+                  playable: { opacity: 1, y: -20 }, // Estado jugable (desplazado hacia arriba)
+                }}
+                // Animamos desde el estado inicial al estado 'normal' o 'playable'
+                initial="initial"
+                animate={isFichaPlayable ? 'playable' : 'normal'} // Animate to 'playable' or 'normal' variant
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 // className={dimensionesFichaEnMano} // FichaDomino ahora se auto-dimensiona
               >
