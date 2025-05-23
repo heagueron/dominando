@@ -86,6 +86,7 @@ export interface JugarFichaPayloadCliente {
 // Payload para servidor:tuTurno (definido en el cliente para claridad)
 interface TuTurnoPayloadCliente {
   currentPlayerId: string;
+  duracionTurnoTotal?: number; // Añadido para el temporizador
   playableFichaIds: string[];
 }
 
@@ -115,13 +116,17 @@ export default function JuegoPage() {
   const [manosJugadores, setManosJugadores] = useState<JugadorCliente[]>([]);
   // const [fichasSobrantes, setFichasSobrantes] = useState<FichaDomino[]>([]); // Gestionado por el servidor
   const [anclaFicha, setAnclaFicha] = useState<FichaEnMesaParaLogica | null>(null);
-  const [fichasIzquierda, setFichasIzquierda] = useState<FichaEnMesaParaLogica[]>([]);
-  const [fichasDerecha, setFichasDerecha] = useState<FichaEnMesaParaLogica[]>([]);
+  const [fichasIzquierda, setFichasIzquierda] = useState<FichaEnMesaParaLogica[]>([]); // Usando tu nombre de estado
+  const [fichasDerecha, setFichasDerecha] = useState<FichaEnMesaParaLogica[]>([]); // Usando tu nombre de estado
   const [fichaSeleccionada, setFichaSeleccionada] = useState<FichaSeleccionadaInfo | undefined>();
-  const [extremos, setExtremos] = useState<{ izquierda: number | null, derecha: number | null }>({
+  
+  const [tiempoTurnoRestante, setTiempoTurnoRestante] = useState<number | null>(null); // Nuevo estado para el timer
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null); // Ref para el intervalo del timer
+  const [extremos, setExtremos] = useState<{ izquierda: number | null, derecha: number | null }>({ // Usando tu nombre de estado
     izquierda: null,
     derecha: null,
   });
+  
   const [infoExtremos, setInfoExtremos] = useState<any>({ izquierda: null, derecha: null }); // Simplificado
   const [viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
   const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 0 });
@@ -137,6 +142,15 @@ export default function JuegoPage() {
     detalle: string;
   } | null>(null);
   // const [pasesConsecutivos, setPasesConsecutivos] = useState(0); // Gestionado por el servidor
+
+  // Función para limpiar el intervalo del temporizador
+  const limpiarIntervaloTimer = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  }, []);
+
 
   // Efecto para la conexión Socket.IO
   useEffect(() => {
@@ -304,10 +318,25 @@ export default function JuegoPage() {
       // Solo actualizar playableFichaIds si el turno es de este cliente
       if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
         setPlayableFichaIds(payload.playableFichaIds);
-        console.log('[SOCKET] Es mi turno. Fichas jugables:', payload.playableFichaIds);
+        console.log('[SOCKET] Es mi turno. Fichas jugables:', payload.playableFichaIds, 'Duración:', payload.duracionTurnoTotal);
+        if (payload.duracionTurnoTotal && payload.duracionTurnoTotal > 0) {
+          setTiempoTurnoRestante(payload.duracionTurnoTotal);
+          limpiarIntervaloTimer(); // Limpiar cualquier timer anterior
+          timerIntervalRef.current = setInterval(() => {
+            setTiempoTurnoRestante(prevTiempo => {
+              if (prevTiempo === null || prevTiempo <= 1) {
+                limpiarIntervaloTimer();
+                return 0;
+              }
+              return prevTiempo - 1;
+            });
+          }, 1000);
+        }
       } else {
         // Si no es mi turno, limpiar mis fichas jugables (por si acaso)
         setPlayableFichaIds([]);
+        setTiempoTurnoRestante(null); // No es mi turno, no hay tiempo restante para mí
+        limpiarIntervaloTimer();
       }
     });
 
@@ -317,6 +346,7 @@ export default function JuegoPage() {
       setPlayableFichaIds([]); // No hay fichas jugables
       setFichaSeleccionada(undefined); // Limpiar cualquier ficha seleccionada
 
+      limpiarIntervaloTimer(); // Limpiar timer al finalizar la mano
       let jugadoresFinalesParaEstado: { [jugadorId: string]: { fichas: FichaDomino[], puntos: number } } | undefined = undefined;
       if (payload.tipoFin === 'trancado' && payload.puntuaciones) {
         jugadoresFinalesParaEstado = {};
@@ -342,6 +372,7 @@ export default function JuegoPage() {
     return () => {
       console.log('[SOCKET] Desconectando socket...');
       newSocket.disconnect();
+      limpiarIntervaloTimer(); // Limpiar timer al desmontar
       setSocket(null);
     };
   }, []); // <--- CAMBIAR DEPENDENCIA A ARRAY VACÍO
@@ -415,7 +446,9 @@ export default function JuegoPage() {
   // Lógica para enviar acciones al servidor
   const handleJugarFichaServidor = (extremoElegido: 'izquierda' | 'derecha') => {
     if (!socket || !fichaSeleccionada || fichaSeleccionada.idJugadorMano !== currentPlayerId || fichaSeleccionada.idJugadorMano !== miIdJugadorSocketRef.current) return;
-    
+    limpiarIntervaloTimer(); // Limpiar timer al realizar una jugada
+    setTiempoTurnoRestante(null); // Resetear visualmente el contador
+
     // Validaciones preliminares en cliente (opcional, el servidor es la autoridad)
     const fichaParaJugar = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.find(f => f.id === fichaSeleccionada.idFicha);
     if (!fichaParaJugar) return;
@@ -459,6 +492,8 @@ export default function JuegoPage() {
   const handlePasarTurnoServidor = () => {
     if (!socket || currentPlayerId !== miIdJugadorSocketRef.current) return;
     console.log(`[SOCKET] Emitiendo cliente:pasarTurno`);
+    limpiarIntervaloTimer(); // Limpiar timer al pasar turno
+    setTiempoTurnoRestante(null); // Resetear visualmente el contador
     socket.emit('cliente:pasarTurno', { rondaId: DEFAULT_RONDA_ID });
   };
 
@@ -623,6 +658,14 @@ export default function JuegoPage() {
             <button onClick={() => setFichaSeleccionada(undefined)} className="text-xs text-gray-300 hover:text-white mt-1">Cancelar selección</button>
           </div>
         )}
+
+         {/* Indicador de Tiempo de Turno */}
+         {currentPlayerId === miIdJugadorSocketRef.current && tiempoTurnoRestante !== null && tiempoTurnoRestante > 0 && !resultadoMano && (
+          <div className="absolute top-4 right-4 bg-yellow-500 text-white p-2 rounded-full shadow-lg text-lg font-bold animate-pulse z-30">
+            {tiempoTurnoRestante}s
+          </div>
+        )}
+
         
         {esMiTurnoYNoPuedoJugar && !resultadoMano && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
