@@ -16,7 +16,7 @@ interface FichaDominoProps {
 }
 
 const FichaDomino: React.FC<FichaDominoProps> = ({
-  // id, // Destructurado pero no usado directamente en el renderizado de puntos
+  id, // Ahora usaremos el id para la lógica de renderizado temporal
   valorSuperior,
   valorInferior,
   rotacion = 0,
@@ -27,7 +27,10 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   isPlayable = true, // Por defecto, una ficha es jugable a menos que se especifique lo contrario
   sizeClass = 'w-[48px] h-[96px] sm:w-[64px] sm:h-[128px]', // Clases de tamaño por defecto (ejemplo: 48x96px en móvil, 64x128px en sm+)
 }) => {
-  const renderizarPuntos = (valor: number) => {
+  // TEMPORAL: Determinar si es una ficha "extendida" basándose en el prefijo del ID o el valor
+  const esFichaExtendida = valorSuperior > 6 || valorInferior > 6;
+
+  const renderizarPuntosTradicionales = (valor: number) => {
     const posiciones = {
       0: [],
       1: [{ top: '50%', left: '50%' }],
@@ -80,6 +83,19 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
     );
   };
 
+  const renderizarValorNumerico = (valor: number) => {
+    return (
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+        <span className="text-black font-bold text-lg sm:text-xl md:text-2xl">
+          {valor}
+        </span>
+      </div>
+    );
+  };
+
+  // Elegir la función de renderizado apropiada
+  const renderizarValor = esFichaExtendida ? renderizarValorNumerico : renderizarPuntosTradicionales;
+
   const fichaDominoVariants = {
     normal: {
       scale: 1,
@@ -126,14 +142,14 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
       {/* Mitad superior */}
       <div className="absolute top-0 left-0 w-full h-1/2 border-b border-gray-400 flex items-center justify-center">
         <div className="relative w-full h-full">
-          {renderizarPuntos(valorSuperior)}
+          {renderizarValor(valorSuperior)}
         </div>
       </div>
 
       {/* Mitad inferior */}
       <div className="absolute bottom-0 left-0 w-full h-1/2 flex items-center justify-center">
         <div className="relative w-full h-full">
-          {renderizarPuntos(valorInferior)}
+          {renderizarValor(valorInferior)}
         </div>
       </div>
     </motion.div>
