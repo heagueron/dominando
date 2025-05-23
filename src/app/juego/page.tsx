@@ -1,6 +1,7 @@
 // /home/heagueron/jmu/dominando/src/app/juego/page.tsx
 'use client';
 
+import { PanInfo } from 'framer-motion'; // Importar PanInfo
 import { motion } from 'framer-motion';
 import { io, Socket } from 'socket.io-client'; // Correct import for client
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -142,6 +143,8 @@ export default function JuegoPage() {
     detalle: string;
   } | null>(null);
   // const [pasesConsecutivos, setPasesConsecutivos] = useState(0); // Gestionado por el servidor
+
+  const mesaRef = useRef<HTMLDivElement>(null); // Ref para el componente MesaDomino
 
   // Función para limpiar el intervalo del temporizador
   const limpiarIntervaloTimer = useCallback(() => {
@@ -404,6 +407,13 @@ export default function JuegoPage() {
     );
   }, []);
 
+  // Memoizar onFichaClick para MesaDomino
+  const handleMesaFichaClick = useCallback((id: string) => {
+    console.log('[MESA] Ficha en mesa clickeada:', id);
+    // Aquí podrías añadir lógica si necesitas hacer algo cuando se hace clic en una ficha de la mesa
+  }, []);
+
+
   // Lógica de UI para seleccionar ficha (sigue siendo relevante en cliente)
   const handleFichaClick = (idFicha: string, idJugadorMano: string) => {
     if (resultadoMano) return;
@@ -444,18 +454,34 @@ export default function JuegoPage() {
 
 
   // Lógica para enviar acciones al servidor
-  const handleJugarFichaServidor = (extremoElegido: 'izquierda' | 'derecha') => {
-    if (!socket || !fichaSeleccionada || fichaSeleccionada.idJugadorMano !== currentPlayerId || fichaSeleccionada.idJugadorMano !== miIdJugadorSocketRef.current) return;
+  const handleJugarFichaServidor = (
+    extremoElegidoParam: 'izquierda' | 'derecha',
+    fichaIdParam?: string // Parámetro opcional para la ficha a jugar (usado por drag-and-drop)
+  ) => {
+    if (!socket) return;
+    if (currentPlayerId !== miIdJugadorSocketRef.current) {
+      console.warn("[JUGAR_FICHA] Intento de jugar fuera de turno.");
+      return;
+    }
+
     limpiarIntervaloTimer(); // Limpiar timer al realizar una jugada
     setTiempoTurnoRestante(null); // Resetear visualmente el contador
 
+    const idFichaAJugar = fichaIdParam || fichaSeleccionada?.idFicha;
+    const extremoElegido = extremoElegidoParam;
+
+    if (!idFichaAJugar) {
+      console.warn("[JUGAR_FICHA] No hay ficha seleccionada o provista para jugar.");
+      return;
+    }
+
     // Validaciones preliminares en cliente (opcional, el servidor es la autoridad)
-    const fichaParaJugar = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.find(f => f.id === fichaSeleccionada.idFicha);
+    const fichaParaJugar = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.find(f => f.id === idFichaAJugar);
     if (!fichaParaJugar) return;
 
     // Si es la primera ficha
     if (!anclaFicha) {
-        socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
+        socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: idFichaAJugar, extremoElegido });
         setFichaSeleccionada(undefined); // Limpiar selección después de emitir
         return;
     }
@@ -484,8 +510,8 @@ export default function JuegoPage() {
       }
     }
     
-    console.log(`[SOCKET] Emitiendo cliente:jugarFicha`, { rondaId: DEFAULT_RONDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
-    socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
+    console.log(`[SOCKET] Emitiendo cliente:jugarFicha`, { rondaId: DEFAULT_RONDA_ID, fichaId: idFichaAJugar, extremoElegido });
+    socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: idFichaAJugar, extremoElegido });
     setFichaSeleccionada(undefined); // Limpiar selección después de emitir
   };
 
@@ -495,6 +521,49 @@ export default function JuegoPage() {
     limpiarIntervaloTimer(); // Limpiar timer al pasar turno
     setTiempoTurnoRestante(null); // Resetear visualmente el contador
     socket.emit('cliente:pasarTurno', { rondaId: DEFAULT_RONDA_ID });
+  };
+
+  const handleFichaDragEnd = (
+    fichaId: string,
+    event: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo // info.point.x, info.point.y son las coordenadas de pantalla donde se soltó
+  ) => {
+    if (currentPlayerId !== miIdJugadorSocketRef.current) {
+      console.log("[DRAG_END] No es el turno del jugador local. Ignorando drag end.");
+      return;
+    }
+    if (resultadoMano) {
+      console.log("[DRAG_END] La mano ya ha terminado. Ignorando drag end.");
+      return;
+    }
+
+    console.log(`[DRAG_END] Ficha ${fichaId} soltada. Coordenadas: (${info.point.x.toFixed(2)}, ${info.point.y.toFixed(2)})`);
+
+    // Lógica para la primera ficha
+    if (!anclaFicha && fichasIzquierda.length === 0 && fichasDerecha.length === 0) {
+      // Verificar si se soltó sobre la mesa (aproximado)
+      if (mesaRef.current) {
+        const mesaRect = mesaRef.current.getBoundingClientRect();
+        if (info.point.x >= mesaRect.left && info.point.x <= mesaRect.right &&
+            info.point.y >= mesaRect.top && info.point.y <= mesaRect.bottom) {
+          
+          console.log(`[DRAG_END] Primera ficha ${fichaId} soltada sobre la mesa. Intentando jugar...`);
+          // Llamar directamente a handleJugarFichaServidor con la ficha y un extremo por defecto
+          // El servidor manejará que es la primera ficha.
+          // El timeout puede seguir siendo útil para que la animación de "soltar" se vea antes del cambio de estado del servidor.
+          setTimeout(() => handleJugarFichaServidor('derecha', fichaId), 50);
+
+        } else {
+          console.log(`[DRAG_END] Primera ficha ${fichaId} soltada fuera de la mesa.`);
+          // La ficha debería volver a la mano automáticamente por las constraints de framer-motion
+        }
+      }
+      return;
+    }
+
+    // TODO: Lógica para cuando ya hay fichas en la mesa (detección de extremos)
+    console.log(`[DRAG_END] Ficha ${fichaId} soltada, pero no es la primera. Lógica de extremos pendiente.`);
+    // Aquí iría la lógica más compleja para detectar si se soltó en un extremo jugable
   };
 
 
@@ -517,7 +586,7 @@ export default function JuegoPage() {
   let puedeJugarIzquierda = false, textoBotonIzquierda = "Punta Izquierda";
   let puedeJugarDerecha = false, textoBotonDerecha = "Punta Derecha";
 
-  console.log('[RENDER_BOTONES_CHECK]', {
+  /*console.log('[RENDER_BOTONES_CHECK]', {
     hasFichaSeleccionadaActual: !!fichaSeleccionadaActual,
     hasFichaSeleccionada: !!fichaSeleccionada,
     idJugadorManoFichaSel: fichaSeleccionada?.idJugadorMano,
@@ -525,7 +594,7 @@ export default function JuegoPage() {
     miId: miIdJugadorSocketRef.current,
     anclaFichaPresente: !!anclaFicha,
     extremos,
-  });
+  }); */
 
   if (fichaSeleccionadaActual && fichaSeleccionada && fichaSeleccionada.idJugadorMano === currentPlayerId && fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current){
     if (!anclaFicha) { // Primera ficha
@@ -605,8 +674,9 @@ export default function JuegoPage() {
       <main className="flex-grow relative flex justify-center items-center p-4">
         <MesaDomino
           fichasEnMesa={combinedFichasParaMesa}
-          posicionAnclaFija={memoizedPosicionAnclaFija}
-          onFichaClick={(id) => console.log('[MESA] Ficha en mesa clickeada:', id)} // Clic en ficha de mesa no hace nada por ahora
+          ref={mesaRef} // Pasar la ref a MesaDomino
+          posicionAnclaFija={memoizedPosicionAnclaFija} // Esta ya está memoizada
+          onFichaClick={handleMesaFichaClick} // Usar la función memoizada
           onMesaDimensionsChange={handleMesaDimensionsChange}
         />
         <DebugInfoOverlay
@@ -631,19 +701,19 @@ export default function JuegoPage() {
         {fichaSeleccionadaActual && fichaSeleccionada && fichaSeleccionada.idJugadorMano === currentPlayerId && fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current && (
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end p-2 bg-black bg-opacity-75 rounded shadow-lg z-10">
             <p className="text-white text-sm font-semibold">Jugar: {fichaSeleccionadaActual.valorSuperior}-{fichaSeleccionadaActual.valorInferior}</p>
-            {!anclaFicha ? (
-               <button className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded text-sm w-full text-center" onClick={() => handleJugarFichaServidor('derecha')}>
+            {!anclaFicha ? ( // Si es la primera ficha, solo un botón para jugar (el extremo es manejado por el servidor)
+               <button className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded text-sm w-full text-center" onClick={() => handleJugarFichaServidor('derecha', fichaSeleccionada.idFicha)}>
                 {textoBotonIzquierda}
               </button>
             ) : ( // No es la primera ficha
               <div className="flex gap-2">
                 {puedeJugarIzquierda && (
-                  <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm" onClick={() => handleJugarFichaServidor('izquierda')}>
+                  <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm" onClick={() => handleJugarFichaServidor('izquierda', fichaSeleccionada.idFicha)}>
                     {textoBotonIzquierda}
                   </button>
                 )}
                 {puedeJugarDerecha && (
-                  <button className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded text-sm" onClick={() => handleJugarFichaServidor('derecha')}>
+                  <button className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded text-sm" onClick={() => handleJugarFichaServidor('derecha', fichaSeleccionada.idFicha)}>
                     {textoBotonDerecha}
                   </button>
                 )}
@@ -687,6 +757,7 @@ export default function JuegoPage() {
             layoutDirection="row"
             isLocalPlayer={true} // This is the local player's hand
             playableFichaIds={pIds1}
+            onFichaDragEnd={handleFichaDragEnd} // Pasar el handler de drag end
             // numFichas={mano1.numFichas} // Ya se infiere de mano1.fichas.length
           />
         </motion.div>

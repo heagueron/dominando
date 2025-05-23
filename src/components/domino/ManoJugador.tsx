@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, PanInfo } from 'framer-motion'; // Importar PanInfo
 import FichaDomino from './FichaDomino';
 
 interface FichaEnMano {
@@ -18,6 +18,7 @@ interface ManoJugadorProps {
   layoutDirection?: 'row' | 'col';
   numFichas?: number;
   isLocalPlayer?: boolean; // New prop to indicate if this is the local player's hand
+  onFichaDragEnd?: (fichaId: string, event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void; // Nueva prop para drag & drop
 }
 
 const ManoJugador: React.FC<ManoJugadorProps> = ({
@@ -30,6 +31,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   className = "",
   layoutDirection = 'row', // Default to row
   isLocalPlayer = false, // Default to false
+  onFichaDragEnd, // Nueva prop
 }) => {
   console.log(`[ManoJugador ${idJugadorMano}] Render. Received playableFichaIds:`, playableFichaIds);
 
@@ -40,7 +42,9 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   // Construir clases condicionales de forma más clara
   const conditionalClasses = [ // Use isLocalPlayer instead of esManoPrincipal
     !isLocalPlayer && numFichas !== undefined && numFichas > 0 ? 'justify-center items-center' : '',
-    layoutDirection === 'row' ? 'flex-row overflow-x-auto justify-center' : 'flex-col overflow-y-auto items-center',
+    // TEMPORALMENTE COMENTADO PARA PRUEBA DE DRAG:
+    // layoutDirection === 'row' ? 'flex-row overflow-x-auto justify-center' : 'flex-col overflow-y-auto items-center',
+    layoutDirection === 'row' ? 'flex-row justify-center' : 'flex-col items-center', // Sin overflow
     isLocalPlayer ? 'rounded-t-xl' : 'rounded-md', // Apply rounded-t-xl only to the local player's hand
   ].filter(Boolean).join(' '); // Filtra cadenas vacías y une con espacios
 
@@ -87,10 +91,11 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
                     valorInferior={ficha.valorInferior}
                     seleccionada={ficha.id === fichaSeleccionada}
                     onClick={() => onFichaClick(ficha.id, idJugadorMano)}
-                    arrastrable={true}
+                    arrastrable={isLocalPlayer && isFichaPlayable} // CORRECCIÓN: Hacerla condicional
                     esEnMano={true}
                     isPlayable={isFichaPlayable}
                     sizeClass={fichaSizeClass}
+                    onDragEndCallback={isLocalPlayer && onFichaDragEnd ? (event, info) => onFichaDragEnd(ficha.id, event, info) : undefined}
                   />
                 </motion.div>
               );

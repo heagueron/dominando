@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, PanInfo } from 'framer-motion';
 import { DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
 
 interface FichaDominoProps {
@@ -13,6 +13,7 @@ interface FichaDominoProps {
   esEnMano?: boolean;
   isPlayable?: boolean; // Indica si la ficha es jugable en el turno actual (solo relevante si esEnMano)
   sizeClass?: string; // Nueva prop para clases de tamaño
+  onDragEndCallback?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void; // Nueva prop
 }
 
 const FichaDomino: React.FC<FichaDominoProps> = ({
@@ -26,9 +27,13 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   esEnMano = false, // Destructurado y usado en la lógica de clases
   isPlayable = true, // Por defecto, una ficha es jugable a menos que se especifique lo contrario
   sizeClass = 'w-[48px] h-[96px] sm:w-[64px] sm:h-[128px]', // Clases de tamaño por defecto (ejemplo: 48x96px en móvil, 64x128px en sm+)
+  onDragEndCallback, // Nueva prop
 }) => {
   // TEMPORAL: Determinar si es una ficha "extendida" basándose en el prefijo del ID o el valor
   const esFichaExtendida = valorSuperior > 6 || valorInferior > 6;
+
+  // Ajustar dragConstraints: si está en mano y es arrastrable, permitir arrastre libre.
+  const dragConstraintsValue = esEnMano && arrastrable ? false : { left: 0, right: 0, top: 0, bottom: 0 };
 
   const renderizarPuntosTradicionales = (valor: number) => {
     const posiciones = {
@@ -124,10 +129,11 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
         transformOrigin: 'center center',
       }}
       onClick={isPlayable ? onClick : undefined} // Solo permitir clic si la ficha es jugable
-      drag={arrastrable}
-      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      drag={arrastrable && isPlayable} // Solo permitir drag si es arrastrable Y jugable
+      dragConstraints={dragConstraintsValue}
       dragElastic={0.1} // Menos elasticidad para un arrastre más firme
       whileTap={{ scale: arrastrable ? 1.1 : 1 }} // Solo escalar al tapear si es arrastrable
+      onDragEnd={arrastrable && isPlayable ? onDragEndCallback : undefined} // Llamar al callback solo si es arrastrable y jugable
       variants={fichaDominoVariants}
       initial="normal"
       animate={{
