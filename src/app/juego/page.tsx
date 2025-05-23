@@ -43,12 +43,12 @@ const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://l
 
 
 // MESA INICIAL
-const DEFAULT_PARTIDA_ID = "default-domino-room-001";
+const DEFAULT_RONDA_ID = "default-domino-round-001"; // Renombrado
 
 // Tipos para los payloads de Socket.IO (deberían coincidir con los del servidor)
 // Estos son ejemplos, idealmente se compartirían desde un paquete común o se definirían con más cuidado.
 interface EstadoJuegoPayload {
-  partidaId: string;
+  rondaId: string;
   jugadores: { id: string; nombre: string; numFichas: number; estaConectado: boolean; ordenTurno?: number }[];
   currentPlayerId: string | null;
   anclaFicha: FichaEnMesaParaLogica | null;
@@ -61,7 +61,7 @@ interface EstadoJuegoPayload {
   creadorId: string;
 }
 interface TeUnisteAPartidaPayload {
-  partidaId: string;
+  rondaId: string;
   tuJugadorIdEnPartida: string;
   estadoJuego: EstadoJuegoPayload;
 }
@@ -77,9 +77,9 @@ interface JugadorSeDesconectoPayload {
   jugadoresActualizados?: { id: string; nombre: string; numFichas: number; estaConectado: boolean; ordenTurno?: number }[];
 }
 // Payload para cliente:jugarFicha
-export interface JugarFichaPayload {
+export interface JugarFichaPayloadCliente {
   partidaId: string; // El cliente debe enviar el ID de la partida
-  fichaId: string;
+  rondaId: string;
   extremoElegido: 'izquierda' | 'derecha';
 }
 
@@ -91,12 +91,12 @@ interface TuTurnoPayloadCliente {
 
 // Payload para cliente:pasarTurno (definido en el cliente para claridad)
 interface PasarTurnoPayloadCliente {
-  partidaId: string;
+  rondaId: string;
 }
 
 // Payload para servidor:finDeMano (definido en el cliente para claridad)
 interface FinDeManoPayloadCliente {
-  partidaId: string;
+  rondaId: string;
   ganadorId: string;
   nombreGanador: string;
   tipoFin: 'domino' | 'trancado';
@@ -159,7 +159,7 @@ export default function JuegoPage() {
 
     newSocket.on('connect', () => {
       console.log('[SOCKET] Conectado al servidor:', newSocket.id);
-      newSocket.emit('cliente:unirseAPartida', { partidaId: DEFAULT_PARTIDA_ID, nombreJugador });
+      newSocket.emit('cliente:unirseAPartida', { rondaId: DEFAULT_RONDA_ID, nombreJugador });
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -422,7 +422,7 @@ export default function JuegoPage() {
 
     // Si es la primera ficha
     if (!anclaFicha) {
-      socket.emit('cliente:jugarFicha', { partidaId: DEFAULT_PARTIDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
+        socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
         setFichaSeleccionada(undefined); // Limpiar selección después de emitir
         return;
     }
@@ -451,15 +451,15 @@ export default function JuegoPage() {
       }
     }
     
-    console.log(`[SOCKET] Emitiendo cliente:jugarFicha`, { partidaId: DEFAULT_PARTIDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
-    socket.emit('cliente:jugarFicha', { partidaId: DEFAULT_PARTIDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
+    console.log(`[SOCKET] Emitiendo cliente:jugarFicha`, { rondaId: DEFAULT_RONDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
+    socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: fichaSeleccionada.idFicha, extremoElegido });
     setFichaSeleccionada(undefined); // Limpiar selección después de emitir
   };
 
   const handlePasarTurnoServidor = () => {
     if (!socket || currentPlayerId !== miIdJugadorSocketRef.current) return;
     console.log(`[SOCKET] Emitiendo cliente:pasarTurno`);
-    socket.emit('cliente:pasarTurno', { partidaId: DEFAULT_PARTIDA_ID });
+    socket.emit('cliente:pasarTurno', { rondaId: DEFAULT_RONDA_ID });
   };
 
 
