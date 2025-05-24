@@ -132,7 +132,7 @@ export default function JuegoPage() {
   
   const [infoExtremos, setInfoExtremos] = useState<any>({ izquierda: null, derecha: null }); // Simplificado
   const [viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
-  const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 0 });
+  const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 1, translateX: 0, translateY: 0 }); // Añadir translateX, translateY
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [playableFichaIds, setPlayableFichaIds] = useState<string[]>([]);
   const [showRotateMessage, setShowRotateMessage] = useState(false);
@@ -422,11 +422,21 @@ export default function JuegoPage() {
     return () => window.removeEventListener('resize', handleOrientationChange);
   }, []);
 
-  const handleMesaDimensionsChange = useCallback((width: number, height: number, scale: number) => {
+  const handleMesaDimensionsChange = useCallback((
+    width: number, 
+    height: number, 
+    scale: number, 
+    translateX: number, // Nuevo parámetro
+    translateY: number  // Nuevo parámetro
+  ) => {
     setMesaDims(prevDims =>
-      (prevDims.width === width && prevDims.height === height && prevDims.scale === scale)
+      (prevDims.width === width && 
+       prevDims.height === height && 
+       prevDims.scale === scale &&
+       prevDims.translateX === translateX && // Comparar también translateX
+       prevDims.translateY === translateY)   // Comparar también translateY
       ? prevDims
-      : { width, height, scale }
+      : { width, height, scale, translateX, translateY } // Guardar los nuevos valores
     );
   }, []);
 
@@ -523,15 +533,8 @@ export default function JuegoPage() {
         return;
     }
 
-    // Regla de extremos iguales (si aplica)
-    if (anclaFicha && extremos.izquierda !== null && extremos.izquierda === extremos.derecha) {
-      const shorterEnd = (fichasIzquierda.length <= fichasDerecha.length) ? 'izquierda' : 'derecha';
-      if (extremoElegido !== shorterEnd) {
-        console.warn(`[PAGE] Regla: Extremos iguales. Debe jugar en ${shorterEnd}. No se emite.`);
-        // Aquí podrías mostrar un mensaje al usuario.
-        return;
-      }
-    }
+    // La regla de "jugar por el extremo más corto cuando ambos extremos son iguales" se ha eliminado del cliente.
+    // El servidor tendrá la última palabra si esa regla aún se aplica allí.
     
     console.log(`[SOCKET] Emitiendo cliente:jugarFicha`, { rondaId: DEFAULT_RONDA_ID, fichaId: idFichaAJugar, extremoElegido });
     socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: idFichaAJugar, extremoElegido });
@@ -545,6 +548,196 @@ export default function JuegoPage() {
     setTiempoTurnoRestante(null); // Resetear visualmente el contador
     socket.emit('cliente:pasarTurno', { rondaId: DEFAULT_RONDA_ID });
   };
+
+  // Mover la definición de posicionAnclaFija aquí, antes de que se use en los useCallback
+  const posicionAnclaFija = useMemo(() => 
+    anclaFicha ? anclaFicha.posicionCuadricula : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL }
+  , [anclaFicha]);
+
+  // Función para calcular las coordenadas X, Y en el lienzo de diseño de MesaDomino
+  // Esta función replicaría la lógica de posicionamiento de MesaDomino.tsx
+  const getDesignCanvasCoordinates = useCallback((
+    targetFichaPos: { fila: number; columna: number },
+    currentAnclaFicha: FichaEnMesaParaLogica | null,
+    currentFichasIzquierda: FichaEnMesaParaLogica[],
+    currentFichasDerecha: FichaEnMesaParaLogica[]
+  ): { x: number; y: number } | null => {
+    const todasLasFichasEnMesaParaCalculo = [
+      ...currentFichasIzquierda.slice().reverse(),
+      ...(currentAnclaFicha ? [currentAnclaFicha] : []),
+      ...currentFichasDerecha,
+    ];
+
+    if (todasLasFichasEnMesaParaCalculo.length === 0) {
+      // Si no hay fichas en la mesa, y estamos preguntando por la posición del ancla (primera ficha)
+      if (targetFichaPos.fila === posicionAnclaFija.fila && targetFichaPos.columna === posicionAnclaFija.columna) {
+        return { x: DESIGN_TABLE_WIDTH_PX / 2, y: DESIGN_TABLE_HEIGHT_PX / 2 };
+      }
+      return null;
+    }
+
+    const calculatedPositions: { [key: string]: { x: number; y: number; fichaLogic: FichaEnMesaParaLogica; } } = {};
+    const anclaLogicaParaCalculo = currentAnclaFicha || (todasLasFichasEnMesaParaCalculo.length === 1 ? todasLasFichasEnMesaParaCalculo[0] : null);
+
+    if (anclaLogicaParaCalculo) {
+      calculatedPositions[`${anclaLogicaParaCalculo.posicionCuadricula.fila},${anclaLogicaParaCalculo.posicionCuadricula.columna}`] = {
+        x: DESIGN_TABLE_WIDTH_PX / 2,
+        y: DESIGN_TABLE_HEIGHT_PX / 2,
+        fichaLogic: anclaLogicaParaCalculo, // Corregido: usar fichaLogic
+      };
+    } else {
+      console.error("[getDesignCanvasCoordinates] No se pudo determinar la ficha ancla para el cálculo inicial.");
+      return null;
+    }
+    
+    let piecesToProcess = todasLasFichasEnMesaParaCalculo.filter(f =>
+        !calculatedPositions[`${f.posicionCuadricula.fila},${f.posicionCuadricula.columna}`]
+    );
+    let iterations = 0;
+    const maxIterations = todasLasFichasEnMesaParaCalculo.length * 2;
+
+    while (piecesToProcess.length > 0 && iterations < maxIterations) {
+        iterations++;
+        const processedInThisIterationIds: string[] = [];
+
+        piecesToProcess.forEach(fichaLogic => {
+            const possiblePrevPositions = [
+                { df: 0, dc: -1, dir: 'RightOfPrev' }, { df: 0, dc: 1,  dir: 'LeftOfPrev'  },
+                { df: -1, dc: 0, dir: 'BelowPrev'   }, { df: 1, dc: 0,  dir: 'AbovePrev'   },
+            ];
+
+            let connectedToCalculated: { x: number; y: number; fichaLogic: FichaEnMesaParaLogica } | undefined;
+            let connectionDirection = '';
+
+            for (const offset of possiblePrevPositions) {
+                const prevFila = fichaLogic.posicionCuadricula.fila + offset.df;
+                const prevCol = fichaLogic.posicionCuadricula.columna + offset.dc;
+                const prevPosKey = `${prevFila},${prevCol}`;
+                const calculatedPrev = calculatedPositions[prevPosKey];
+
+                if (calculatedPrev) {
+                    connectedToCalculated = calculatedPrev;
+                    connectionDirection = offset.dir;
+                    break;
+                }
+            }
+
+            if (connectedToCalculated) {
+                const ux = connectedToCalculated.x;
+                const uy = connectedToCalculated.y;
+                const uIsVertical = Math.abs(connectedToCalculated.fichaLogic.rotacion % 180) === 0;
+                const uActualWidth = uIsVertical ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+                const uActualHeight = uIsVertical ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+
+                const nIsVertical = Math.abs(fichaLogic.rotacion % 180) === 0;
+                const nActualWidth = nIsVertical ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+                const nActualHeight = nIsVertical ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+
+                let nx = 0, ny = 0;
+
+                switch (connectionDirection) {
+                    case 'RightOfPrev':
+                        nx = ux + uActualWidth / 2 + nActualWidth / 2;
+                        ny = uy;
+                        break;
+                    case 'LeftOfPrev':
+                        nx = ux - uActualWidth / 2 - nActualWidth / 2;
+                        ny = uy;
+                        break;
+                    case 'BelowPrev':
+                        nx = ux;
+                        ny = uy + uActualHeight / 2 + nActualHeight / 2;
+                        if (!uIsVertical && nIsVertical) { // H -> V (T-shape or L-shape)
+                            if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 7 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && !(connectedToCalculated.fichaLogic.valorSuperior === connectedToCalculated.fichaLogic.valorInferior) && fichaLogic.posicionCuadricula.fila === 8 && fichaLogic.posicionCuadricula.columna === 1) {
+                                nx = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2; // L-shape (8,1)V from (7,1)H
+                            } else {
+                                nx = ux + uActualWidth / 2 - nActualWidth / 2; // T-shape
+                            }
+                        } else if (uIsVertical && !nIsVertical) { // V -> H
+                            nx = ux + uActualWidth / 2 - nActualWidth / 2;
+                             if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 8 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 9 && fichaLogic.posicionCuadricula.columna === 1) {
+                                nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2; // L-shape (9,1)H from (8,1)V
+                            }
+                        }
+                        break;
+                    case 'AbovePrev':
+                        nx = ux;
+                        ny = uy - uActualHeight / 2 - nActualHeight / 2;
+                        if (uIsVertical && !nIsVertical) { // V -> H
+                            if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 4 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 3 && fichaLogic.posicionCuadricula.columna === 1) {
+                                nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2; // L-shape (3,1)H from (4,1)V
+                            } else if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 2 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 1 && fichaLogic.posicionCuadricula.columna === 11) {
+                                nx = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2; // L-shape (1,11)H from (2,11)V
+                            }
+                        } else if (!uIsVertical && nIsVertical) { // H -> V
+                            if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 3 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 2 && fichaLogic.posicionCuadricula.columna === 11) {
+                                nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2; // L-shape (2,11)V from (3,11)H
+                            } else {
+                                nx = ux - uActualWidth / 2 + nActualWidth / 2; // T-shape
+                            }
+                        }
+                        break;
+                }
+                 // Ajuste específico para el giro de (6,11)H a (7,11)V
+                if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 6 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && !uIsVertical &&
+                    fichaLogic.posicionCuadricula.fila === 7 && fichaLogic.posicionCuadricula.columna === 11 && nIsVertical) {
+                    nx = ux - DOMINO_HEIGHT_PX / 4;
+                }
+
+                calculatedPositions[`${fichaLogic.posicionCuadricula.fila},${fichaLogic.posicionCuadricula.columna}`] = { x: nx, y: ny, fichaLogic };
+                processedInThisIterationIds.push(fichaLogic.id);
+            }
+        });
+        piecesToProcess = piecesToProcess.filter(f => !processedInThisIterationIds.includes(f.id));
+        if(processedInThisIterationIds.length === 0 && piecesToProcess.length > 0) break; // Evitar bucle infinito
+    }
+
+    const targetKey = `${targetFichaPos.fila},${targetFichaPos.columna}`;
+    if (calculatedPositions[targetKey]) {
+      return { x: calculatedPositions[targetKey].x, y: calculatedPositions[targetKey].y };
+    }
+
+    console.warn(`[getDesignCanvasCoordinates] No se pudo calcular la posición para ${targetFichaPos.fila},${targetFichaPos.columna}`);
+    return null;
+  }, [posicionAnclaFija]); // Dependencia de posicionAnclaFija (que es constante)
+
+  const getScreenCoordinatesOfConnectingEdge = useCallback((
+    fichaPos: { fila: number; columna: number }, // Posición de la ficha de extremo
+    fichaRot: number,
+    // valorExtremo: number, // El valor numérico del extremo
+    // esExtremoIzquierdo: boolean // Para saber qué lado de la ficha es el conector
+  ): { x: number; y: number } | null => {
+    if (!mesaRef.current || !infoExtremos.izquierda || !infoExtremos.derecha) return null; // Asegurar que infoExtremos tenga datos
+
+    const designCoords = getDesignCanvasCoordinates(fichaPos, anclaFicha, fichasIzquierda, fichasDerecha);
+    if (!designCoords) return null;
+
+    let designEdgeX = designCoords.x;
+    let designEdgeY = designCoords.y;
+
+    const esVertical = Math.abs(fichaRot % 180) === 0;
+    const esExtremoIzquierdoLogico = infoExtremos.izquierda.pos.fila === fichaPos.fila && infoExtremos.izquierda.pos.columna === fichaPos.columna;
+
+    // Ajustar al centro del borde conector
+    if (esVertical) { // Ficha vertical
+      // Si es el extremo izquierdo lógico Y su valor superior conecta (o es el ancla y es el lado superior)
+      // O si es el extremo derecho lógico Y su valor inferior conecta (o es el ancla y es el lado inferior)
+      // Esta lógica necesita ser más precisa basada en qué valor de la ficha es el extremo.
+      // Por ahora, una simplificación:
+      designEdgeY += (esExtremoIzquierdoLogico ? -1 : 1) * (DOMINO_HEIGHT_PX / 4); // Aproximadamente el centro de la mitad superior/inferior
+    } else { // Ficha horizontal
+      // Similar lógica para horizontal
+      designEdgeX += (esExtremoIzquierdoLogico ? -1 : 1) * (DOMINO_HEIGHT_PX / 4); // DOMINO_HEIGHT_PX porque es la longitud de la ficha horizontal
+    }
+
+    // console.log(`[getScreenEdge] Ficha ${fichaPos.fila},${fichaPos.columna} (rot ${fichaRot}): DesignCenter (${designCoords.x.toFixed(2)},${designCoords.y.toFixed(2)}), DesignEdge (${designEdgeX.toFixed(2)},${designEdgeY.toFixed(2)})`);
+
+    const mesaRect = mesaRef.current.getBoundingClientRect();
+    const screenX = (designEdgeX * mesaDims.scale + mesaDims.translateX) + mesaRect.left;
+    const screenY = (designEdgeY * mesaDims.scale + mesaDims.translateY) + mesaRect.top;
+
+    return { x: screenX, y: screenY };
+  }, [getDesignCanvasCoordinates, anclaFicha, fichasIzquierda, fichasDerecha, mesaDims, posicionAnclaFija]);
 
   const handleFichaDragEnd = (
     fichaId: string,
@@ -584,9 +777,52 @@ export default function JuegoPage() {
       return;
     }
 
-    // TODO: Lógica para cuando ya hay fichas en la mesa (detección de extremos)
-    console.log(`[DRAG_END] Ficha ${fichaId} soltada, pero no es la primera. Lógica de extremos pendiente.`);
-    // Aquí iría la lógica más compleja para detectar si se soltó en un extremo jugable
+    // Lógica para cuando YA HAY FICHAS en la mesa
+    let extremoDetectado: 'izquierda' | 'derecha' | null = null;
+    const dropX = info.point.x;
+    const dropY = info.point.y;
+    const umbralDeDrop = DOMINO_HEIGHT_PX * mesaDims.scale * 2.5; // Umbral (ej. 1.5 veces la altura de una ficha escalada)
+
+    let distIzquierdo = Infinity;
+    if (infoExtremos.izquierda && infoExtremos.izquierda.pos) {
+      const puntoConexionIzquierdo = getScreenCoordinatesOfConnectingEdge(
+        infoExtremos.izquierda.pos,
+        infoExtremos.izquierda.rot,
+        // infoExtremos.izquierda.valorExtremo,
+        // true
+      );
+      if (puntoConexionIzquierdo) {
+        distIzquierdo = Math.sqrt(Math.pow(dropX - puntoConexionIzquierdo.x, 2) + Math.pow(dropY - puntoConexionIzquierdo.y, 2));
+        console.log(`[DRAG_END] Distancia al extremo izquierdo (${infoExtremos.izquierda.pos.fila},${infoExtremos.izquierda.pos.columna}): ${distIzquierdo.toFixed(2)} (Umbral: ${umbralDeDrop.toFixed(2)})`);
+      }
+    }
+
+    let distDerecho = Infinity;
+    if (infoExtremos.derecha && infoExtremos.derecha.pos) {
+      const puntoConexionDerecho = getScreenCoordinatesOfConnectingEdge(
+        infoExtremos.derecha.pos,
+        infoExtremos.derecha.rot,
+        // infoExtremos.derecha.valorExtremo,
+        // false
+      );
+      if (puntoConexionDerecho) {
+        distDerecho = Math.sqrt(Math.pow(dropX - puntoConexionDerecho.x, 2) + Math.pow(dropY - puntoConexionDerecho.y, 2));
+        console.log(`[DRAG_END] Distancia al extremo derecho (${infoExtremos.derecha.pos.fila},${infoExtremos.derecha.pos.columna}): ${distDerecho.toFixed(2)} (Umbral: ${umbralDeDrop.toFixed(2)})`);
+      }
+    }
+
+    if (distIzquierdo < umbralDeDrop && distIzquierdo <= distDerecho) {
+      extremoDetectado = 'izquierda';
+    } else if (distDerecho < umbralDeDrop) {
+      extremoDetectado = 'derecha';
+    }
+
+    if (extremoDetectado) {
+      console.log(`[DRAG_END] Ficha ${fichaId} soltada cerca del extremo: ${extremoDetectado}`);
+      setTimeout(() => handleJugarFichaServidor(extremoDetectado!, fichaId), 50);
+    } else {
+      console.log(`[DRAG_END] Ficha ${fichaId} soltada en una zona no válida para extremos existentes.`);
+    }
   };
 
 
@@ -595,10 +831,6 @@ export default function JuegoPage() {
     ...(anclaFicha ? [anclaFicha] : []),
     ...fichasDerecha,
   ], [fichasIzquierda, anclaFicha, fichasDerecha]);
-
-  const memoizedPosicionAnclaFija = useMemo(() =>
-    anclaFicha ? anclaFicha.posicionCuadricula : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL }
-  , [anclaFicha]);
 
   let fichaSeleccionadaActual: FichaDomino | undefined;
   if (fichaSeleccionada && miIdJugadorSocketRef.current) { // Usar ref aquí
@@ -697,10 +929,10 @@ export default function JuegoPage() {
       <main className="flex-grow relative flex justify-center items-center p-4">
         <MesaDomino
           fichasEnMesa={combinedFichasParaMesa}
-          ref={mesaRef} // Pasar la ref a MesaDomino
-          posicionAnclaFija={memoizedPosicionAnclaFija} // Esta ya está memoizada
+          ref={mesaRef}
+          posicionAnclaFija={posicionAnclaFija} // Usar la variable memoizada
           onFichaClick={handleMesaFichaClick} // Usar la función memoizada
-          onMesaDimensionsChange={handleMesaDimensionsChange}
+          onMesaDimensionsChange={handleMesaDimensionsChange} // Esta ya está con useCallback
           fichaAnimandose={fichaAnimandose}
           jugadoresInfo={manosJugadores.map(j => ({id: j.idJugador, ordenTurno: j.ordenTurno}))} // Pasar info de jugadores para la animación
           miIdJugador={miIdJugadorSocketRef.current}

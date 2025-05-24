@@ -131,6 +131,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
       onClick={isPlayable ? onClick : undefined} // Solo permitir clic si la ficha es jugable
       drag={arrastrable && isPlayable} // Solo permitir drag si es arrastrable Y jugable
       dragConstraints={dragConstraintsValue}
+      dragSnapToOrigin={true} // <-- AÑADIR ESTA LÍNEA
       dragElastic={0.1} // Menos elasticidad para un arrastre más firme
       whileTap={{ scale: arrastrable ? 1.1 : 1 }} // Solo escalar al tapear si es arrastrable
       onDragEnd={arrastrable && isPlayable ? onDragEndCallback : undefined} // Llamar al callback solo si es arrastrable y jugable

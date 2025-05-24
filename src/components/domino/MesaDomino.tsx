@@ -21,7 +21,7 @@ interface MesaDominoProps {
   fichasEnMesa: FichaParaLogica[];
   posicionAnclaFija: { fila: number; columna: number }; // La celda lógica que debe permanecer centrada
   onFichaClick: (id: string) => void;
-  onMesaDimensionsChange?: (width: number, height: number, scale: number) => void;
+  onMesaDimensionsChange?: (width: number, height: number, scale: number, translateX: number, translateY: number) => void; // Añadir translateX, translateY
   // Nuevas props para la animación
   fichaAnimandose?: { id: string; jugadorIdOrigen: string } | null;
   jugadoresInfo?: { id: string; ordenTurno?: number }[]; // Para determinar la posición visual del jugador origen
@@ -270,7 +270,7 @@ const MesaDominoComponent: React.FC<MesaDominoProps & { forwardedRef: React.Ref<
         setCanvasTransform({ x: translateX, y: translateY, scale: currentScaleFactor });
         // console.log(`[MESA] updateTransform: scale=${currentScaleFactor.toFixed(4)}, translateX=${translateX.toFixed(2)}, translateY=${translateY.toFixed(2)}`);
         if (onMesaDimensionsChange && mesaElement) {
-          onMesaDimensionsChange(currentMesaWidth, currentMesaHeight, currentScaleFactor);
+          onMesaDimensionsChange(currentMesaWidth, currentMesaHeight, currentScaleFactor, translateX, translateY);
         }
       }
     };
