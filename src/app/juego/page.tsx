@@ -59,6 +59,8 @@ interface EstadoJuegoPayload {
   infoExtremos: any; // Simplificado por ahora
   estadoPartida: string;
   maxJugadores: number;
+  idJugadorQueRealizoUltimaAccion?: string;
+  idUltimaFichaJugada?: string;
   creadorId: string;
 }
 interface TeUnisteAPartidaPayload {
@@ -143,6 +145,12 @@ export default function JuegoPage() {
     detalle: string;
   } | null>(null);
   // const [pasesConsecutivos, setPasesConsecutivos] = useState(0); // Gestionado por el servidor
+
+  
+  const [fichaAnimandose, setFichaAnimandose] = useState<{
+    id: string;
+    jugadorIdOrigen: string;
+  } | null>(null);
 
   const mesaRef = useRef<HTMLDivElement>(null); // Ref para el componente MesaDomino
 
@@ -307,6 +315,21 @@ export default function JuegoPage() {
         setFichasDerecha(payload.fichasDerecha);
         setExtremos(payload.extremos);
         setInfoExtremos(payload.infoExtremos);
+
+        // Lógica para animación de ficha jugada por otro jugador
+        if (payload.idUltimaFichaJugada && 
+          payload.idJugadorQueRealizoUltimaAccion &&
+          payload.idJugadorQueRealizoUltimaAccion !== miIdJugadorSocketRef.current) {
+        
+        console.log(`[ANIM] Ficha ${payload.idUltimaFichaJugada} jugada por ${payload.idJugadorQueRealizoUltimaAccion} se animará.`);
+        setFichaAnimandose({ 
+          id: payload.idUltimaFichaJugada, 
+          jugadorIdOrigen: payload.idJugadorQueRealizoUltimaAccion 
+        });
+        // Limpiar después de un tiempo para que la animación no se repita en re-renders
+        setTimeout(() => setFichaAnimandose(null), 700); // Ajustar duración
+      }
+
         // setPasesConsecutivos(payload.pasesConsecutivos || 0); // Si el servidor lo envía
         // setResultadoMano(null); // Si una nueva mano comienza, limpiar resultado anterior
     });
@@ -678,6 +701,9 @@ export default function JuegoPage() {
           posicionAnclaFija={memoizedPosicionAnclaFija} // Esta ya está memoizada
           onFichaClick={handleMesaFichaClick} // Usar la función memoizada
           onMesaDimensionsChange={handleMesaDimensionsChange}
+          fichaAnimandose={fichaAnimandose}
+          jugadoresInfo={manosJugadores.map(j => ({id: j.idJugador, ordenTurno: j.ordenTurno}))} // Pasar info de jugadores para la animación
+          miIdJugador={miIdJugadorSocketRef.current}
         />
         <DebugInfoOverlay
           viewportWidth={viewportDims.width} viewportHeight={viewportDims.height}
