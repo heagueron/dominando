@@ -10,6 +10,11 @@ interface ContenedorInfoJugadorProps {
   duracionTotalTurno?: number;
   posicion: 'abajo' | 'arriba' | 'izquierda' | 'derecha';
   numFichas?: number; // Nueva prop para el conteo de fichas
+  autoPaseInfo?: { // Información sobre el estado de auto-pase
+    jugadorId: string;
+    estado: 'esperando_confirmacion_paso' | 'mostrando_mensaje_paso';
+  } | null;
+  idJugadorProp: string; // <--- AÑADIR ESTA PROP
   className?: string;
 }
 
@@ -31,7 +36,8 @@ const BarraProgresoTurno: React.FC<{ tiempoRestante: number; duracionTotalTurno:
   return (
     <div className="w-full bg-gray-600 rounded-full h-2.5 md:h-3 my-1 md:my-0">
       <div
-        className="bg-yellow-400 h-2.5 md:h-3 rounded-full transition-all duration-300 ease-linear"
+        // Cambiamos transition-all a transition-width y ajustamos la duración a 1000ms (1 segundo)
+        className="bg-yellow-400 h-2.5 md:h-3 rounded-full transition-width duration-1000 ease-linear"
         style={{ width: `${porcentaje}%` }}
       ></div>
     </div>
@@ -45,9 +51,15 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
   duracionTotalTurno,
   posicion,
   numFichas,
+  autoPaseInfo,
+  idJugadorProp, // <--- RECIBIR LA PROP
   className = '',
 }) => {
-  const mostrarBarra = esTurnoActual && typeof tiempoRestante === 'number' && typeof duracionTotalTurno === 'number' && duracionTotalTurno > 0;
+  // La barra de progreso solo se muestra si es el turno actual Y no estamos en un proceso de auto-pase para este jugador
+  const mostrarBarra = esTurnoActual && typeof tiempoRestante === 'number' && typeof duracionTotalTurno === 'number' && duracionTotalTurno > 0 && 
+                       (!autoPaseInfo || autoPaseInfo.jugadorId !== idJugadorProp); // <--- USAR idJugadorProp
+
+  const mostrarMensajePaso = autoPaseInfo?.jugadorId === idJugadorProp && autoPaseInfo?.estado === 'mostrando_mensaje_paso'; // <--- USAR idJugadorProp
 
   const FichaCountEar: React.FC<{ count: number; side: 'left' | 'right' }> = ({ count, side }) => (
     <div
@@ -60,12 +72,19 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
     </div>
   );
 
+  const MensajePasoOverlay: React.FC = () => (
+    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
+      <span className="text-white font-bold text-sm md:text-base">Paso</span>
+    </div>
+  );
+
   if (posicion === 'abajo' || posicion === 'arriba') {
     return (
       <div className={`flex items-center gap-2 p-2 bg-black bg-opacity-20 rounded-lg shadow-md ${className}`}>
         <div className="relative flex-shrink-0">
           <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16" />
-          {/* Oreja para Jugador 3 (arriba), a la izquierda del avatar */}
+          {/* Mostrar mensaje "Paso" para jugador de arriba o abajo (local) */}
+          {mostrarMensajePaso && (posicion === 'arriba' || posicion === 'abajo') && <MensajePasoOverlay />}
           {posicion === 'arriba' && typeof numFichas === 'number' && (
             <FichaCountEar count={numFichas} side="left" />
           )}
@@ -91,6 +110,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
           {posicion === 'derecha' && typeof numFichas === 'number' && (
             <FichaCountEar count={numFichas} side="left" />
           )}
+          {mostrarMensajePaso && <MensajePasoOverlay />}
           {/* Oreja para Jugador 4 (izquierda), a la derecha del avatar */}
           {posicion === 'izquierda' && typeof numFichas === 'number' && (
             <FichaCountEar count={numFichas} side="right" />
