@@ -33,7 +33,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   const esFichaExtendida = valorSuperior > 6 || valorInferior > 6;
 
   // Ajustar dragConstraints: si está en mano y es arrastrable, permitir arrastre libre.
-  const dragConstraintsValue = esEnMano && arrastrable ? false : { left: 0, right: 0, top: 0, bottom: 0 };
+  const dragConstraintsValue = esEnMano && arrastrable ? false : { left: 0, right: 0, top: 0, bottom: 0 }; // Keep this logic
 
   const renderizarPuntosTradicionales = (valor: number) => {
     const posiciones = {
@@ -159,6 +159,29 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
           {renderizarValor(valorInferior)}
         </div>
       </div>
+
+      {/* Adorno central tipo semi-esfera dorada */}
+      <div
+        className={`
+          absolute rounded-full shadow-inner
+          w-[0.3em] h-[0.3em]
+          sm:w-[0.36em] sm:h-[0.36em]
+          md:w-[0.42em] md:h-[0.42em]
+          lg:w-[0.48em] lg:h-[0.48em]
+          xl:w-[0.54em] xl:h-[0.54em]
+        `}
+        style={{
+          top: '50%', // Center vertically
+          left: '50%', // Center horizontally
+          transform: 'translate(-50%, -50%)', // Final centering using transform
+          // Gradiente radial para simular una esfera dorada con iluminación
+          // Ajusta estos colores para obtener el "dorado tenue" deseado
+          backgroundImage: `radial-gradient(circle at 35% 35%, hsl(50, 100%, 80%) 0%, hsl(45, 70%, 60%) 40%, hsl(40, 80%, 40%) 100%)`,
+          boxShadow: 'inset 0px 1px 2px rgba(0,0,0,0.3), 0px 1px 1px rgba(255,255,255,0.2)', // Sombra interna y un leve brillo externo
+        }}
+      ></div>
+
+
     </motion.div>
 
   );

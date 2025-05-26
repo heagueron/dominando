@@ -23,6 +23,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 /src/components/debug
+/src/app/test-ficha
 
 # local env files
 .env*.local
