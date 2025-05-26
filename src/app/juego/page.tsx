@@ -156,6 +156,8 @@ export default function JuegoPage() {
     jugadorId: string;
     estado: 'esperando_confirmacion_paso' | 'mostrando_mensaje_paso';
   } | null>(null);
+  const [isMyTurnTimerJustExpired, setIsMyTurnTimerJustExpired] = useState(false);
+  const [manoVersion, setManoVersion] = useState(0); 
 
   
   const [fichaAnimandose, setFichaAnimandose] = useState<{
@@ -171,6 +173,12 @@ export default function JuegoPage() {
       timerIntervalRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    if (currentPlayerId !== miIdJugadorSocketRef.current) {
+      setIsMyTurnTimerJustExpired(false);
+    }
+  }, [currentPlayerId]);
 
   useEffect(() => {
     const userId = sessionStorage.getItem('jmu_userId') || `client_${Math.random().toString(36).substring(2, 9)}`;
@@ -313,6 +321,10 @@ export default function JuegoPage() {
           
           if (!payload.autoPaseInfo || payload.autoPaseInfo.jugadorId !== payload.currentPlayerId) {
             const tiempoTranscurridoSegundos = Math.floor((Date.now() - payload.timestampTurnoInicio) / 1000);
+            if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
+                setIsMyTurnTimerJustExpired(false);
+            }
+
             const restanteCalculado = Math.max(0, payload.duracionTurnoActual - tiempoTranscurridoSegundos);
             setTiempoTurnoRestante(restanteCalculado);
 
@@ -321,14 +333,28 @@ export default function JuegoPage() {
                 setTiempoTurnoRestante(prevTiempo => {
                   if (prevTiempo === null || prevTiempo <= 1) {
                     limpiarIntervaloTimer();
-                    return 0;
+                    if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
+                        setIsMyTurnTimerJustExpired(true);
+                        setManoVersion(prev => prev + 1); 
+                    }
+                    return 0; 
                   }
                   return prevTiempo - 1;
                 });
               }, 1000);
+            } else { 
+                if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
+                    setIsMyTurnTimerJustExpired(true);
+                    setManoVersion(prev => prev + 1); 
+                }
             }
-          } else {
+          } else { 
             setTiempoTurnoRestante(null); 
+            if (payload.autoPaseInfo.jugadorId === miIdJugadorSocketRef.current) {
+                // No se necesita setManoVersion aquí necesariamente, 
+                // el cambio de autoPaseInfoCliente ya podría causar re-render.
+                // Si la ficha sigue flotando en inicio de auto-pase, se podría añadir.
+            }
           }
         } else {
           setTiempoTurnoRestante(null);
@@ -361,9 +387,10 @@ export default function JuegoPage() {
         if (payload.duracionTurnoTotal) {
           setDuracionTurnoActualConfigurada(payload.duracionTurnoTotal);
         }
+        setIsMyTurnTimerJustExpired(false);
+        setManoVersion(prev => prev + 1); 
       } else {
         setPlayableFichaIds([]);
-        // No limpiar tiempoTurnoRestante aquí, ya que es global y se maneja por estadoJuegoActualizado
       }
     });
 
@@ -374,6 +401,8 @@ export default function JuegoPage() {
       setFichaSeleccionada(undefined);
       limpiarIntervaloTimer();
       setAutoPaseInfoCliente(null);
+      setIsMyTurnTimerJustExpired(false); 
+      setManoVersion(prev => prev + 1); 
       let jugadoresFinalesParaEstado: { [jugadorId: string]: { fichas: FichaDomino[], puntos: number } } | undefined = undefined;
       if (payload.tipoFin === 'trancado' && payload.puntuaciones) {
         jugadoresFinalesParaEstado = {};
@@ -399,7 +428,7 @@ export default function JuegoPage() {
       limpiarIntervaloTimer();
       setSocket(null);
     };
-  }, [limpiarIntervaloTimer]); // Añadir limpiarIntervaloTimer a las dependencias
+  }, [limpiarIntervaloTimer]); 
 
   useEffect(() => {
     const handleResize = () => setViewportDims({ width: window.innerWidth, height: window.innerHeight });
@@ -447,6 +476,10 @@ export default function JuegoPage() {
         console.log("[HANDLE_FICHA_CLICK] Auto-pase en progreso para este jugador. Clic ignorado.");
         return;
     }
+    if (isMyTurnTimerJustExpired && idJugadorMano === miIdJugadorSocketRef.current) {
+        console.log("[HANDLE_FICHA_CLICK] Tiempo del turno acaba de expirar. Clic ignorado.");
+        return;
+    }
 
     if (idJugadorMano !== miIdJugadorSocketRef.current || miIdJugadorSocketRef.current !== currentPlayerId) {
       console.log(`[HANDLE_FICHA_CLICK] Clic ignorado: No es el turno del jugador local o no es su mano.`);
@@ -476,6 +509,11 @@ export default function JuegoPage() {
     fichaIdParam?: string
   ) => {
     if (!socket) return;
+    if (isMyTurnTimerJustExpired && currentPlayerId === miIdJugadorSocketRef.current) {
+        console.warn("[JUGAR_FICHA] Intento de jugar ficha manualmente mientras el tiempo acaba de expirar.");
+        setFichaSeleccionada(undefined); 
+        return;
+    }
     if (currentPlayerId !== miIdJugadorSocketRef.current) {
       console.warn("[JUGAR_FICHA] Intento de jugar fuera de turno.");
       return;
@@ -522,6 +560,10 @@ export default function JuegoPage() {
 
   const handlePasarTurnoServidor = () => {
     if (!socket || currentPlayerId !== miIdJugadorSocketRef.current) return;
+    if (isMyTurnTimerJustExpired && currentPlayerId === miIdJugadorSocketRef.current) {
+        console.warn("[PASAR_TURNO] Intento de pasar turno manualmente mientras el tiempo acaba de expirar.");
+        return;
+    }
     if (autoPaseInfoCliente && autoPaseInfoCliente.jugadorId === miIdJugadorSocketRef.current) {
         console.warn("[PASAR_TURNO] Auto-pase en progreso. No se puede pasar manualmente.");
         return;
@@ -709,9 +751,19 @@ export default function JuegoPage() {
     event: MouseEvent | TouchEvent | PointerEvent,
     info: PanInfo
   ) => {
-    if (currentPlayerId !== miIdJugadorSocketRef.current) return;
+    if (currentPlayerId !== miIdJugadorSocketRef.current || isMyTurnTimerJustExpired) {
+        console.log("[DRAG_END] No es el turno del jugador local o el tiempo acaba de expirar. Ignorando drag end.");
+        return;
+    }
     if (resultadoMano) return;
-    if (autoPaseInfoCliente && autoPaseInfoCliente.jugadorId === miIdJugadorSocketRef.current) return;
+    if (autoPaseInfoCliente && autoPaseInfoCliente.jugadorId === miIdJugadorSocketRef.current) {
+        console.log("[DRAG_END] Auto-pase en progreso para este jugador. Ignorando drag end.");
+        return;
+    }
+    if (isMyTurnTimerJustExpired && currentPlayerId === miIdJugadorSocketRef.current) {
+        console.log("[DRAG_END] El tiempo del turno expiró. Ignorando drag end.");
+        return;
+    }
 
 
     if (!anclaFicha && fichasIzquierda.length === 0 && fichasDerecha.length === 0) {
@@ -814,7 +866,8 @@ export default function JuegoPage() {
                                 anclaFicha && 
                                 playableFichaIds.length === 0 && 
                                 (jugadorLocal?.fichas.length ?? 0) > 0 && 
-                                (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current);
+                                (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) &&
+                                !isMyTurnTimerJustExpired; 
 
   
   let mano1: JugadorCliente | undefined, mano2: JugadorCliente | undefined, mano3: JugadorCliente | undefined, mano4: JugadorCliente | undefined;
@@ -865,7 +918,8 @@ export default function JuegoPage() {
         />
         
         {fichaSeleccionadaActual && fichaSeleccionada && fichaSeleccionada.idJugadorMano === currentPlayerId && fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current && 
-         (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) && (
+         (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) &&
+         !isMyTurnTimerJustExpired && ( 
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end p-2 bg-black bg-opacity-75 rounded shadow-lg z-10">
             <p className="text-white text-sm font-semibold">Jugar: {fichaSeleccionadaActual.valorSuperior}-{fichaSeleccionadaActual.valorInferior}</p>
             {!anclaFicha ? (
@@ -930,6 +984,7 @@ export default function JuegoPage() {
           </div>
           <div className="flex justify-center">
             <ManoJugadorComponent
+              key={`mano-local-${manoVersion}`} 
               fichas={mano1.fichas}
               fichaSeleccionada={fichaSeleccionada?.idFicha}
               onFichaClick={handleFichaClick}
