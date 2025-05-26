@@ -1008,11 +1008,9 @@ export default function JuegoPage() {
           className="fixed bottom-0 left-0 right-0 z-20 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1"
           initial={{ y: 150 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }}
         >
-          {/* Columna Izquierda: Info Jugador 1. 
-              justify-self-start lo alinea al inicio de su celda de grid.
-              El padding px-2 del motion.div padre proporciona el espaciado desde el borde del viewport. */}
+          {/* Columna Izquierda: Info Jugador 1. Centrado dentro de su columna de grid. */}
           <div 
-            className="flex justify-center" 
+            className="flex justify-center" // Cambio aplicado según tu preferencia
           >
             <ContenedorInfoJugador
               nombreJugador={mano1.nombre}
@@ -1045,7 +1043,7 @@ export default function JuegoPage() {
       {/* Zona Derecha: Info Jugador 2 */}
       {mano2 && (
         <div 
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center"
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center" 
           // right-0 lo pega al borde derecho del viewport.
         >
           <ContenedorInfoJugador
@@ -1054,12 +1052,10 @@ export default function JuegoPage() {
             tiempoRestante={mano2.idJugador === currentPlayerId ? tiempoTurnoRestante : null}
             duracionTotalTurno={duracionTurnoActualConfigurada}
             posicion="derecha"
+            numFichas={mano2.numFichas} // Pasar número de fichas
             className="mb-2 w-28 md:w-36" // Ajustar ancho
           />
-          {/* Podrías mantener el contador de fichas si lo deseas, o quitarlo si la info del jugador es suficiente */}
-          <div className="bg-domino-black bg-opacity-10 p-1 rounded-md text-white text-xs">
-            {mano2.numFichas} Fichas
-          </div>
+          {/* Contador de fichas antiguo eliminado */}
         </div>
       )}
       
@@ -1076,11 +1072,10 @@ export default function JuegoPage() {
               tiempoRestante={mano3.idJugador === currentPlayerId ? tiempoTurnoRestante : null}
               duracionTotalTurno={duracionTurnoActualConfigurada}
               posicion="arriba"
+              numFichas={mano3.numFichas} // Pasar número de fichas
               className="max-w-xs" // Limitar ancho del contenedor de info
             />
-            <div className="mt-1 bg-domino-black bg-opacity-10 p-1 rounded-md text-white text-xs text-center">
-              {mano3.numFichas} Fichas
-            </div>
+            {/* Contador de fichas antiguo eliminado */}
           </div>
           {/* Columna Derecha: Espacio futuro */}
           <div className="w-full">{/* Placeholder */} </div>
@@ -1099,11 +1094,10 @@ export default function JuegoPage() {
             tiempoRestante={mano4.idJugador === currentPlayerId ? tiempoTurnoRestante : null}
             duracionTotalTurno={duracionTurnoActualConfigurada}
             posicion="izquierda"
+            numFichas={mano4.numFichas} // Pasar número de fichas
             className="mb-2 w-28 md:w-36" // Ajustar ancho
           />
-          <div className="bg-domino-black bg-opacity-10 p-1 rounded-md text-white text-xs">
-            {mano4.numFichas} Fichas
-          </div>
+          {/* Contador de fichas antiguo eliminado */}
         </div>
       )}
 

@@ -9,6 +9,7 @@ interface ContenedorInfoJugadorProps {
   tiempoRestante?: number | null;
   duracionTotalTurno?: number;
   posicion: 'abajo' | 'arriba' | 'izquierda' | 'derecha';
+  numFichas?: number; // Nueva prop para el conteo de fichas
   className?: string;
 }
 
@@ -43,14 +44,32 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
   tiempoRestante,
   duracionTotalTurno,
   posicion,
+  numFichas,
   className = '',
 }) => {
   const mostrarBarra = esTurnoActual && typeof tiempoRestante === 'number' && typeof duracionTotalTurno === 'number' && duracionTotalTurno > 0;
 
+  const FichaCountEar: React.FC<{ count: number; side: 'left' | 'right' }> = ({ count, side }) => (
+    <div
+      className={`absolute top-1/2 -translate-y-1/2 
+                  bg-white border border-red-400 text-red-500 
+                  rounded-sm text-xs sm:text-sm px-1.5 py-0.5 shadow-sm z-10
+                  ${side === 'left' ? 'right-full mr-1' : 'left-full ml-1'}`}
+    >
+      {count}
+    </div>
+  );
+
   if (posicion === 'abajo' || posicion === 'arriba') {
     return (
       <div className={`flex items-center gap-2 p-2 bg-black bg-opacity-20 rounded-lg shadow-md ${className}`}>
-        <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 flex-shrink-0" /> {/* Avatar size increased for LG */}
+        <div className="relative flex-shrink-0">
+          <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16" />
+          {/* Oreja para Jugador 3 (arriba), a la izquierda del avatar */}
+          {posicion === 'arriba' && typeof numFichas === 'number' && (
+            <FichaCountEar count={numFichas} side="left" />
+          )}
+        </div>
         <div className="flex flex-col justify-center overflow-hidden">
           <p className="text-xs sm:text-sm md:text-base font-semibold text-white truncate" title={nombreJugador}>
             {nombreJugador}
@@ -66,7 +85,18 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
   if (posicion === 'izquierda' || posicion === 'derecha') {
     return (
       <div className={`flex flex-col items-center gap-1 p-2 bg-black bg-opacity-20 rounded-lg shadow-md ${className}`}>
-        <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 flex-shrink-0" /> {/* Avatar size increased for LG (slightly smaller for vertical layout) */}
+        <div className="relative flex-shrink-0">
+          <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" />
+          {/* Oreja para Jugador 2 (derecha), a la izquierda del avatar */}
+          {posicion === 'derecha' && typeof numFichas === 'number' && (
+            <FichaCountEar count={numFichas} side="left" />
+          )}
+          {/* Oreja para Jugador 4 (izquierda), a la derecha del avatar */}
+          {posicion === 'izquierda' && typeof numFichas === 'number' && (
+            <FichaCountEar count={numFichas} side="right" />
+          )}
+        </div>
+
         <p className="text-xs sm:text-sm font-semibold text-white text-center truncate w-full" title={nombreJugador}>
           {nombreJugador}
         </p>
