@@ -25,6 +25,7 @@ import {
 } from '@/utils/posicionamientoUtils';
 // import { determinarPrimerJugador } from '@/utils/turnosUtils'; // Lógica se mueve al servidor
 import DebugInfoOverlay from '../../components/debug/DebugInfoOverlay';
+import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador'; // NUEVA IMPORTACIÓN
 
 // Tipos para el estado del cliente
 interface JugadorCliente extends TipoManoDeJugadorOriginal {
@@ -45,6 +46,7 @@ const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://l
 
 // MESA INICIAL
 const DEFAULT_RONDA_ID = "default-domino-round-001"; // Renombrado
+const DURACION_TURNO_SEGUNDOS = 15; // Coincidir con el servidor
 
 // Tipos para los payloads de Socket.IO (deberían coincidir con los del servidor)
 // Estos son ejemplos, idealmente se compartirían desde un paquete común o se definirían con más cuidado.
@@ -125,6 +127,7 @@ export default function JuegoPage() {
   
   const [tiempoTurnoRestante, setTiempoTurnoRestante] = useState<number | null>(null); // Nuevo estado para el timer
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null); // Ref para el intervalo del timer
+  const [duracionTurnoActualConfigurada, setDuracionTurnoActualConfigurada] = useState<number>(DURACION_TURNO_SEGUNDOS);
   const [extremos, setExtremos] = useState<{ izquierda: number | null, derecha: number | null }>({ // Usando tu nombre de estado
     izquierda: null,
     derecha: null,
@@ -358,6 +361,9 @@ export default function JuegoPage() {
             });
           }, 1000);
         }
+        if (payload.duracionTurnoTotal) {
+          setDuracionTurnoActualConfigurada(payload.duracionTurnoTotal);
+        }
       } else {
         // Si no es mi turno, limpiar mis fichas jugables (por si acaso)
         setPlayableFichaIds([]);
@@ -458,8 +464,9 @@ export default function JuegoPage() {
       turnoActual: currentPlayerId,
     });
 
-    if (idJugadorMano !== miIdJugadorSocketRef.current || idJugadorMano !== currentPlayerId) {
-      console.log(`Clic ignorado: idJugadorMano=${idJugadorMano}, miId=${miIdJugadorSocketRef.current}, currentTurn=${currentPlayerId}`);
+    // Solo el jugador actual puede seleccionar una ficha de su propia mano.
+    if (idJugadorMano !== miIdJugadorSocketRef.current || miIdJugadorSocketRef.current !== currentPlayerId) {
+      console.log(`[HANDLE_FICHA_CLICK] Clic ignorado: No es el turno del jugador local o no es su mano. idJugadorMano=${idJugadorMano}, miId=${miIdJugadorSocketRef.current}, currentTurn=${currentPlayerId}`);
       return;
     }
     
@@ -737,7 +744,7 @@ export default function JuegoPage() {
     const screenY = (designEdgeY * mesaDims.scale + mesaDims.translateY) + mesaRect.top;
 
     return { x: screenX, y: screenY };
-  }, [getDesignCanvasCoordinates, anclaFicha, fichasIzquierda, fichasDerecha, mesaDims, posicionAnclaFija]);
+  }, [getDesignCanvasCoordinates, anclaFicha, fichasIzquierda, fichasDerecha, mesaDims, posicionAnclaFija, infoExtremos]);
 
   const handleFichaDragEnd = (
     fichaId: string,
@@ -926,7 +933,9 @@ export default function JuegoPage() {
           <p>Para una mejor experiencia, usa el modo horizontal.</p>
         </div>
       )}
-      <main className="flex-grow relative flex justify-center items-center p-4">
+      
+      {/* Main container ahora ocupa toda la pantalla y centrará la MesaDomino. */}
+      <main className="flex-grow relative flex justify-center items-center w-full h-screen overflow-hidden">
         <MesaDomino
           fichasEnMesa={combinedFichasParaMesa}
           ref={mesaRef}
@@ -942,19 +951,8 @@ export default function JuegoPage() {
           mesaWidth={mesaDims.width} mesaHeight={mesaDims.height} mesaScale={mesaDims.scale}
           dominoConstWidth={DOMINO_WIDTH_PX} dominoConstHeight={DOMINO_HEIGHT_PX}
         />
-        {currentPlayerId && <div className="absolute bottom-4 right-4 text-white bg-black bg-opacity-75 p-2 rounded shadow-lg z-10">Turno de: {manosJugadores.find(j=>j.idJugador === currentPlayerId)?.nombre || currentPlayerId}</div>}
+        {/* {currentPlayerId && <div className="absolute bottom-4 right-4 text-white bg-black bg-opacity-75 p-2 rounded shadow-lg z-10">Turno de: {manosJugadores.find(j=>j.idJugador === currentPlayerId)?.nombre || currentPlayerId}</div>} */}
         
-        <div className="absolute bottom-16 left-4 text-white bg-black bg-opacity-75 p-2 rounded shadow-lg z-10 text-xs">
-          <p>Mi ID: {miIdJugadorSocketRef.current}</p>
-          Jugadores:
-          <ul>
-            {manosJugadores.map(j => (
-              <li key={j.idJugador} className={j.idJugador === currentPlayerId ? 'font-bold' : ''}>
-                {j.nombre} ({j.idJugador.slice(-4)}): {j.numFichas} fichas {j.estaConectado ? '(C)' : '(D)'} {j.ordenTurno}
-              </li>
-            ))}
-          </ul>
-        </div>
 
         {fichaSeleccionadaActual && fichaSeleccionada && fichaSeleccionada.idJugadorMano === currentPlayerId && fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current && (
           <div className="absolute top-4 right-4 flex flex-col gap-2 items-end p-2 bg-black bg-opacity-75 rounded shadow-lg z-10">
@@ -989,7 +987,7 @@ export default function JuegoPage() {
 
          {/* Indicador de Tiempo de Turno */}
          {currentPlayerId === miIdJugadorSocketRef.current && tiempoTurnoRestante !== null && tiempoTurnoRestante > 0 && !resultadoMano && (
-          <div className="absolute top-4 right-4 bg-yellow-500 text-white p-2 rounded-full shadow-lg text-lg font-bold animate-pulse z-30">
+          <div className="absolute top-20 right-4 bg-yellow-500 text-white p-2 rounded-full shadow-lg text-lg font-bold animate-pulse z-30">
             {tiempoTurnoRestante}s
           </div>
         )}
@@ -1004,62 +1002,108 @@ export default function JuegoPage() {
         )}
       </main>
 
-      {/* Mano del Jugador Principal (Abajo) - jugador local */}
+      {/* Zona Abajo: Info Jugador 1 (Local) + Mano + Espacio Futuro */}
       {mano1 && mano1.idJugador === miIdJugadorSocketRef.current && (
-        <motion.div className="fixed bottom-0 left-0 right-0 z-20 flex justify-center" initial={{ y: 120 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 20 }}>
-          <ManoJugadorComponent
-            fichas={mano1.fichas} // Fichas reales
-            fichaSeleccionada={fichaSeleccionada?.idFicha}
-            onFichaClick={handleFichaClick}
-            idJugadorMano={mano1.idJugador}
-            layoutDirection="row"
-            isLocalPlayer={true} // This is the local player's hand
-            playableFichaIds={pIds1}
-            onFichaDragEnd={handleFichaDragEnd} // Pasar el handler de drag end
-            // numFichas={mano1.numFichas} // Ya se infiere de mano1.fichas.length
-          />
+        <motion.div 
+          className="fixed bottom-0 left-0 right-0 z-20 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1"
+          initial={{ y: 150 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }}
+        >
+          {/* Columna Izquierda: Info Jugador 1. 
+              justify-self-start lo alinea al inicio de su celda de grid.
+              El padding px-2 del motion.div padre proporciona el espaciado desde el borde del viewport. */}
+          <div 
+            className="flex justify-center" 
+          >
+            <ContenedorInfoJugador
+              nombreJugador={mano1.nombre}
+              esTurnoActual={mano1.idJugador === currentPlayerId}
+              tiempoRestante={mano1.idJugador === currentPlayerId ? tiempoTurnoRestante : null}
+              duracionTotalTurno={duracionTurnoActualConfigurada}
+              posicion="abajo"
+              className="max-w-[180px] sm:max-w-[220px] md:max-w-xs" 
+            />
+          </div>
+
+          {/* Columna Centro: Mano Jugador 1 */}
+          <div className="flex justify-center"> {/* Este div toma 'auto' width del ManoJugadorComponent */}
+            <ManoJugadorComponent
+              fichas={mano1.fichas}
+              fichaSeleccionada={fichaSeleccionada?.idFicha}
+              onFichaClick={handleFichaClick}
+              idJugadorMano={mano1.idJugador}
+              layoutDirection="row"
+              isLocalPlayer={true}
+              playableFichaIds={pIds1}
+              onFichaDragEnd={handleFichaDragEnd}
+            />
+          </div>
+          {/* Columna Derecha: Espacio futuro */}
+          <div className="w-full">{/* Placeholder */} </div>
         </motion.div>
       )}
 
-      {/* Mano del Jugador Derecha (Visualmente) */}
+      {/* Zona Derecha: Info Jugador 2 */}
       {mano2 && (
-        <div className="fixed right-0 top-1/2 -translate-y-1/2 z-20 bg-domino-black bg-opacity-10 rounded-md max-h-[80vh]">
-          <ManoJugadorComponent
-            fichas={[]} // No mostrar fichas reales
-            onFichaClick={() => {}} // No interactuable
-            idJugadorMano={mano2.idJugador}
-            isLocalPlayer={false} // Not the local player
-            layoutDirection="col"
-            numFichas={mano2.numFichas}
+        <div 
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center"
+          // right-0 lo pega al borde derecho del viewport.
+        >
+          <ContenedorInfoJugador
+            nombreJugador={mano2.nombre}
+            esTurnoActual={mano2.idJugador === currentPlayerId}
+            tiempoRestante={mano2.idJugador === currentPlayerId ? tiempoTurnoRestante : null}
+            duracionTotalTurno={duracionTurnoActualConfigurada}
+            posicion="derecha"
+            className="mb-2 w-28 md:w-36" // Ajustar ancho
           />
+          {/* Podrías mantener el contador de fichas si lo deseas, o quitarlo si la info del jugador es suficiente */}
+          <div className="bg-domino-black bg-opacity-10 p-1 rounded-md text-white text-xs">
+            {mano2.numFichas} Fichas
+          </div>
         </div>
       )}
       
-      {/* Mano del Jugador Arriba (Visualmente) */}
+      {/* Zona Arriba: Info Jugador 3 */}
       {mano3 && (
-         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-20 p-1 bg-domino-black bg-opacity-10 rounded-md max-w-[80vw]">
-          <ManoJugadorComponent
-            fichas={[]}
-            onFichaClick={() => {}}
-            idJugadorMano={mano3.idJugador}
-            isLocalPlayer={false} // Not the local player
-            layoutDirection="row"
-            numFichas={mano3.numFichas}
-          />
+         <div className="fixed top-2 left-0 right-0 z-20 grid grid-cols-3 items-start gap-2 px-2 pt-1">
+          {/* Columna Izquierda: Espacio futuro */}
+          <div className="w-full">{/* Placeholder */} </div>
+          {/* Columna Centro: Info Jugador 3 */}
+          <div className="flex justify-center">
+            <ContenedorInfoJugador
+              nombreJugador={mano3.nombre}
+              esTurnoActual={mano3.idJugador === currentPlayerId}
+              tiempoRestante={mano3.idJugador === currentPlayerId ? tiempoTurnoRestante : null}
+              duracionTotalTurno={duracionTurnoActualConfigurada}
+              posicion="arriba"
+              className="max-w-xs" // Limitar ancho del contenedor de info
+            />
+            <div className="mt-1 bg-domino-black bg-opacity-10 p-1 rounded-md text-white text-xs text-center">
+              {mano3.numFichas} Fichas
+            </div>
+          </div>
+          {/* Columna Derecha: Espacio futuro */}
+          <div className="w-full">{/* Placeholder */} </div>
         </div>
       )}
 
-      {/* Mano del Jugador Izquierda (Visualmente) */}
+      {/* Zona Izquierda: Info Jugador 4 */}
       {mano4 && (
-        <div className="fixed left-0 top-1/2 -translate-y-1/2 z-20 bg-domino-black bg-opacity-10 rounded-md max-h-[80vh]">
-          <ManoJugadorComponent
-            fichas={[]}
-            onFichaClick={() => {}}
-            idJugadorMano={mano4.idJugador}
-            isLocalPlayer={false} // Not the local player
-            layoutDirection="col"
-            numFichas={mano4.numFichas}
+        <div 
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center"
+          // left-0 lo pega al borde izquierdo del viewport.
+        >
+          <ContenedorInfoJugador
+            nombreJugador={mano4.nombre}
+            esTurnoActual={mano4.idJugador === currentPlayerId}
+            tiempoRestante={mano4.idJugador === currentPlayerId ? tiempoTurnoRestante : null}
+            duracionTotalTurno={duracionTurnoActualConfigurada}
+            posicion="izquierda"
+            className="mb-2 w-28 md:w-36" // Ajustar ancho
           />
+          <div className="bg-domino-black bg-opacity-10 p-1 rounded-md text-white text-xs">
+            {mano4.numFichas} Fichas
+          </div>
         </div>
       )}
 

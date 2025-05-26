@@ -298,12 +298,19 @@ const MesaDominoComponent: React.FC<MesaDominoProps & { forwardedRef: React.Ref<
       ref={forwardedRef} // Asignar la ref aquí
       className="bg-green-800 shadow-lg rounded-md relative"
       style={{
-        width: `min(85vw, ${DESIGN_TABLE_WIDTH_PX}px)`, 
+        //width: `min(85vw, ${DESIGN_TABLE_WIDTH_PX}px)`, 
+        // La mesa intentará ocupar el 100% del alto de su contenedor padre (<main>),
+        // y su ancho se ajustará según el aspect-ratio.
+        // Si el ancho calculado excede el 100% del ancho del padre, se limitará.
+        width: 'auto', // Permite que el aspect-ratio y height/maxHeight definan el ancho.
+        height: '100%', // Intenta ocupar el 100% del alto del <main> (que es h-screen).
         aspectRatio: `${DESIGN_TABLE_WIDTH_PX} / ${DESIGN_TABLE_HEIGHT_PX}`,
-        maxHeight: 'calc(100vh - 20px)', 
+        //maxHeight: 'calc(100vh - 20px)', 
+        maxWidth: '100%', // No exceder el ancho del <main>.
+        maxHeight: '100%', // No exceder el alto del <main> (aunque height: '100%' ya lo intenta).
         border: '8px solid #7e4a35',
         overflow: 'hidden', // Importante para que el canvas interno no desborde el contenedor estilizado
-        position: 'relative', 
+        //position: 'relative', 
       }}
     >
       <div 
