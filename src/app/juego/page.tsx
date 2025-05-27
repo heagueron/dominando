@@ -117,6 +117,10 @@ interface FinDeManoPayloadCliente {
     jugadorId: string;
     puntos: number;
   }[];
+  manosFinales?: { 
+    jugadorId: string;
+    fichas: FichaDomino[];
+  }[];
 }
 
 export default function JuegoPage() {
@@ -146,11 +150,8 @@ export default function JuegoPage() {
   const [showRotateMessage, setShowRotateMessage] = useState(false);
   const [resultadoMano, setResultadoMano] = useState<{
     ganadorId: string;
-    jugadoresFinales?: {
-      [jugadorId: string]: { fichas: FichaDomino[], puntos: number };
-    };
+    nombreGanador: string; 
     tipoFin: 'domino' | 'trancado';
-    detalle: string;
   } | null>(null);
   const [autoPaseInfoCliente, setAutoPaseInfoCliente] = useState<{
     jugadorId: string;
@@ -158,6 +159,7 @@ export default function JuegoPage() {
   } | null>(null);
   const [isMyTurnTimerJustExpired, setIsMyTurnTimerJustExpired] = useState(false);
   const [manoVersion, setManoVersion] = useState(0); 
+  const [manosAlFinalizarRonda, setManosAlFinalizarRonda] = useState<Array<{ jugadorId: string; fichas: FichaDomino[] }> | null>(null);
 
   
   const [fichaAnimandose, setFichaAnimandose] = useState<{
@@ -403,22 +405,13 @@ export default function JuegoPage() {
       setAutoPaseInfoCliente(null);
       setIsMyTurnTimerJustExpired(false); 
       setManoVersion(prev => prev + 1); 
-      let jugadoresFinalesParaEstado: { [jugadorId: string]: { fichas: FichaDomino[], puntos: number } } | undefined = undefined;
-      if (payload.tipoFin === 'trancado' && payload.puntuaciones) {
-        jugadoresFinalesParaEstado = {};
-        payload.puntuaciones.forEach(p => {
-          jugadoresFinalesParaEstado![p.jugadorId] = {
-            fichas: [],
-            puntos: p.puntos,
-          };
-        });
-      }
+      
+      setManosAlFinalizarRonda(payload.manosFinales || null);
 
       setResultadoMano({
         ganadorId: payload.ganadorId,
         tipoFin: payload.tipoFin,
-        detalle: payload.detalleAdicional || `Ganador: ${payload.nombreGanador}`,
-        jugadoresFinales: jugadoresFinalesParaEstado,
+        nombreGanador: payload.nombreGanador,
       });
     });
 
@@ -1010,6 +1003,10 @@ export default function JuegoPage() {
             posicion="derecha"
             autoPaseInfo={autoPaseInfoCliente}
             numFichas={mano2.numFichas}
+            fichasRestantesAlFinalizar={
+              manosAlFinalizarRonda?.find(m => m.jugadorId === mano2?.idJugador)?.fichas
+            }
+            mostrarFichasFinales={!!resultadoMano}
             className="mb-2 w-28 md:w-36"
           />
         </div>
@@ -1028,6 +1025,10 @@ export default function JuegoPage() {
               posicion="arriba"
               autoPaseInfo={autoPaseInfoCliente}
               numFichas={mano3.numFichas}
+              fichasRestantesAlFinalizar={
+                manosAlFinalizarRonda?.find(m => m.jugadorId === mano3?.idJugador)?.fichas
+              }
+              mostrarFichasFinales={!!resultadoMano}
               className="max-w-xs"
             />
           </div>
@@ -1046,30 +1047,26 @@ export default function JuegoPage() {
             posicion="izquierda"
             autoPaseInfo={autoPaseInfoCliente}
             numFichas={mano4.numFichas}
+            fichasRestantesAlFinalizar={
+              manosAlFinalizarRonda?.find(m => m.jugadorId === mano4?.idJugador)?.fichas
+            }
+            mostrarFichasFinales={!!resultadoMano}
             className="mb-2 w-28 md:w-36"
           />
         </div>
       )}
 
       {resultadoMano && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 p-4">
           <motion.div
-            className="bg-domino-white p-6 sm:p-8 rounded-xl shadow-2xl text-center max-w-md w-full"
+            className="bg-yellow-100 border-2 border-yellow-400 p-4 sm:p-6 rounded-lg shadow-xl text-center max-w-sm w-full"
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-4 text-domino-black">¡Mano Terminada!</h2>            
-            {resultadoMano.tipoFin === 'trancado' && resultadoMano.jugadoresFinales && (
-              <div className="mb-4 text-left">
-                <h3 className="text-xl font-semibold mb-2">Puntuaciones:</h3>
-                <ul className="list-disc list-inside">
-                  {Object.entries(resultadoMano.jugadoresFinales).map(([jugadorId, data]) => (
-                    <li key={jugadorId} className="text-gray-700">{(manosJugadores.find(j => j.idJugador === jugadorId)?.nombre || jugadorId)}: {data.puntos} puntos</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <p className="text-md sm:text-lg mb-6 text-gray-700">{resultadoMano.detalle}</p>
+            <p className="text-lg sm:text-xl font-semibold text-yellow-700">Mano finalizada</p>
+            <p className="text-lg sm:text-xl font-semibold text-yellow-700">
+              Ganador: {resultadoMano.nombreGanador}
+            </p>
           </motion.div>
         </div>
       )}

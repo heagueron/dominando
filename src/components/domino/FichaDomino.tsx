@@ -12,7 +12,7 @@ interface FichaDominoProps {
   arrastrable?: boolean;
   esEnMano?: boolean;
   isPlayable?: boolean; // Indica si la ficha es jugable en el turno actual (solo relevante si esEnMano)
-  sizeClass?: string; // Nueva prop para clases de tamaño
+  scale?: number; // Nueva prop para escalar la ficha
   onDragEndCallback?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void; // Nueva prop
 }
 
@@ -26,7 +26,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   arrastrable = false,
   esEnMano = false, // Destructurado y usado en la lógica de clases
   isPlayable = true, // Por defecto, una ficha es jugable a menos que se especifique lo contrario
-  sizeClass = 'w-[48px] h-[96px] sm:w-[64px] sm:h-[128px]', // Clases de tamaño por defecto (ejemplo: 48x96px en móvil, 64x128px en sm+)
+  scale = 1, // Default scale is 1 (original size)
   onDragEndCallback, // Nueva prop
 }) => {
   // TEMPORAL: Determinar si es una ficha "extendida" basándose en el prefijo del ID o el valor
@@ -72,10 +72,11 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
     };
 
     return (
-      <React.Fragment>
+      <div className="w-full h-full relative"> {/* Wrapper to contain dots */}
         {posiciones[valor as keyof typeof posiciones].map((pos, index) => (
           <div
-            key={index}
+            // key={index} // Using index as key is okay here as the list is static per ficha value
+            key={`dot-${valor}-${index}`} // More unique key
             className="punto-domino absolute w-[0.25em] h-[0.25em] sm:w-[0.3em] sm:h-[0.3em] md:w-[0.35em] md:h-[0.35em] lg:w-[0.4em] lg:h-[0.4em] xl:w-[0.45em] xl:h-[0.45em]"
             style={{
               top: pos.top,
@@ -84,7 +85,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
             }}
           />
         ))}
-      </React.Fragment>
+      </div>
     );
   };
 
@@ -116,7 +117,6 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
 
   const baseClasses = `
     ficha-domino relative cursor-pointer bg-white rounded
-    ${sizeClass}
     ${seleccionada ? 'ring-2 ring-yellow-400 bg-yellow-200' : ''} // Highlight selected ficha with ring and background color
     
   `;
@@ -126,6 +126,9 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
     <motion.div
       className={baseClasses}
       style={{
+        fontSize: `${16 * scale}px`, // Scale font size for em units (adjust 16px base if needed)
+        width: `${DOMINO_WIDTH_PX * scale}px`,
+        height: `${DOMINO_HEIGHT_PX * scale}px`,
         transformOrigin: 'center center',
       }}
       onClick={isPlayable ? onClick : undefined} // Solo permitir clic si la ficha es jugable
@@ -164,11 +167,11 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
       <div
         className={`
           absolute rounded-full shadow-inner
-          w-[0.3em] h-[0.3em]
-          sm:w-[0.36em] sm:h-[0.36em]
-          md:w-[0.42em] md:h-[0.42em]
-          lg:w-[0.48em] lg:h-[0.48em]
-          xl:w-[0.54em] xl:h-[0.54em]
+          // Remove Tailwind em classes here, use inline style based on scale
+          // w-[0.3em] h-[0.3em]
+          // sm:w-[0.36em] sm:h-[0.36em]
+          // md:w-[0.42em] md:h-[0.42em]
+          // lg:w-[0.48em] lg:h-[0.48em]
         `}
         style={{
           top: '50%', // Center vertically
@@ -177,6 +180,8 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
           // Gradiente radial para simular una esfera dorada con iluminación
           // Ajusta estos colores para obtener el "dorado tenue" deseado
           backgroundImage: `radial-gradient(circle at 35% 35%, hsl(50, 100%, 80%) 0%, hsl(45, 70%, 60%) 40%, hsl(40, 80%, 40%) 100%)`,
+          width: `${Math.max(3, 5 * scale)}px`, // Calculate size based on scale
+          height: `${Math.max(3, 5 * scale)}px`, // Calculate size based on scale
           boxShadow: 'inset 0px 1px 2px rgba(0,0,0,0.3), 0px 1px 1px rgba(255,255,255,0.2)', // Sombra interna y un leve brillo externo
         }}
       ></div>
