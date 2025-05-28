@@ -1,9 +1,10 @@
 // /home/heagueron/jmu/dominando/src/app/juego/page.tsx
 'use client';
 
-import { PanInfo } from 'framer-motion'; // Importar PanInfo
+import { PanInfo } from 'framer-motion'; 
 import { motion } from 'framer-motion';
-import { io, Socket } from 'socket.io-client'; // Correct import for client
+import { io, Socket } from 'socket.io-client';
+import { useParams, useRouter } from 'next/navigation'; // NUEVA IMPORTACIÓN
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador';
@@ -24,7 +25,7 @@ import {
   COLUMNA_ANCLA_INICIAL
 } from '@/utils/posicionamientoUtils';
 // import { determinarPrimerJugador } from '@/utils/turnosUtils'; // Lógica se mueve al servidor
-import DebugInfoOverlay from '../../components/debug/DebugInfoOverlay';
+import DebugInfoOverlay from '../../../components/debug/DebugInfoOverlay';
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador'; // NUEVA IMPORTACIÓN
 
 // Tipos para el estado del cliente
@@ -46,7 +47,7 @@ const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://l
 
 
 // MESA INICIAL
-const DEFAULT_RONDA_ID = "default-domino-round-001"; // Renombrado
+// const DEFAULT_RONDA_ID = "default-domino-round-001";
 const DURACION_TURNO_SEGUNDOS = 15; // Coincidir con el servidor
 
 // Tipos para los payloads de Socket.IO (deberían coincidir con los del servidor)
@@ -123,7 +124,11 @@ interface FinDeManoPayloadCliente {
   }[];
 }
 
+ // Tipos del lobby que podríamos necesitar
+type TipoJuegoSolicitado = 'rondaUnica' | 'partidaCompleta';
+
 export default function JuegoPage() {
+
   const [socket, setSocket] = useState<Socket | null>(null);
   const miIdJugadorSocketRef = useRef<string | null>(null); // Usamos un ref para acceder al valor actual en listeners
   const [miIdJugadorSocket, setMiIdJugadorSocket] = useState<string | null>(null); // El ID de este cliente en la partida
@@ -168,6 +173,11 @@ export default function JuegoPage() {
   } | null>(null);
 
   const mesaRef = useRef<HTMLDivElement>(null);
+  const params = useParams();
+  const router = useRouter();
+  const rondaIdFromUrl = params.rondaId as string;
+  const authoritativeRondaIdRef = useRef<string>(rondaIdFromUrl); // Para el ID de ronda confirmado por el servidor
+
 
   const limpiarIntervaloTimer = useCallback(() => {
     if (timerIntervalRef.current) {
@@ -183,10 +193,27 @@ export default function JuegoPage() {
   }, [currentPlayerId]);
 
   useEffect(() => {
-    const userId = sessionStorage.getItem('jmu_userId') || `client_${Math.random().toString(36).substring(2, 9)}`;
-    const nombreJugador = sessionStorage.getItem('jmu_nombreJugador') || `Jugador ${userId.slice(-4)}`;
-    sessionStorage.setItem('jmu_userId', userId);
-    sessionStorage.setItem('jmu_nombreJugador', nombreJugador);
+    // Sincronizar la ref si rondaIdFromUrl cambia (por ejemplo, si la navegación ocurre sin desmontar)
+    authoritativeRondaIdRef.current = rondaIdFromUrl;
+  }, [rondaIdFromUrl]);
+
+  useEffect(() => {
+    if (!rondaIdFromUrl) {
+      console.error("No se encontró rondaId en la URL. Redirigiendo al lobby.");
+      router.push('/lobby');
+      return;
+    }
+
+    const userId = sessionStorage.getItem('jmu_userId');
+    const nombreJugador = sessionStorage.getItem('jmu_nombreJugador');
+    const tipoJuegoSolicitado = sessionStorage.getItem('jmu_tipoJuegoSolicitado') as TipoJuegoSolicitado | null;
+
+    if (!userId || !nombreJugador || !tipoJuegoSolicitado) {
+      console.error("Falta información del jugador o tipo de juego en sessionStorage. Redirigiendo al lobby.");
+      // Podríamos intentar recuperar, pero por ahora es más simple redirigir.
+      router.push('/lobby');
+      return;
+    }
 
     const newSocket = io(SOCKET_SERVER_URL, {
       auth: {
@@ -199,7 +226,7 @@ export default function JuegoPage() {
 
     newSocket.on('connect', () => {
       console.log('[SOCKET] Conectado al servidor:', newSocket.id);
-      newSocket.emit('cliente:unirseAPartida', { rondaId: DEFAULT_RONDA_ID, nombreJugador });
+      newSocket.emit('cliente:unirseAPartida', { juegoSolicitado: tipoJuegoSolicitado, nombreJugador });
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -212,6 +239,15 @@ export default function JuegoPage() {
 
     newSocket.on('servidor:teUnisteAPartida', (payload: TeUnisteAPartidaPayload) => {
       console.log('[SOCKET] Evento servidor:teUnisteAPartida recibido:', payload);
+      if (payload.rondaId !== authoritativeRondaIdRef.current) {
+        console.warn(`[SOCKET] El rondaId del servidor (${payload.rondaId}) no coincide con el de la URL/ref actual (${authoritativeRondaIdRef.current}). Se usará el del servidor (${payload.rondaId}).`);
+        authoritativeRondaIdRef.current = payload.rondaId;
+        // Opcional: si quieres que la URL también se corrija:
+        // router.replace(`/juego/${payload.rondaId}`, { shallow: true }); // shallow para evitar recarga completa si es posible
+      } else {
+        // Si son iguales, nos aseguramos que la ref esté actualizada por si acaso (aunque el useEffect de rondaIdFromUrl ya lo haría)
+        authoritativeRondaIdRef.current = payload.rondaId;
+      }
       miIdJugadorSocketRef.current = payload.tuJugadorIdEnPartida;
       setMiIdJugadorSocket(payload.tuJugadorIdEnPartida);
       setManosJugadores(payload.estadoJuego.jugadores.map(j => ({
@@ -420,8 +456,8 @@ export default function JuegoPage() {
       newSocket.disconnect();
       limpiarIntervaloTimer();
       setSocket(null);
-    };
-  }, [limpiarIntervaloTimer]); 
+    }; // Añadir rondaIdFromUrl y router a las dependencias
+  }, [limpiarIntervaloTimer, rondaIdFromUrl, router]); 
 
   useEffect(() => {
     const handleResize = () => setViewportDims({ width: window.innerWidth, height: window.innerHeight });
@@ -531,7 +567,7 @@ export default function JuegoPage() {
     if (!fichaParaJugar) return;
 
     if (!anclaFicha) {
-        socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: idFichaAJugar, extremoElegido });
+      socket.emit('cliente:jugarFicha', { rondaId: authoritativeRondaIdRef.current, fichaId: idFichaAJugar, extremoElegido });
         setFichaSeleccionada(undefined);
         return;
     }
@@ -547,7 +583,7 @@ export default function JuegoPage() {
         return;
     }
     
-    socket.emit('cliente:jugarFicha', { rondaId: DEFAULT_RONDA_ID, fichaId: idFichaAJugar, extremoElegido });
+    socket.emit('cliente:jugarFicha', { rondaId: authoritativeRondaIdRef.current, fichaId: idFichaAJugar, extremoElegido });
     setFichaSeleccionada(undefined);
   };
 
@@ -564,7 +600,7 @@ export default function JuegoPage() {
     console.log(`[SOCKET] Emitiendo cliente:pasarTurno`);
     limpiarIntervaloTimer();
     setTiempoTurnoRestante(null);
-    socket.emit('cliente:pasarTurno', { rondaId: DEFAULT_RONDA_ID });
+    socket.emit('cliente:pasarTurno', { rondaId: authoritativeRondaIdRef.current });
   };
 
   const posicionAnclaFija = useMemo(() => 
