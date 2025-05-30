@@ -9,9 +9,10 @@ import { io, Socket } from 'socket.io-client';
 const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:3001';
 
 // Tipos para los payloads de Socket.IO (simplificados para el lobby)
-interface TeUnisteAPartidaPayloadLobby {
-  rondaId: string;
+interface TeUnisteAMesaPayloadLobby { // Renombrado y actualizado
+  mesaId: string; // Cambiado de rondaId
   tuJugadorIdEnPartida: string;
+  // estadoMesa: any; // El lobby podría no necesitar el estado completo de la mesa inicialmente
   // Podríamos añadir más info si es necesaria al unirse desde el lobby
 }
 
@@ -73,8 +74,8 @@ export default function LobbyPage() {
       console.log('[LOBBY_SOCKET] Successfully connected to server:', newSocket.id);
       // If a game type was requested, emit unirseAPartida
       if (tipoJuegoSolicitadoRef.current && nombreJugador) {
-        console.log(`[LOBBY_SOCKET] Emitting cliente:unirseAPartida for ${tipoJuegoSolicitadoRef.current}`);
-        newSocket.emit('cliente:unirseAPartida', { 
+        console.log(`[LOBBY_SOCKET] Emitting cliente:unirseAMesa for ${tipoJuegoSolicitadoRef.current}`);
+        newSocket.emit('cliente:unirseAMesa', { // Evento cambiado
           juegoSolicitado: tipoJuegoSolicitadoRef.current, 
           nombreJugador 
         });
@@ -117,21 +118,32 @@ export default function LobbyPage() {
   useEffect(() => {
     if (!socket) return;
 
-    const handleTeUnisteAPartida = (payload: TeUnisteAPartidaPayloadLobby) => {
-      console.log('[LOBBY_SOCKET] Evento servidor:teUnisteAPartida recibido:', payload);
+    const handleTeUnisteAMesa = (payload: TeUnisteAMesaPayloadLobby) => { // Evento y payload actualizados
+      console.log('[LOBBY_SOCKET] Evento servidor:teUnisteAMesa recibido:', payload);
       // jmu_tipoJuegoSolicitado ya debería estar en sessionStorage desde handleJoinGame.
       // Solo verificamos por robustez, pero no deberíamos depender de tipoJuegoSolicitadoRef.current aquí para esto.
       // if (tipoJuegoSolicitadoRef.current) {
       //   sessionStorage.setItem('jmu_tipoJuegoSolicitado', tipoJuegoSolicitadoRef.current);
       // }
       isNavigatingRef.current = true; // Set flag before navigating
+      // AÑADIR ESTE LOG:
+      const userIdForNav = userId; // Usar el estado de React que debería estar actualizado
+      const nombreJugadorForNav = nombreJugador;
+      console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - userId (estado React):', userIdForNav, 'nombreJugador (estado React):', nombreJugadorForNav);
+      console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - sessionStorage userId:', sessionStorage.getItem('jmu_userId'), 'sessionStorage nombreJugador:', sessionStorage.getItem('jmu_nombreJugador'));
       tipoJuegoSolicitadoRef.current = null; // Reset ref
       setIsLoading(null);
       setError(null);
-      router.push(`/juego/${payload.rondaId}`);
+      // Pasar userId y nombreJugador como query params
+      if (userIdForNav && nombreJugadorForNav) {
+        router.push(`/juego/${payload.mesaId}?uid=${encodeURIComponent(userIdForNav)}&nombre=${encodeURIComponent(nombreJugadorForNav)}`);
+      } else {
+        console.error("[LOBBY_SOCKET] No se pudo navegar: userId o nombreJugador del estado de React son nulos.");
+        setError("Error al preparar la navegación. Intenta de nuevo.");
+      }
     };
     
-    const handleErrorDePartida = (payload: { mensaje: string }) => {
+    const handleErrorDePartida = (payload: { mensaje: string }) => { // Nombre corregido para consistencia
       console.error('[LOBBY_SOCKET] Error de partida desde el servidor:', payload.mensaje);
       setError(`Error del servidor: ${payload.mensaje}`);
       setIsLoading(null);
@@ -139,13 +151,13 @@ export default function LobbyPage() {
       isNavigatingRef.current = false; // Reset flag on error
       // socket.disconnect(); // Consider if lobby socket should disconnect on game error
     };
-
-    socket.on('servidor:teUnisteAPartida', handleTeUnisteAPartida);
-    socket.on('servidor:errorDePartida', handleErrorDePartida);
+    // Escuchar el nuevo evento del servidor
+    socket.on('servidor:teUnisteAMesa', handleTeUnisteAMesa); // Evento cambiado
+    socket.on('servidor:errorDePartida', handleErrorDePartida); 
 
     return () => {
       // console.log('[LOBBY_SOCKET] Cleaning up game-specific socket listeners.'); // Less critical to log this one
-      socket.off('servidor:teUnisteAPartida', handleTeUnisteAPartida);
+      socket.off('servidor:teUnisteAMesa', handleTeUnisteAMesa); // Evento cambiado
       socket.off('servidor:errorDePartida', handleErrorDePartida);
     };
   }, [socket, router]); // Re-run if socket instance or router changes
@@ -168,7 +180,7 @@ export default function LobbyPage() {
 
     if (socket.connected) {
       console.log('[LOBBY_SOCKET] Socket already connected. Emitting cliente:unirseAPartida.');
-      socket.emit('cliente:unirseAPartida', { juegoSolicitado: tipoJuego, nombreJugador });
+      socket.emit('cliente:unirseAMesa', { juegoSolicitado: tipoJuego, nombreJugador }); // Evento cambiado
     } else {
       console.log('[LOBBY_SOCKET] Socket not connected. Calling socket.connect().');
       socket.connect(); // Conectar el socket

@@ -20,7 +20,7 @@ export default function HomePage() {
           href="/lobby"
           className="mt-6 px-6 py-3 text-lg font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition duration-150 ease-in-out"
         >
-          Mesas Libres
+          A jugar paisano!
         </Link>
       </main>
       <footer className="flex items-center justify-center w-full h-24 border-t">
