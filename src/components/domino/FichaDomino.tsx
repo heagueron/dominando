@@ -13,6 +13,7 @@ interface FichaDominoProps {
   esEnMano?: boolean;
   isPlayable?: boolean; // Indica si la ficha es jugable en el turno actual (solo relevante si esEnMano)
   scale?: number; // Nueva prop para escalar la ficha
+  sizeClass: string; // Added sizeClass property
   onDragEndCallback?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void; // Nueva prop
 }
 
@@ -27,6 +28,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   esEnMano = false, // Destructurado y usado en la lógica de clases
   isPlayable = true, // Por defecto, una ficha es jugable a menos que se especifique lo contrario
   scale = 1, // Default scale is 1 (original size)
+  
   onDragEndCallback, // Nueva prop
 }) => {
   // TEMPORAL: Determinar si es una ficha "extendida" basándose en el prefijo del ID o el valor

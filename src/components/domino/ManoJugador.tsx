@@ -33,6 +33,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   isLocalPlayer = false, // Default to false
   onFichaDragEnd, // Nueva prop
 }) => {
+  // console.log(`[ManoJugador ${idJugadorMano}] Render. Prop fichaSeleccionada (ID):`, fichaSeleccionada);
   console.log(`[ManoJugador ${idJugadorMano}] Render. Received playableFichaIds:`, playableFichaIds);
 
   const fichaSizeClass = isLocalPlayer // Use isLocalPlayer here
@@ -74,6 +75,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
               return (
                 <motion.div
                   key={ficha.id}
+                  data-testid={`ficha-mano-${ficha.id}`} // <--- ASEGÚRATE DE QUE ESTO ESTÉ ASÍ
                   whileHover={{ y: isFichaPlayable ? -25 : -5 }}
                   whileTap={{ scale: 1.05 }}
                   variants={{

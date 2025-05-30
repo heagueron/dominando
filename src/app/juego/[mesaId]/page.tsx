@@ -196,6 +196,11 @@ export default function JuegoPage() {
     authoritativeMesaIdRef.current = mesaIdFromUrl;
   }, [mesaIdFromUrl]);
 
+  useEffect(() => {
+    console.log(`[FICHA_SELECCIONADA_STATE_EFFECT_DEBUG] fichaSeleccionada state changed to: ${JSON.stringify(fichaSeleccionada)}`);
+  }, [fichaSeleccionada]);
+
+
   // useEffect para la conexión del socket y listeners principales
   useEffect(() => {
     console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Entrando. mesaIdFromUrl:', mesaIdFromUrl);
@@ -504,37 +509,63 @@ export default function JuegoPage() {
         const existingPlayer = prevManosMap.get(serverPlayerInfo.id);
         const rondaPlayerInfo = estadoMesaCliente.partidaActual?.rondaActual?.jugadoresRonda.find(jr => jr.id === serverPlayerInfo.id);
 
-        let fichas: FichaDomino[];
-        let numFichas: number;
+        let updatedPlayer: JugadorCliente;
 
         if (serverPlayerInfo.id === jugadorIdLocal) {
-          // Para el jugador local, SIEMPRE tomar las fichas del estado anterior (prevManos).
-          // 'servidor:tuMano' es el único que debe modificar el contenido de estas fichas.
-          // Si el jugador no existe en prevManos (primera vez), se inicializa con fichas vacías.
-          fichas = existingPlayer ? existingPlayer.fichas : []; 
-          numFichas = fichas.length; // numFichas para el local es la longitud de sus fichas actuales.
+          if (existingPlayer) {
+            // Local player exists: preserve their fichas and numFichas from prevManos.
+            console.log(`[MANOS_SYNC_EFFECT_DEBUG] Local player ${jugadorIdLocal} exists in prevManos. Existing numFichas: ${existingPlayer.numFichas}, existing fichas length: ${existingPlayer.fichas?.length}`);
+            // Only update other metadata that comes from estadoMesaCliente.
+            updatedPlayer = {
+              ...existingPlayer, // Crucially, this preserves existingPlayer.fichas and existingPlayer.numFichas
+              nombre: serverPlayerInfo.nombre, // Update from serverPlayerInfo
+              estaConectado: serverPlayerInfo.estaConectado, // Update from serverPlayerInfo
+              ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual, // Update from rondaPlayerInfo
+              // Ensure numFichas is also correctly preserved or derived if fichas are preserved
+              numFichas: existingPlayer.fichas.length, // Re-derive from preserved fichas to be safe
+            };
+          } else {
+            // Local player does not exist in prevManos (e.g., initial creation before 'servidor:tuMano')
+            console.log(`[MANOS_SYNC_EFFECT_DEBUG] Local player ${jugadorIdLocal} NOT in prevManos. Initializing.`);
+            // Initialize with empty fichas. 'servidor:tuMano' will populate them.
+            updatedPlayer = {
+              idJugador: serverPlayerInfo.id,
+              nombre: serverPlayerInfo.nombre,
+              fichas: [],
+              numFichas: 0,
+              estaConectado: serverPlayerInfo.estaConectado,
+              ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual,
+            };
+          };
         } else {
           // Para jugadores remotos, las fichas son siempre un array vacío en el cliente.
-          fichas = [];
-          numFichas = rondaPlayerInfo?.numFichas ?? serverPlayerInfo.numFichas ?? 0;
-        }
-
-        const updatedPlayer: JugadorCliente = {
-          idJugador: serverPlayerInfo.id,
-          nombre: serverPlayerInfo.nombre,
-          fichas: fichas,
-          numFichas: numFichas,
-          estaConectado: serverPlayerInfo.estaConectado,
-          ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual,
+          updatedPlayer = { // Esta lógica para jugadores remotos parece correcta
+            idJugador: serverPlayerInfo.id,
+            nombre: serverPlayerInfo.nombre,
+            fichas: [], 
+            numFichas: rondaPlayerInfo?.numFichas ?? serverPlayerInfo.numFichas ?? 0,
+            estaConectado: serverPlayerInfo.estaConectado,
+            ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual,
+          };
         };
 
         if (!existingPlayer ||
             existingPlayer.nombre !== updatedPlayer.nombre ||
             existingPlayer.estaConectado !== updatedPlayer.estaConectado ||
-            existingPlayer.ordenTurno !== updatedPlayer.ordenTurno ||
-            (serverPlayerInfo.id !== jugadorIdLocal && existingPlayer.numFichas !== updatedPlayer.numFichas) ||
-            (serverPlayerInfo.id === jugadorIdLocal && existingPlayer.fichas !== updatedPlayer.fichas)
-            ) {
+            existingPlayer.ordenTurno !== updatedPlayer.ordenTurno
+        ) {
+          hasChanged = true;
+        }
+        // For remote players, also check numFichas change
+        if (serverPlayerInfo.id !== jugadorIdLocal && existingPlayer && existingPlayer.numFichas !== updatedPlayer.numFichas) {
+          hasChanged = true;
+        }
+        // For local player, if the fichas array reference itself has changed (e.g., due to 'servidor:tuMano' providing a new array)
+        // OR if the numFichas (which we now derive from existingPlayer.fichas.length) is different from the old numFichas,
+        // it's a change.
+        if (serverPlayerInfo.id === jugadorIdLocal && existingPlayer && 
+            (existingPlayer.fichas !== updatedPlayer.fichas || existingPlayer.numFichas !== updatedPlayer.numFichas)
+        ) {
           hasChanged = true;
         }
         return updatedPlayer;
@@ -600,6 +631,7 @@ export default function JuegoPage() {
       (prev && prev.idFicha === idFicha && prev.idJugadorMano === idJugadorMano)
         ? undefined : { idFicha, idJugadorMano }
     );
+
   };
   
   const determinarJugadaCliente = (ficha: FichaDomino, valorExtremo: number): { puedeJugar: boolean; valorConexion?: number; valorNuevoExtremo?: number } => {
@@ -912,50 +944,92 @@ export default function JuegoPage() {
   let fichaSeleccionadaActual: FichaDomino | undefined;
   if (fichaSeleccionada && miIdJugadorSocketRef.current) {
     const manoOrigen = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current);
-    if (manoOrigen) fichaSeleccionadaActual = manoOrigen.fichas.find(f => f.id === fichaSeleccionada.idFicha);
-  }
-
-  let puedeJugarIzquierda = false, textoBotonIzquierda = "Punta Izquierda";
-  let puedeJugarDerecha = false, textoBotonDerecha = "Punta Derecha";
-
-  if (fichaSeleccionadaActual && fichaSeleccionada && 
-      rondaActualParaUI && 
-      fichaSeleccionada.idJugadorMano === rondaActualParaUI.currentPlayerId && 
-      fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current &&
-      (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) &&
-      !isMyTurnTimerJustExpired){
-    if (!rondaActualParaUI.anclaFicha) {
-      puedeJugarIzquierda = true;
-      textoBotonIzquierda = `Jugar ${fichaSeleccionadaActual.valorSuperior}-${fichaSeleccionadaActual.valorInferior}`;
-      puedeJugarDerecha = false; 
-    } else {
-      const extremosRonda = rondaActualParaUI.extremos;
-      const esIzquierdaMasCorta = (rondaActualParaUI.fichasIzquierda?.length || 0) <= (rondaActualParaUI.fichasDerecha?.length || 0);
-
-      if (extremosRonda.izquierda !== null) {
-        const jugadaIzquierda = determinarJugadaCliente(fichaSeleccionadaActual, extremosRonda.izquierda);
-        if (jugadaIzquierda.puedeJugar) {
-          puedeJugarIzquierda = true;
-          textoBotonIzquierda = `Punta Izquierda (${extremosRonda.izquierda})`;
-        }
-      }
-      if (extremosRonda.derecha !== null) {
-        const jugadaDerecha = determinarJugadaCliente(fichaSeleccionadaActual, extremosRonda.derecha);
-        if (jugadaDerecha.puedeJugar) {
-          puedeJugarDerecha = true;
-          textoBotonDerecha = `Punta Derecha (${extremosRonda.derecha})`;
-        }
-      }
-      if (extremosRonda.izquierda === extremosRonda.derecha && extremosRonda.izquierda !== null) {
-        if (esIzquierdaMasCorta) {
-            if (puedeJugarIzquierda) puedeJugarDerecha = false; else puedeJugarIzquierda = false;
-        } else {
-            if (puedeJugarDerecha) puedeJugarIzquierda = false; else puedeJugarDerecha = false;
-        }
-      }
+    if (manoOrigen) {
+      console.log('[FICHA_SELECCIONADA_ACTUAL_DEBUG] manoOrigen.fichas:', manoOrigen.fichas.map(f => f.id), 'buscando idFicha:', fichaSeleccionada.idFicha);
+      const foundFicha = manoOrigen.fichas.find(f => f.id === fichaSeleccionada.idFicha);
+      console.log('[FICHA_SELECCIONADA_ACTUAL_DEBUG] foundFicha:', foundFicha ? foundFicha.id : 'undefined');
+      fichaSeleccionadaActual = foundFicha;
     }
+  } else {
+    fichaSeleccionadaActual = undefined;
   }
+
+  // // DEBUG LOGS PARA BOTONES DE ACCIÓN
+  // if (fichaSeleccionadaActual) {
+  //   // Este log ya existe y es útil
+  //   console.log('[DEBUG_BOTONES] Condiciones para panel:', {
+  //     fichaSeleccionadaActual: !!fichaSeleccionadaActual,
+  //     fichaSeleccionada: !!fichaSeleccionada,
+  //     rondaActualParaUI: !!rondaActualParaUI,
+  //     idJugadorManoCorrecto: fichaSeleccionada?.idJugadorMano === rondaActualParaUI?.currentPlayerId,
+  //     esMiTurnoSocketId: fichaSeleccionada?.idJugadorMano === miIdJugadorSocketRef.current,
+  //     autoPaseOK: !autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current,
+  //     timerNoExpirado: !isMyTurnTimerJustExpired,
+  //     resultadoRondaNulo: !resultadoRonda,
+  //   });
+  //   if (rondaActualParaUI?.anclaFicha && fichaSeleccionadaActual && rondaActualParaUI.extremos.izquierda !== null) {
+  //     const jugadaIzquierdaDebug = determinarJugadaCliente(fichaSeleccionadaActual, rondaActualParaUI.extremos.izquierda);
+  //     console.log('[DEBUG_BOTONES] jugadaIzquierdaDebug:', jugadaIzquierdaDebug);
+  //   }
+  //   if (rondaActualParaUI?.anclaFicha && fichaSeleccionadaActual && rondaActualParaUI.extremos.derecha !== null) {
+  //     const jugadaDerechaDebug = determinarJugadaCliente(fichaSeleccionadaActual, rondaActualParaUI.extremos.derecha);
+  //     console.log('[DEBUG_BOTONES] jugadaDerechaDebug:', jugadaDerechaDebug);
+  //   }
+  // }
+
+  // let puedeJugarIzquierda = false, textoBotonIzquierda = "Punta Izquierda";
+  // let puedeJugarDerecha = false, textoBotonDerecha = "Punta Derecha";
+
+  // // Log detallado de las condiciones ANTES del IF principal para los botones
+  // console.log('[PRE_IF_BOTONES_DEBUG]', {
+  //   is_fichaSeleccionadaActual_defined: !!fichaSeleccionadaActual,
+  //   is_fichaSeleccionada_defined: !!fichaSeleccionada,
+  //   is_rondaActualParaUI_defined: !!rondaActualParaUI,
+  //   is_idJugadorMano_eq_currentPlayerId: fichaSeleccionada?.idJugadorMano === rondaActualParaUI?.currentPlayerId,
+  //   currentPlayerId_in_ronda: rondaActualParaUI?.currentPlayerId,
+  //   idJugadorMano_in_fichaSeleccionada: fichaSeleccionada?.idJugadorMano,
+  //   is_idJugadorMano_eq_miIdSocket: fichaSeleccionada?.idJugadorMano === miIdJugadorSocketRef.current,
+  //   miIdSocket: miIdJugadorSocketRef.current,
+  //   autoPaseCheck: (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current),
+  //   isMyTurnTimerJustExpired: isMyTurnTimerJustExpired,
+  // });
+
+  // if (fichaSeleccionadaActual && fichaSeleccionada && 
+  //     rondaActualParaUI && 
+  //     fichaSeleccionada.idJugadorMano === rondaActualParaUI.currentPlayerId && 
+  //     fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current &&
+  //     (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) &&
+  //     !isMyTurnTimerJustExpired){
+  //       console.log('[DEBUG_BOTONES_PANEL_LOGIC] Condición IF principal para botones es TRUE');
+  //   if (!rondaActualParaUI.anclaFicha) {
+  //     puedeJugarIzquierda = true;
+  //     textoBotonIzquierda = `Jugar ${fichaSeleccionadaActual.valorSuperior}-${fichaSeleccionadaActual.valorInferior}`;
+  //     puedeJugarDerecha = false; 
+  //   } else {
+  //     const extremosRonda = rondaActualParaUI.extremos;
+  //     // const esIzquierdaMasCorta = (rondaActualParaUI.fichasIzquierda?.length || 0) <= (rondaActualParaUI.fichasDerecha?.length || 0);
+
+  //     if (extremosRonda.izquierda !== null) {
+  //       const jugadaIzquierda = determinarJugadaCliente(fichaSeleccionadaActual, extremosRonda.izquierda);
+  //       if (jugadaIzquierda.puedeJugar) {
+  //         puedeJugarIzquierda = true;
+  //         textoBotonIzquierda = `Punta Izquierda (${extremosRonda.izquierda})`;
+  //       }
+  //     }
+  //     if (extremosRonda.derecha !== null) {
+  //       const jugadaDerecha = determinarJugadaCliente(fichaSeleccionadaActual, extremosRonda.derecha);
+  //       if (jugadaDerecha.puedeJugar) {
+  //         puedeJugarDerecha = true;
+  //         textoBotonDerecha = `Punta Derecha (${extremosRonda.derecha})`;
+  //       }
+  //     }
+  //     // Logic for "esIzquierdaMasCorta" (forcing one side if extremes are equal) removed as per user confirmation.
+  //   }
+  // }
   
+  // console.log(`[DEBUG_BOTONES_FINAL] puedeJugarIzquierda: ${puedeJugarIzquierda} textoBotonIzquierda: ${textoBotonIzquierda}`);
+  // console.log(`[DEBUG_BOTONES_FINAL] puedeJugarDerecha: ${puedeJugarDerecha} textoBotonDerecha: ${textoBotonDerecha}`);
+
   const jugadorLocal = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current);
   
   const mostrarBotonPasarManual = rondaActualParaUI && 
@@ -971,49 +1045,62 @@ export default function JuegoPage() {
   let mano1: JugadorCliente | undefined, mano2: JugadorCliente | undefined, mano3: JugadorCliente | undefined, mano4: JugadorCliente | undefined;
   let pIds1: string[] = []; 
 
+  // Asegurarse de que miIdJugadorSocketRef.current y estadoMesaCliente tengan datos antes de proceder
   if (miIdJugadorSocketRef.current && estadoMesaCliente) {
-    const localPlayerId = miIdJugadorSocketRef.current;
-    const localPlayer = manosJugadores.find(j => j.idJugador === localPlayerId);
+    const localPlayerId = miIdJugadorSocketRef.current; // Definir localPlayerId aquí para que esté en el ámbito correcto
 
-    if (localPlayer) {
-      mano1 = localPlayer; // El jugador local siempre es mano1 (abajo)
+    if (manosJugadores.length > 0) {
+      console.log(`[RENDER_MANOS_VISUAL_DEBUG] Intentando encontrar localPlayerId: "${localPlayerId}"`);
+      console.log(`[RENDER_MANOS_VISUAL_DEBUG] En manosJugadores (solo IDs):`, manosJugadores.map(j => j.idJugador));
+      manosJugadores.forEach(j => {
+        console.log(`[RENDER_MANOS_VISUAL_DEBUG] Comparando "${localPlayerId}" (tipo: ${typeof localPlayerId}) con "${j.idJugador}" (tipo: ${typeof j.idJugador})`);
+      });
+      const localPlayer = manosJugadores.find(j => j.idJugador === localPlayerId);
 
-      const numJugadoresEnRonda = estadoMesaCliente.partidaActual?.rondaActual?.jugadoresRonda.length || 0;
+      if (localPlayer) {
+        mano1 = localPlayer; // El jugador local siempre es mano1 (abajo)
 
-      // Intentar ordenar visualmente según el orden de turno si la información está disponible
-      if (typeof localPlayer.ordenTurno === 'number' && numJugadoresEnRonda >= 2 && numJugadoresEnRonda <= 4) {
-        const ordenLocal = localPlayer.ordenTurno;
+        const numJugadoresEnRonda = estadoMesaCliente.partidaActual?.rondaActual?.jugadoresRonda.length || 0;
 
-        // Calcular el orden de turno objetivo para las otras posiciones visuales
-        const targetOrdenMano2 = (ordenLocal + 1) % numJugadoresEnRonda; // Derecha
-        const targetOrdenMano3 = (ordenLocal + 2) % numJugadoresEnRonda; // Arriba
-        const targetOrdenMano4 = (ordenLocal + 3) % numJugadoresEnRonda; // Izquierda
-        
-        // Encontrar a los otros jugadores basándose en su ordenTurno calculado
-        // Asegurarse de no seleccionar al jugador local nuevamente
-        mano2 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano2);
-        
-        if (numJugadoresEnRonda > 2) { // mano3 solo tiene sentido si hay 3+ jugadores
+        // Intentar ordenar visualmente según el orden de turno si la información está disponible
+        if (typeof localPlayer.ordenTurno === 'number' && numJugadoresEnRonda >= 2 && numJugadoresEnRonda <= 4) {
+          const ordenLocal = localPlayer.ordenTurno;
+
+          // Calcular el orden de turno objetivo para las otras posiciones visuales
+          const targetOrdenMano2 = (ordenLocal + 1) % numJugadoresEnRonda; // Derecha
+          const targetOrdenMano3 = (ordenLocal + 2) % numJugadoresEnRonda; // Arriba
+          const targetOrdenMano4 = (ordenLocal + 3) % numJugadoresEnRonda; // Izquierda
+          
+          // Encontrar a los otros jugadores basándose en su ordenTurno calculado
+          // Asegurarse de no seleccionar al jugador local nuevamente
+          mano2 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano2);
+          
+          if (numJugadoresEnRonda > 2) { // mano3 solo tiene sentido si hay 3+ jugadores
             mano3 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano3);
-        }
-        if (numJugadoresEnRonda > 3) { // mano4 solo tiene sentido si hay 4 jugadores
+          }
+          if (numJugadoresEnRonda > 3) { // mano4 solo tiene sentido si hay 4 jugadores
             mano4 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano4);
-        }
+          }
 
-      } else {
-        // Fallback: Si ordenTurno no está disponible o el número de jugadores no es el esperado para la lógica de turnos,
-        // ordenar visualmente basándose en el orden del array (después del jugador local).
-        console.warn(`[RENDER_MANOS_VISUAL] Usando orden visual de fallback. ordenTurno local: ${localPlayer.ordenTurno}, numJugadoresEnRonda: ${numJugadoresEnRonda}`);
-        const otrosJugadores = manosJugadores.filter(j => j.idJugador !== localPlayerId);
-        if (otrosJugadores.length >= 1) mano2 = otrosJugadores[0]; // Derecha (o el siguiente en la lista)
-        if (otrosJugadores.length >= 2) mano3 = otrosJugadores[1]; // Arriba (o el segundo en la lista)
-        if (otrosJugadores.length >= 3) mano4 = otrosJugadores[2]; // Izquierda (o el tercero en la lista)
+        } else {
+          // Fallback: Si ordenTurno no está disponible o el número de jugadores no es el esperado para la lógica de turnos,
+          // ordenar visualmente basándose en el orden del array (después del jugador local).
+          console.warn(`[RENDER_MANOS_VISUAL] Usando orden visual de fallback. ordenTurno local: ${localPlayer.ordenTurno}, numJugadoresEnRonda: ${numJugadoresEnRonda}`);
+          const otrosJugadores = manosJugadores.filter(j => j.idJugador !== localPlayerId);
+          if (otrosJugadores.length >= 1) mano2 = otrosJugadores[0]; // Derecha (o el siguiente en la lista)
+          if (otrosJugadores.length >= 2) mano3 = otrosJugadores[1]; // Arriba (o el segundo en la lista)
+          if (otrosJugadores.length >= 3) mano4 = otrosJugadores[2]; // Izquierda (o el tercero en la lista)
+        }
+      } else { // localPlayer no encontrado en manosJugadores
+        console.warn(`[RENDER_MANOS_VISUAL] Jugador local ${localPlayerId} no encontrado en manosJugadores para ordenamiento visual.`);
       }
     } else {
-      console.warn(`[RENDER_MANOS_VISUAL] Jugador local ${localPlayerId} no encontrado en manosJugadores para ordenamiento visual.`);
+      // Este caso es para cuando manosJugadores aún podría estar vacío en un render intermedio
+      console.log(`[RENDER_MANOS_VISUAL] manosJugadores está vacío. Esperando que se popule.`);
     }
 
     // Asignar fichas jugables si es el turno del jugador local
+    // localPlayerId está disponible aquí porque se definió al inicio del bloque 'if (miIdJugadorSocketRef.current && estadoMesaCliente)'
     if (mano1 && mano1.idJugador === localPlayerId && rondaActualParaUI && mano1.idJugador === rondaActualParaUI.currentPlayerId) {
       pIds1 = playableFichaIds; 
     }
@@ -1027,6 +1114,11 @@ export default function JuegoPage() {
 
   if (!estadoMesaCliente) {
     return <div className="flex items-center justify-center min-h-screen">Cargando datos de la mesa...</div>;
+  }
+
+  // Log para depurar el prop fichaSeleccionada que se pasa a ManoJugadorComponent (mano1)
+  if (mano1 && mano1.idJugador === miIdJugadorSocketRef.current) {
+    console.log(`[JuegoPage->ManoJugadorComponent] Passing fichaSeleccionada prop: ${fichaSeleccionada?.idFicha} to mano1 (local player)`);
   }
 
   return (
@@ -1056,7 +1148,7 @@ export default function JuegoPage() {
           dominoConstWidth={DOMINO_WIDTH_PX} dominoConstHeight={DOMINO_HEIGHT_PX}
         />
         
-        {fichaSeleccionadaActual && fichaSeleccionada && 
+        {/* {fichaSeleccionadaActual && fichaSeleccionada && 
          rondaActualParaUI && fichaSeleccionada.idJugadorMano === rondaActualParaUI.currentPlayerId && 
          fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current && 
          (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) &&
@@ -1088,7 +1180,7 @@ export default function JuegoPage() {
             )}
             <button onClick={() => setFichaSeleccionada(undefined)} className="text-xs text-gray-300 hover:text-white mt-1">Cancelar selección</button>
           </div>
-        )}
+        )} */}
 
          {tiempoTurnoRestante !== null && tiempoTurnoRestante > 0 && !resultadoRonda && 
           rondaActualParaUI?.currentPlayerId && 
@@ -1125,6 +1217,7 @@ export default function JuegoPage() {
             />
           </div>
           <div className="flex justify-center">
+            {/* Log movido justo antes del return del componente o donde se calcula el prop */}
             <ManoJugadorComponent
               key={`mano-local-${manoVersion}-${mano1.fichas.length}`} 
               fichas={mano1.fichas}
