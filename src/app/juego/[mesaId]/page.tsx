@@ -3,9 +3,9 @@
 
 import { PanInfo } from 'framer-motion';
 import { motion } from 'framer-motion';
-import { io, Socket } from 'socket.io-client';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador';
 import {
@@ -21,7 +21,6 @@ import {
 import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay';
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
 
-// Tipos para el estado del cliente
 interface JugadorCliente {
   idJugador: string;
   nombre?: string;
@@ -36,7 +35,6 @@ interface FichaSeleccionadaInfo {
   idJugadorMano: string;
 }
 
-const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:3001';
 const DURACION_TURNO_SEGUNDOS = 15;
 
 type TipoJuegoSolicitado = 'rondaUnica' | 'partidaCompleta';
@@ -141,7 +139,6 @@ interface FinDePartidaPayloadCliente {
 
 
 export default function JuegoPage() {
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [estadoMesaCliente, setEstadoMesaCliente] = useState<EstadoMesaPublicoCliente | null>(null);
   const miIdJugadorSocketRef = useRef<string | null>(null);
   const [miIdJugadorSocket, setMiIdJugadorSocket] = useState<string | null>(null);
@@ -177,6 +174,25 @@ export default function JuegoPage() {
   const router = useRouter();
   const mesaIdFromUrl = params.mesaId as string;
   const authoritativeMesaIdRef = useRef<string>(mesaIdFromUrl);
+  
+  // Para pasar al hook de socket, necesitamos que estos valores sean estables o estén en refs
+  // cuando se usan en el callback onConnect del hook.
+  const finalUserIdRef = useRef<string | null>(null);
+  const finalNombreJugadorRef = useRef<string | null>(null);
+  const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
+  
+  // Estado para forzar la re-renderización una vez que los IDs estén listos para el hook
+  const [playerAuthReady, setPlayerAuthReady] = useState(false);
+
+  const prevPropsForSocketRef = useRef<{ userId: string | null, nombre: string | null, autoConnect: boolean } | null>(null);
+  const initialAuthReportedRef = useRef(false);
+
+  // Ref para acceder al estado más reciente de estadoMesaCliente en callbacks memoizados
+  const estadoMesaClienteRef = useRef(estadoMesaCliente);
+  useEffect(() => {
+    estadoMesaClienteRef.current = estadoMesaCliente;
+  }, [estadoMesaCliente]);
+
 
   const limpiarIntervaloTimer = useCallback(() => {
     if (timerIntervalRef.current) {
@@ -184,6 +200,11 @@ export default function JuegoPage() {
       timerIntervalRef.current = null;
     }
   }, []);
+
+  const limpiarIntervaloTimerRef = useRef(limpiarIntervaloTimer);
+  useEffect(() => {
+    limpiarIntervaloTimerRef.current = limpiarIntervaloTimer;
+  }, [limpiarIntervaloTimer]);
 
   useEffect(() => {
     const currentPlayerIdRonda = estadoMesaCliente?.partidaActual?.rondaActual?.currentPlayerId;
@@ -200,8 +221,8 @@ export default function JuegoPage() {
     console.log(`[FICHA_SELECCIONADA_STATE_EFFECT_DEBUG] fichaSeleccionada state changed to: ${JSON.stringify(fichaSeleccionada)}`);
   }, [fichaSeleccionada]);
 
-
-  // useEffect para la conexión del socket y listeners principales
+  // useEffect para inicializar userId, nombreJugador y tipoJuego desde sessionStorage/query
+  // Esto debe ocurrir ANTES de inicializar el hook useDominoSocket
   useEffect(() => {
     console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Entrando. mesaIdFromUrl:', mesaIdFromUrl);
     if (!mesaIdFromUrl || typeof mesaIdFromUrl !== 'string' || mesaIdFromUrl.trim() === '') { // Condición para mesaIdFromUrl
@@ -212,12 +233,9 @@ export default function JuegoPage() {
 
     console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Intentando leer de sessionStorage.');
     const userIdFromStorage = sessionStorage.getItem('jmu_userId');
-    
     const nombreJugadorFromStorage = sessionStorage.getItem('jmu_nombreJugador');  
-    const tipoJuegoSolicitado = sessionStorage.getItem('jmu_tipoJuegoSolicitado') as TipoJuegoSolicitado | null;
-    
-    let finalUserId: string | null = null;
-    let finalNombreJugador: string | null = null;
+    tipoJuegoSolicitadoRef.current = sessionStorage.getItem('jmu_tipoJuegoSolicitado') as TipoJuegoSolicitado | null;
+
 
     // Intentar leer de query params primero
     const queryParams = new URLSearchParams(window.location.search);
@@ -226,51 +244,141 @@ export default function JuegoPage() {
 
     if (uidFromQuery && nombreFromQuery) {
       console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Leído de Query Params - userId:', uidFromQuery, 'nombreJugador:', nombreFromQuery);
-      finalUserId = uidFromQuery;
-      finalNombreJugador = nombreFromQuery;
-      // Guardar en sessionStorage si se obtuvieron de query params, para persistencia en recargas
-      sessionStorage.setItem('jmu_userId', finalUserId);
-      sessionStorage.setItem('jmu_nombreJugador', finalNombreJugador);
+      finalUserIdRef.current = uidFromQuery;
+      finalNombreJugadorRef.current = nombreFromQuery;
+      sessionStorage.setItem('jmu_userId', finalUserIdRef.current);
+      sessionStorage.setItem('jmu_nombreJugador', finalNombreJugadorRef.current);
       console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Guardado en sessionStorage desde Query Params.');
     } else {
       console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] No se encontraron datos en Query Params, intentando sessionStorage.');
-      finalUserId = userIdFromStorage;
-      finalNombreJugador = nombreJugadorFromStorage;
+      finalUserIdRef.current = userIdFromStorage;
+      finalNombreJugadorRef.current = nombreJugadorFromStorage;
     }
-     console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Valores finales para conexión - userId:', finalUserId, 'nombreJugador:', finalNombreJugador);
+    console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Valores finales para conexión - userId:', finalUserIdRef.current, 'nombreJugador:', finalNombreJugadorRef.current);
 
-    if (!finalUserId || !finalNombreJugador) {
+    if (!finalUserIdRef.current || !finalNombreJugadorRef.current) {
       console.error("Error: Falta información del jugador (después de query y sessionStorage). Redirigiendo al lobby.");
       router.push('/lobby');
-      return;
+    } else {
+      setPlayerAuthReady(true); // Marcar como listo para que el hook useDominoSocket se active
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // EJECUTAR SOLO UNA VEZ AL MONTAR.
+  // Asumimos que mesaIdFromUrl y la necesidad de router.push no cambian después del montaje inicial
+  // sin una navegación completa que remonte este componente.
 
+  const formatPlayerNameForTitle = (name: string | null): string => {
+    if (!name) return "";
+    let processedName = name;
+    if (name.startsWith("Jugador ")) {
+      processedName = name.substring("Jugador ".length);
+    }
+    return processedName.slice(-4);
+  };
 
+  // Effect to update document title with player name
+  useEffect(() => {
+    const defaultTitle = "Juego - Dominando";
+    // Usar authoritativeMesaIdRef.current que tiene el ID de mesa confirmado por el servidor.
+    const currentMesaIdForTitle = authoritativeMesaIdRef.current;
 
-    const newSocket = io(SOCKET_SERVER_URL, {
-      auth: {
-        userId: finalUserId, 
-        nombreJugador: finalNombreJugador,
-      },
-      transports: ['websocket'],
+    if (playerAuthReady && finalNombreJugadorRef.current) {
+      const shortName = formatPlayerNameForTitle(finalNombreJugadorRef.current);
+      const mesaSuffix = currentMesaIdForTitle ? ` ${currentMesaIdForTitle.slice(-3)}` : "";
+      document.title = shortName ? `${shortName} - Juego${mesaSuffix}` : `Juego${mesaSuffix} - Dominando`;
+    } else {
+      document.title = defaultTitle;
+    }
+    // Opcional: Restaurar el título original cuando el componente se desmonte
+    // return () => { document.title = "Dominando"; };
+  }, [playerAuthReady, estadoMesaCliente]); // Depender de playerAuthReady y estadoMesaCliente.
+                                           // Cuando estadoMesaCliente se actualiza (ej. en handleTeUnisteAMesa),
+                                           // authoritativeMesaIdRef.current ya debería tener el ID correcto.
+
+  // Log para depurar los props pasados a useDominoSocket
+  const userIdForSocket = playerAuthReady ? finalUserIdRef.current : null;
+  const nombreJugadorForSocket = playerAuthReady ? finalNombreJugadorRef.current : null;
+  const autoConnectForSocket = playerAuthReady;
+
+  // Usamos un useEffect para loguear estos valores solo cuando cambian,
+  // para no llenar la consola en cada render si son estables.
+  useEffect(() => {
+    console.log('[JUEGO_PAGE] Props para useDominoSocket (evaluados):', {
+      userId: userIdForSocket,
+      nombreJugador: nombreJugadorForSocket,
+      playerAuthReady: playerAuthReady, // Loguear playerAuthReady directamente también
+      finalUserIdRefCurrent: finalUserIdRef.current,
+      finalNombreJugadorRefCurrent: finalNombreJugadorRef.current,
     });
-    setSocket(newSocket);
-    console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Socket instance created.');
+  }, [userIdForSocket, nombreJugadorForSocket, autoConnectForSocket, playerAuthReady]); // Refs themselves are stable, depend on derived values or playerAuthReady
 
-    newSocket.on('connect', () => {
-      console.log('[SOCKET] Conectado al servidor:', newSocket.id, 'para mesaId:', mesaIdFromUrl);
-      newSocket.emit('cliente:unirseAMesa', {
-        juegoSolicitado: tipoJuegoSolicitado,
-        nombreJugador: finalNombreJugador, 
-        mesaId: mesaIdFromUrl // mesaIdFromUrl ya está validado arriba
+  // useEffect de depuración CRÍTICO para rastrear la estabilidad de los props del socket
+  useEffect(() => {
+    if (playerAuthReady && !initialAuthReportedRef.current) {
+      initialAuthReportedRef.current = true; // Marcar que la autenticación inicial ha establecido playerAuthReady en true
+      console.log('%c[JUEGO_PAGE_DEBUG_PROPS] Autenticación inicial completada. Props para socket:', 'color: green; font-weight: bold;', {
+        userId: userIdForSocket,
+        nombreJugador: nombreJugadorForSocket,
+        autoConnect: autoConnectForSocket,
       });
-    });
+      prevPropsForSocketRef.current = { userId: userIdForSocket, nombre: nombreJugadorForSocket, autoConnect: autoConnectForSocket };
+    } else if (initialAuthReportedRef.current) {
+      // La autenticación ya se completó, ahora verificar si los props están cambiando
+      const currentProps = { userId: userIdForSocket, nombre: nombreJugadorForSocket, autoConnect: autoConnectForSocket };
+      if (
+        prevPropsForSocketRef.current?.userId !== currentProps.userId ||
+        prevPropsForSocketRef.current?.nombre !== currentProps.nombre ||
+        prevPropsForSocketRef.current?.autoConnect !== currentProps.autoConnect
+      ) {
+        console.error('%c[JUEGO_PAGE_DEBUG_PROPS] ¡CRÍTICO! Props para useDominoSocket CAMBIARON DESPUÉS DE AUTENTICACIÓN INICIAL:', 'color: red; font-weight: bold; font-size: 1.2em;', {
+          prev: prevPropsForSocketRef.current,
+          current: currentProps,
+          playerAuthReady,
+          finalUserIdRefCurrent: finalUserIdRef.current,
+          finalNombreJugadorRefCurrent: finalNombreJugadorRef.current,
+        });
+      }
+      prevPropsForSocketRef.current = currentProps;
+    }
+  }, [userIdForSocket, nombreJugadorForSocket, autoConnectForSocket, playerAuthReady]);
 
-    newSocket.on('disconnect', (reason) => console.log('[SOCKET] Desconectado del servidor:', reason));
-    newSocket.on('connect_error', (err) => console.error('[SOCKET] Error de conexión:', err.message, err));
+  const { socket, emitEvent, registerEventHandlers, unregisterEventHandlers } = useDominoSocket({
+    userId: userIdForSocket,
+    nombreJugador: nombreJugadorForSocket,
+    autoConnect: autoConnectForSocket, 
+    // Modificación: Hacer onConnect estable usando una ref para mesaId
+    onConnect: useCallback((emitFromHook: (eventName: string, data: any) => void) => { 
+      console.log('[JUEGO_PAGE_HOOK] Socket conectado. Emitiendo cliente:unirseAMesa.');
+      const currentNombreJugador = finalNombreJugadorRef.current;
+      const currentTipoJuego = tipoJuegoSolicitadoRef.current;
+      const currentMesaId = authoritativeMesaIdRef.current; // Leer de la ref
 
-    newSocket.on('servidor:teUnisteAMesa', (payload: TeUnisteAMesaPayloadCliente) => {
+      // playerAuthReady (y por ende currentNombreJugador) y mesaIdFromUrl
+      // deberían estar definidos si onConnect es llamado.
+      // authoritativeMesaIdRef.current debería tener el valor correcto de mesaIdFromUrl
+      if (currentNombreJugador && currentMesaId) {
+        emitFromHook('cliente:unirseAMesa', {
+          juegoSolicitado: currentTipoJuego, // Puede ser null si no está en sessionStorage
+          nombreJugador: currentNombreJugador,
+          mesaId: currentMesaId
+        });
+      } else {
+        // Este log es por si algo inesperado ocurre
+        console.error('[JUEGO_PAGE_HOOK] onConnect: No se pudo emitir cliente:unirseAMesa. Falta nombreJugador o mesaId.', {
+          nombre: currentNombreJugador,
+          mesaId: currentMesaId,
+        });
+      }
+    }, []), // Array de dependencias vacío para que el callback sea estable. Accede a refs para valores dinámicos.
+  });
+
+  // --- INICIO: Handlers de Socket.IO memoizados ---
+  const stableEmitEvent = useCallback(emitEvent, [emitEvent]); // Asumiendo que emitEvent del hook es estable
+
+  const handleTeUnisteAMesa = useCallback((payload: TeUnisteAMesaPayloadCliente) => {
       console.log('[SOCKET] Evento servidor:teUnisteAMesa recibido:', payload);
+    // authoritativeMesaIdRef y miIdJugadorSocketRef son refs
+    // setMiIdJugadorSocket y setEstadoMesaCliente son estables
       if (payload.mesaId !== authoritativeMesaIdRef.current) {
         console.warn(`[SOCKET] El mesaId del servidor (${payload.mesaId}) no coincide con el de la URL/ref actual (${authoritativeMesaIdRef.current}). Se usará el del servidor (${payload.mesaId}).`);
         authoritativeMesaIdRef.current = payload.mesaId;
@@ -281,119 +389,144 @@ export default function JuegoPage() {
       setMiIdJugadorSocket(payload.tuJugadorIdEnPartida);
       setEstadoMesaCliente(payload.estadoMesa);
 
-      // ¡NUEVO! Notificar al servidor que este cliente está listo para recibir su mano/iniciar juego.
-      if (newSocket.connected && payload.tuJugadorIdEnPartida && authoritativeMesaIdRef.current) {
-        console.log(`[SOCKET] Cliente ${payload.tuJugadorIdEnPartida} procesó 'teUnisteAMesa'. Emitiendo 'cliente:listoParaMano' para mesa ${authoritativeMesaIdRef.current}`);
-        newSocket.emit('cliente:listoParaMano', { 
-          mesaId: authoritativeMesaIdRef.current,
-          jugadorId: payload.tuJugadorIdEnPartida 
-        });
-      } else {
-        console.warn('[SOCKET] No se pudo emitir cliente:listoParaMano. Socket no conectado o falta información crítica.', {
-          connected: newSocket.connected,
-          jugadorId: payload.tuJugadorIdEnPartida,
-          mesaId: authoritativeMesaIdRef.current
-        });
-      }
-    });
+    // ¡NUEVO! Notificar al servidor que este cliente está listo para recibir su mano/iniciar juego.
+    if (socket?.connected && payload.tuJugadorIdEnPartida && authoritativeMesaIdRef.current) {
+      console.log(`[SOCKET] Cliente ${payload.tuJugadorIdEnPartida} procesó 'teUnisteAMesa'. Emitiendo 'cliente:listoParaMano' para mesa ${authoritativeMesaIdRef.current}`);
+      stableEmitEvent('cliente:listoParaMano', { 
+        mesaId: authoritativeMesaIdRef.current,
+        jugadorId: payload.tuJugadorIdEnPartida 
+      });
+    } else {
+      console.warn('[SOCKET] No se pudo emitir cliente:listoParaMano. Socket no conectado o falta información crítica.', {
+        connected: socket?.connected,
+        jugadorId: payload.tuJugadorIdEnPartida,
+        mesaId: authoritativeMesaIdRef.current
+      });
+    }
+  }, [setMiIdJugadorSocket, setEstadoMesaCliente, stableEmitEvent, socket]);
 
-    newSocket.on('servidor:estadoMesaActualizado', (payload: { estadoMesa: EstadoMesaPublicoCliente }) => {
-      console.log('[SOCKET] Evento servidor:estadoMesaActualizado recibido para mesaId:', payload.estadoMesa.mesaId);
-      setEstadoMesaCliente(payload.estadoMesa);
-    });
+  const handleEstadoMesaActualizado = useCallback((payload: { estadoMesa: EstadoMesaPublicoCliente }) => {
+    console.log('[SOCKET] Evento servidor:estadoMesaActualizado recibido para mesaId:', payload.estadoMesa.mesaId);
+    setEstadoMesaCliente(payload.estadoMesa);
+  }, [setEstadoMesaCliente]);
 
-    newSocket.on('servidor:tuMano', (payload: TuManoPayloadCliente) => {
-      console.log(`[SOCKET] Evento servidor:tuMano recibido. Payload:`, payload);
-      if (miIdJugadorSocketRef.current) {
-        const jugadorIdLocal = miIdJugadorSocketRef.current;
-        setManosJugadores(prevManos => {
-          const manoExistenteIdx = prevManos.findIndex(m => m.idJugador === jugadorIdLocal);
-
-          if (manoExistenteIdx !== -1) {
-            const nuevasManos = [...prevManos];
-            nuevasManos[manoExistenteIdx] = {
-              ...nuevasManos[manoExistenteIdx],
-              fichas: payload.fichas,
-              numFichas: payload.fichas.length
-            };
-            return nuevasManos;
-          } else {
-            // Player does not exist in manosJugadores yet
-            // Add them with their new hand.
-            const jugadorInfoGeneral = estadoMesaCliente?.jugadores.find(j => j.id === jugadorIdLocal);
-            console.log(`[servidor:tuMano] Jugador local ${jugadorIdLocal} no encontrado en prevManos o sin fichas. Añadiendo/Actualizando con mano nueva.`);
-            const nuevoJugador: JugadorCliente = {
-              idJugador: jugadorIdLocal!, 
-              nombre: jugadorInfoGeneral?.nombre || 'Yo', // Get name from estadoMesaCliente if possible
-              fichas: payload.fichas, // Esta es la fuente de verdad para las fichas locales
-              numFichas: payload.fichas.length,
-              estaConectado: jugadorInfoGeneral?.estaConectado ?? true,
-              ordenTurno: jugadorInfoGeneral?.ordenTurnoEnRondaActual
-            };
-            return [
-              ...prevManos,
-              nuevoJugador
-            ];
-          }
-        });
-      }
-    });
-
-    newSocket.on('servidor:tuManoActualizada', (payload: TuManoPayloadCliente) => {
-      console.log(`[SOCKET] Evento servidor:tuManoActualizada recibido. Payload:`, payload);
-      if (miIdJugadorSocketRef.current) {
-        setManosJugadores(prevManos =>
-          prevManos.map(mano =>
-            mano.idJugador === miIdJugadorSocketRef.current
-              ? { ...mano, fichas: payload.fichas, numFichas: payload.fichas.length }
-              : mano
-          )
-        );
-      }
-    });
-    
-    newSocket.on('servidor:tuTurno', (payload: TuTurnoPayloadCliente) => {
-      console.log('[SOCKET] Evento servidor:tuTurno recibido:', payload);
-      if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
-        setPlayableFichaIds(payload.playableFichaIds);
-        if (payload.duracionTurnoTotal) {
-          setDuracionTurnoActualConfigurada(payload.duracionTurnoTotal);
+  const handleTuMano = useCallback((payload: TuManoPayloadCliente) => {
+    console.log(`[SOCKET] Evento servidor:tuMano recibido. Payload:`, payload);
+    if (miIdJugadorSocketRef.current) {
+      const jugadorIdLocal = miIdJugadorSocketRef.current;
+      const currentEstadoMesa = estadoMesaClienteRef.current; // Leer de la ref
+      setManosJugadores(prevManos => {
+        const manoExistenteIdx = prevManos.findIndex(m => m.idJugador === jugadorIdLocal);
+        if (manoExistenteIdx !== -1) {
+          const nuevasManos = [...prevManos];
+          nuevasManos[manoExistenteIdx] = {
+            ...nuevasManos[manoExistenteIdx],
+            fichas: payload.fichas,
+            numFichas: payload.fichas.length
+          };
+          return nuevasManos;
+        } else {
+          const jugadorInfoGeneral = currentEstadoMesa?.jugadores.find(j => j.id === jugadorIdLocal);
+          console.log(`[servidor:tuMano] Jugador local ${jugadorIdLocal} no encontrado en prevManos o sin fichas. Añadiendo/Actualizando con mano nueva.`);
+          const nuevoJugador: JugadorCliente = {
+            idJugador: jugadorIdLocal!, 
+            nombre: jugadorInfoGeneral?.nombre || 'Yo',
+            fichas: payload.fichas,
+            numFichas: payload.fichas.length,
+            estaConectado: jugadorInfoGeneral?.estaConectado ?? true,
+            ordenTurno: jugadorInfoGeneral?.ordenTurnoEnRondaActual
+          };
+          return [...prevManos, nuevoJugador];
         }
-        setIsMyTurnTimerJustExpired(false);
-        setManoVersion(prev => prev + 1);
-      } else {
-        setPlayableFichaIds([]);
-      }
-    });
+      });
+    }
+  }, [setManosJugadores]); // miIdJugadorSocketRef y estadoMesaClienteRef son refs
 
-    newSocket.on('servidor:finDeRonda', (payload: FinDeRondaPayloadCliente) => {
-      console.log('[SOCKET] Evento servidor:finDeRonda recibido:', payload);
-      setPlayableFichaIds([]);
-      setFichaSeleccionada(undefined);
-      limpiarIntervaloTimer();
-      setAutoPaseInfoCliente(null);
+  const handleTuManoActualizada = useCallback((payload: TuManoPayloadCliente) => {
+    console.log(`[SOCKET] Evento servidor:tuManoActualizada recibido. Payload:`, payload);
+    if (miIdJugadorSocketRef.current) {
+      setManosJugadores(prevManos =>
+        prevManos.map(mano =>
+          mano.idJugador === miIdJugadorSocketRef.current
+            ? { ...mano, fichas: payload.fichas, numFichas: payload.fichas.length }
+            : mano
+        )
+      );
+    }
+  }, [setManosJugadores]); // miIdJugadorSocketRef es ref
+  
+  const handleTuTurno = useCallback((payload: TuTurnoPayloadCliente) => {
+    console.log('[SOCKET] Evento servidor:tuTurno recibido:', payload);
+    // miIdJugadorSocketRef es ref. Setters son estables.
+    if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
+      setPlayableFichaIds(payload.playableFichaIds);
+      if (payload.duracionTurnoTotal) {
+        setDuracionTurnoActualConfigurada(payload.duracionTurnoTotal);
+      }
       setIsMyTurnTimerJustExpired(false);
       setManoVersion(prev => prev + 1);
-      setManosAlFinalizarRonda(payload.manosFinales || null);
-    });
+    } else {
+      setPlayableFichaIds([]);
+    }
+  }, [setPlayableFichaIds, setDuracionTurnoActualConfigurada, setIsMyTurnTimerJustExpired, setManoVersion]);
 
-    newSocket.on('servidor:finDePartida', (payload: FinDePartidaPayloadCliente) => {
-      console.log('[SOCKET] Evento servidor:finDePartida recibido:', payload);
-      setResultadoRonda(null);
-    });
+  const handleFinDeRonda = useCallback((payload: FinDeRondaPayloadCliente) => {
+    console.log('[SOCKET] Evento servidor:finDeRonda recibido:', payload);
+    // Setters son estables. limpiarIntervaloTimerRef.current() usa la ref a la función estable.
+    setPlayableFichaIds([]);
+    setFichaSeleccionada(undefined);
+    limpiarIntervaloTimerRef.current();
+    setAutoPaseInfoCliente(null);
+    setIsMyTurnTimerJustExpired(false);
+    setManoVersion(prev => prev + 1);
+    setManosAlFinalizarRonda(payload.manosFinales || null);
+  }, [setPlayableFichaIds, setFichaSeleccionada, setAutoPaseInfoCliente, setIsMyTurnTimerJustExpired, setManoVersion, setManosAlFinalizarRonda]);
 
-    newSocket.on('servidor:errorDePartida', (payload: { mensaje: string }) => {
-      console.error('[SOCKET] Error de partida/mesa:', payload.mensaje);
-    });
+  const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
+    console.log('[SOCKET] Evento servidor:finDePartida recibido:', payload);
+    setResultadoRonda(null); // setResultadoRonda es estable
+  }, [setResultadoRonda]);
 
-    return () => {
-      console.log('[SOCKET] Desconectando socket de la página de juego...');
-      newSocket.disconnect();
-      limpiarIntervaloTimer();
-      setSocket(null);
+  const handleErrorDePartida = useCallback((payload: { mensaje: string }) => {
+    console.error('[SOCKET] Error de partida/mesa:', payload.mensaje);
+    // Considerar mostrar este error en la UI
+  }, []);
+  // --- FIN: Handlers de Socket.IO memoizados ---
+
+  // useEffect para listeners de eventos del socket
+  useEffect(() => {
+    if (!socket || !playerAuthReady) return; // Solo registrar handlers si el socket está listo Y la auth está lista
+
+    const eventHandlers = {
+      'servidor:teUnisteAMesa': handleTeUnisteAMesa,
+      'servidor:estadoMesaActualizado': handleEstadoMesaActualizado,
+      'servidor:tuMano': handleTuMano,
+      'servidor:tuManoActualizada': handleTuManoActualizada,
+      'servidor:tuTurno': handleTuTurno,
+      'servidor:finDeRonda': handleFinDeRonda,
+      'servidor:finDePartida': handleFinDePartida,
+      'servidor:errorDePartida': handleErrorDePartida,
     };
-  }, [limpiarIntervaloTimer, mesaIdFromUrl, router]);
+    registerEventHandlers(eventHandlers);
 
+    // Asumimos que registerEventHandlers y unregisterEventHandlers del hook son estables
+    return () => {
+      unregisterEventHandlers(Object.keys(eventHandlers));
+    };
+  }, [
+    socket, 
+    playerAuthReady, 
+    registerEventHandlers, 
+    unregisterEventHandlers, 
+    handleTeUnisteAMesa,
+    handleEstadoMesaActualizado,
+    handleTuMano,
+    handleTuManoActualizada,
+    handleTuTurno,
+    handleFinDeRonda,
+    handleFinDePartida,
+    handleErrorDePartida
+  ]);
   // useEffect para actualizar la UI basada en estadoMesaCliente
   useEffect(() => {
     if (!estadoMesaCliente) {
@@ -656,7 +789,7 @@ export default function JuegoPage() {
     if (!idFichaAJugar) return;
 
     const fichaParaJugar = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.find(f => f.id === idFichaAJugar);
-    if (!fichaParaJugar) return;
+    if (!fichaParaJugar || !emitEvent) return;
 
     if (!rondaActual.anclaFicha) {
       socket.emit('cliente:jugarFicha', { rondaId: rondaActual.rondaId, fichaId: idFichaAJugar, extremoElegido: extremoElegidoParam });
@@ -670,12 +803,12 @@ export default function JuegoPage() {
     const jugadaDeterminada = determinarJugadaCliente(fichaParaJugar, valorExtremoNumerico);
     if (!jugadaDeterminada.puedeJugar) return;
     
-    socket.emit('cliente:jugarFicha', { rondaId: rondaActual.rondaId, fichaId: idFichaAJugar, extremoElegido: extremoElegidoParam });
+    emitEvent('cliente:jugarFicha', { rondaId: rondaActual.rondaId, fichaId: idFichaAJugar, extremoElegido: extremoElegidoParam });
     setFichaSeleccionada(undefined);
   };
 
   const handlePasarTurnoServidor = () => {
-    if (!socket) return;
+    if (!socket || !emitEvent) return;
     const rondaActual = estadoMesaCliente?.partidaActual?.rondaActual;
     if (!rondaActual || rondaActual.estadoActual === 'terminada' || rondaActual.currentPlayerId !== miIdJugadorSocketRef.current) return;
 
@@ -685,13 +818,13 @@ export default function JuegoPage() {
     console.log(`[SOCKET] Emitiendo cliente:pasarTurno para ronda ${rondaActual.rondaId}`);
     limpiarIntervaloTimer();
     setTiempoTurnoRestante(null);
-    socket.emit('cliente:pasarTurno', { rondaId: rondaActual.rondaId });
+    emitEvent('cliente:pasarTurno', { rondaId: rondaActual.rondaId });
   };
 
   const handleListoParaSiguientePartida = () => {
-    if (socket && estadoMesaCliente && estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida') {
+    if (socket && emitEvent && estadoMesaCliente && estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida') {
       console.log(`[SOCKET] Emitiendo cliente:listoParaSiguientePartida para mesa ${estadoMesaCliente.mesaId}`);
-      socket.emit('cliente:listoParaSiguientePartida', { mesaId: estadoMesaCliente.mesaId });
+      emitEvent('cliente:listoParaSiguientePartida', { mesaId: estadoMesaCliente.mesaId });
     }
   };
 
@@ -1112,7 +1245,7 @@ export default function JuegoPage() {
                             !estadoMesaCliente.jugadores.find(j => j.id === miIdJugadorSocketRef.current)?.listoParaSiguientePartida;
 
 
-  if (!estadoMesaCliente) {
+  if (!playerAuthReady || !estadoMesaCliente) { // Esperar a que la autenticación esté lista y el estado de la mesa
     return <div className="flex items-center justify-center min-h-screen">Cargando datos de la mesa...</div>;
   }
 

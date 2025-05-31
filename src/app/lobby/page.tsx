@@ -3,10 +3,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
+import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
 
-// Definir la URL del servidor Socket.IO
-const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:3001';
 
 // Tipos para los payloads de Socket.IO (simplificados para el lobby)
 interface TeUnisteAMesaPayloadLobby { // Renombrado y actualizado
@@ -20,20 +18,24 @@ export type TipoJuegoSolicitado = 'rondaUnica' | 'partidaCompleta';
 
 export default function LobbyPage() {
   const router = useRouter();
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [nombreJugador, setNombreJugador] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<TipoJuegoSolicitado | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null); // Ref to store the type of game requested
+  const [lobbyError, setLobbyError] = useState<string | null>(null); // Renombrado para evitar conflicto con error del hook
+  const [authInitialized, setAuthInitialized] = useState(false); // Nuevo estado
+  const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
   const isNavigatingRef = useRef<boolean>(false); // Ref to track if navigation is in progress
+
+  // Ref para el nombre del jugador para estabilizar el callback onConnect
+  const nombreJugadorRefForSocket = useRef(nombreJugador);
+  useEffect(() => {
+    nombreJugadorRefForSocket.current = nombreJugador;
+  }, [nombreJugador]);
 
   // Effect for userId and nombreJugador initialization
   useEffect(() => {
-    // Solo inicializar si el estado userId aún no está establecido.
-    // Esto ayuda a prevenir que HMR regenere IDs si el acceso a sessionStorage es inestable durante HMR.
-    if (!userId) {
-      console.log('[LOBBY_USER_INIT] El estado userId es nulo. Inicializando...');
+    // Este efecto debe ejecutarse solo una vez para configurar el usuario.
+    console.log('[LOBBY_USER_INIT] Inicializando usuario...');
       let idFromStorage = sessionStorage.getItem('jmu_userId');
       console.log('[LOBBY_USER_INIT] sessionStorage.getItem("jmu_userId") devolvió:', idFromStorage);
       
@@ -50,127 +52,122 @@ export default function LobbyPage() {
       console.log(`[LOBBY_USER_INIT] Estableciendo estado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}`);
       setUserId(currentUserId);
       setNombreJugador(currentNombreJugador);
-    } else {
-      console.log(`[LOBBY_USER_INIT] El estado userId ya está establecido a: ${userId}. Omitiendo inicialización.`);
+    setAuthInitialized(true); // Marcar que la inicialización ha terminado
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Array de dependencias vacío para ejecutar solo una vez al montar
+
+  const formatPlayerNameForTitle = (name: string | null): string => {
+    if (!name) return "";
+    let processedName = name;
+    if (name.startsWith("Jugador ")) {
+      processedName = name.substring("Jugador ".length);
     }
-  }, [userId]); // Añadir userId como dependencia para controlar la re-ejecución
+    return processedName.slice(-4);
+  };
 
-  // Effect for socket creation and core connection/disconnection events
+  // Effect to update document title with player name
   useEffect(() => {
-    if (!userId || !nombreJugador) return;
+    const defaultTitle = "Lobby - Dominando"; // Título base o el que tenías antes
+    if (nombreJugador) {
+      const shortName = formatPlayerNameForTitle(nombreJugador);
+      document.title = shortName ? `${shortName} - Lobby` : defaultTitle;
+    } else {
+      document.title = defaultTitle;
+    }
+    // Opcional: Restaurar el título original cuando el componente se desmonte
+    // return () => { document.title = "Dominando"; }; // O el título global de tu app
+  }, [nombreJugador]);
 
-    const newSocket = io(SOCKET_SERVER_URL, {
-      auth: {
-        userId: userId,
-        nombreJugador: nombreJugador,
-      },
-      transports: ['websocket'],
-      autoConnect: false, // We will connect manually
-    });
-    setSocket(newSocket);
-    console.log('[LOBBY_SOCKET] Socket instance created.');
-
-    const handleConnect = () => {
-      console.log('[LOBBY_SOCKET] Successfully connected to server:', newSocket.id);
-      // If a game type was requested, emit unirseAPartida
-      if (tipoJuegoSolicitadoRef.current && nombreJugador) {
-        console.log(`[LOBBY_SOCKET] Emitting cliente:unirseAMesa for ${tipoJuegoSolicitadoRef.current}`);
-        newSocket.emit('cliente:unirseAMesa', { // Evento cambiado
+  const {
+    socket, 
+    isConnected, 
+    error: socketError, 
+    emitEvent, 
+    connectSocket, 
+    registerEventHandlers, 
+    unregisterEventHandlers 
+  } = useDominoSocket({
+    userId: authInitialized ? userId : null, // Solo pasar si la autenticación está inicializada
+    nombreJugador: authInitialized ? nombreJugador : null, // Solo pasar si la autenticación está inicializada
+    autoConnect: false, // El lobby conecta bajo demanda
+    onConnect: useCallback((emitFromHook: <T = any>(eventName: string, payload: T) => void) => { // Recibe emitEvent del hook
+      console.log('[LOBBY_SOCKET_HOOK_ON_CONNECT] Successfully connected to server.');
+      // Usar la ref para nombreJugador para asegurar la estabilidad del callback
+      if (tipoJuegoSolicitadoRef.current && nombreJugadorRefForSocket.current) {
+        console.log(`[LOBBY_SOCKET_HOOK_ON_CONNECT] Emitting cliente:unirseAMesa for ${tipoJuegoSolicitadoRef.current}`);
+        emitFromHook('cliente:unirseAMesa', { // Usa el emitEvent proporcionado por el hook
           juegoSolicitado: tipoJuegoSolicitadoRef.current, 
-          nombreJugador 
+          nombreJugador: nombreJugadorRefForSocket.current 
         });
       }
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []), // Array de dependencias vacío para que el callback sea estable.
 
-    const handleConnectError = (err: Error) => {
-      console.error('[LOBBY_SOCKET] Connection Error:', err.message, err);
-      setError(`Error de conexión: ${err.message}. Intenta de nuevo.`);
-      setIsLoading(null); // Reset loading state on error
-      // newSocket.disconnect(); // Socket.IO client will attempt to reconnect by default.
-                           // For a lobby, failing fast might be okay. If so, uncomment.
-    };
-
-    const handleDisconnect = (reason: Socket.DisconnectReason) => {
-      console.log('[LOBBY_SOCKET] Disconnected from server:', reason);
-      // if (isLoading) { // If disconnected while trying to join
-      //    setError('Desconectado. Intenta de nuevo.');
-      //    setIsLoading(null);
-      // }
-    };
-
-    newSocket.on('connect', handleConnect);
-    newSocket.on('connect_error', handleConnectError);
-    newSocket.on('disconnect', handleDisconnect);
-
-    return () => {
-      console.log(`[LOBBY_SOCKET] Cleaning up core socket. isNavigating: ${isNavigatingRef.current}`);
-      newSocket.off('connect', handleConnect);
-      newSocket.off('connect_error', handleConnectError);
-      newSocket.off('disconnect', handleDisconnect);
-      if (!isNavigatingRef.current) { // Only disconnect if not navigating away
-        newSocket.disconnect();
-      }
-      setSocket(null); 
-    };
-  }, [userId, nombreJugador]); // Only re-run if userId or nombreJugador changes
+    onConnectError: useCallback((err: Error) => {
+      console.error('[LOBBY_SOCKET_HOOK_ON_CONNECT_ERROR] Connection Error:', err.message, err);
+      setLobbyError(`Error de conexión: ${err.message}. Intenta de nuevo.`);
+      setIsLoading(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []) // setLobbyError e setIsLoading son estables (vienen de useState)
+  });
 
   // Effect for game-specific socket event listeners
   useEffect(() => {
     if (!socket) return;
 
-    const handleTeUnisteAMesa = (payload: TeUnisteAMesaPayloadLobby) => { // Evento y payload actualizados
+    const handleTeUnisteAMesaCallback = (payload: TeUnisteAMesaPayloadLobby) => {
       console.log('[LOBBY_SOCKET] Evento servidor:teUnisteAMesa recibido:', payload);
-      // jmu_tipoJuegoSolicitado ya debería estar en sessionStorage desde handleJoinGame.
-      // Solo verificamos por robustez, pero no deberíamos depender de tipoJuegoSolicitadoRef.current aquí para esto.
-      // if (tipoJuegoSolicitadoRef.current) {
-      //   sessionStorage.setItem('jmu_tipoJuegoSolicitado', tipoJuegoSolicitadoRef.current);
-      // }
       isNavigatingRef.current = true; // Set flag before navigating
-      // AÑADIR ESTE LOG:
       const userIdForNav = userId; // Usar el estado de React que debería estar actualizado
       const nombreJugadorForNav = nombreJugador;
       console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - userId (estado React):', userIdForNav, 'nombreJugador (estado React):', nombreJugadorForNav);
       console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - sessionStorage userId:', sessionStorage.getItem('jmu_userId'), 'sessionStorage nombreJugador:', sessionStorage.getItem('jmu_nombreJugador'));
       tipoJuegoSolicitadoRef.current = null; // Reset ref
       setIsLoading(null);
-      setError(null);
-      // Pasar userId y nombreJugador como query params
+      setLobbyError(null);
       if (userIdForNav && nombreJugadorForNav) {
         router.push(`/juego/${payload.mesaId}?uid=${encodeURIComponent(userIdForNav)}&nombre=${encodeURIComponent(nombreJugadorForNav)}`);
       } else {
         console.error("[LOBBY_SOCKET] No se pudo navegar: userId o nombreJugador del estado de React son nulos.");
-        setError("Error al preparar la navegación. Intenta de nuevo.");
+        setLobbyError("Error al preparar la navegación. Intenta de nuevo.");
       }
     };
     
-    const handleErrorDePartida = (payload: { mensaje: string }) => { // Nombre corregido para consistencia
+    const handleErrorDePartidaCallback = (payload: { mensaje: string }) => {
       console.error('[LOBBY_SOCKET] Error de partida desde el servidor:', payload.mensaje);
-      setError(`Error del servidor: ${payload.mensaje}`);
+      setLobbyError(`Error del servidor: ${payload.mensaje}`);
       setIsLoading(null);
       tipoJuegoSolicitadoRef.current = null; // Reset ref
       isNavigatingRef.current = false; // Reset flag on error
-      // socket.disconnect(); // Consider if lobby socket should disconnect on game error
     };
-    // Escuchar el nuevo evento del servidor
-    socket.on('servidor:teUnisteAMesa', handleTeUnisteAMesa); // Evento cambiado
-    socket.on('servidor:errorDePartida', handleErrorDePartida); 
+
+    const eventHandlers = {
+      'servidor:teUnisteAMesa': handleTeUnisteAMesaCallback,
+      'servidor:errorDePartida': handleErrorDePartidaCallback,
+    };
+    registerEventHandlers(eventHandlers);
 
     return () => {
-      // console.log('[LOBBY_SOCKET] Cleaning up game-specific socket listeners.'); // Less critical to log this one
-      socket.off('servidor:teUnisteAMesa', handleTeUnisteAMesa); // Evento cambiado
-      socket.off('servidor:errorDePartida', handleErrorDePartida);
+      unregisterEventHandlers(Object.keys(eventHandlers));
     };
-  }, [socket, router]); // Re-run if socket instance or router changes
+  // userId y nombreJugador se usan en handleTeUnisteAMesaCallback.
+  // Para asegurar la estabilidad de este useEffect, los callbacks internos deberían ser memoizados
+  // o userId/nombreJugador deberían ser accedidos mediante refs si es posible.
+  // Por ahora, mantenemos userId y nombreJugador aquí, ya que el problema principal
+  // parece ser la inicialización del hook useDominoSocket en sí.
+  // Si el error persiste, este es el siguiente punto a revisar para la estabilidad de los handlers.
+  // registerEventHandlers y unregisterEventHandlers deberían ser estables desde el hook.
+  }, [socket, router, userId, nombreJugador, registerEventHandlers, unregisterEventHandlers]);
 
   const handleJoinGame = useCallback((tipoJuego: TipoJuegoSolicitado) => {
     if (!socket || !nombreJugador || !userId) {
-      setError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
+      setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
       return;
     }
     
     console.log(`[LOBBY_SOCKET] handleJoinGame called for ${tipoJuego}`);
     setIsLoading(tipoJuego);
-    setError(null);
+    setLobbyError(null);
     isNavigatingRef.current = false; // Reset navigation flag at the start of a join attempt
     tipoJuegoSolicitadoRef.current = tipoJuego; // Set the ref
 
@@ -178,17 +175,18 @@ export default function LobbyPage() {
     console.log(`[LOBBY_SOCKET] Guardando jmu_tipoJuegoSolicitado en sessionStorage: ${tipoJuego} (desde handleJoinGame)`);
     sessionStorage.setItem('jmu_tipoJuegoSolicitado', tipoJuego);
 
-    if (socket.connected) {
+    if (isConnected) {
       console.log('[LOBBY_SOCKET] Socket already connected. Emitting cliente:unirseAPartida.');
-      socket.emit('cliente:unirseAMesa', { juegoSolicitado: tipoJuego, nombreJugador }); // Evento cambiado
+      emitEvent('cliente:unirseAMesa', { juegoSolicitado: tipoJuego, nombreJugador });
     } else {
       console.log('[LOBBY_SOCKET] Socket not connected. Calling socket.connect().');
-      socket.connect(); // Conectar el socket
-      // La emisión se gestionará en el listener del evento 'connect' del socket
+      connectSocket(); // Conectar el socket. La emisión se gestionará en el onConnect del hook.
     }
-  }, [socket, nombreJugador, userId]);
+  }, [socket, nombreJugador, userId, isConnected, emitEvent, connectSocket]);
 
-  if (!userId || !nombreJugador) {
+  useEffect(() => { if (socketError) setLobbyError(socketError); }, [socketError]);
+
+  if (!authInitialized) { // Mostrar carga hasta que la inicialización del usuario termine
     return <div className="flex items-center justify-center min-h-screen">Cargando configuración del jugador...</div>;
   }
 
@@ -213,7 +211,7 @@ export default function LobbyPage() {
         >
           {isLoading === 'partidaCompleta' ? 'Uniéndote...' : 'Partida Completa (Próximamente)'}
         </button>
-        {error && <p className="text-red-500 mt-4">{error}</p>}
+        {lobbyError && <p className="text-red-500 mt-4">{lobbyError}</p>}
       </main>
       <footer className="absolute bottom-0 flex items-center justify-center w-full h-24 border-t bg-gray-100">
         <p className="text-gray-500">
