@@ -16,6 +16,7 @@ const customJestConfig = {
     '^@/components/(.*)$': '<rootDir>/src/components/$1',
     '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
     '^@/app/(.*)$': '<rootDir>/src/app/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
     // Forzar la resolución de React a la versión del proyecto
     '^react$': '<rootDir>/node_modules/react',
     '^react-dom$': '<rootDir>/node_modules/react-dom',

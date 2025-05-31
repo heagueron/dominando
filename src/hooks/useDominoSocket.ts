@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 
 const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:3001';
 
-interface UseDominoSocketProps {
+export interface UseDominoSocketProps {
   userId: string | null;
   nombreJugador: string | null;
   autoConnect?: boolean;
@@ -13,7 +13,7 @@ interface UseDominoSocketProps {
   onConnectError?: (err: Error) => void;
 }
 
-interface UseDominoSocketReturn {
+export interface UseDominoSocketReturn {
   socket: Socket | null;
   isConnected: boolean;
   error: string | null;

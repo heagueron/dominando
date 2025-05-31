@@ -82,7 +82,7 @@ interface EstadoPartidaPublicoCliente {
   rondaActual?: EstadoRondaPublicoCliente;
 }
 
-interface EstadoMesaPublicoCliente {
+export interface EstadoMesaPublicoCliente {
   mesaId: string;
   jugadores: JugadorPublicoInfoCliente[];
   configuracionJuego: {

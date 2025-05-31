@@ -1,164 +1,231 @@
-// src/app/juego/[mesaId]/__tests__/page.test.tsx
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import JuegoPage from '../page'; // Ajusta la ruta a tu componente
-import '@testing-library/jest-dom'; // Import jest-dom for extended matchers like toBeInTheDocument
+// /home/heagueron/jmu/dominando/src/app/juego/[mesaId]/__tests__/page.test.tsx
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react';
+// import userEvent from '@testing-library/user-event'; // No se usa userEvent en las pruebas actuales, se puede quitar si no se añade
+import JuegoPage from '../page';
+import { FichaDomino }  from '@/utils/dominoUtils'; // Asegúrate que JugadorPublico se usa o quítalo
+import { EstadoMesaPublicoCliente } from '../page';; // Asegúrate que JugadorPublico se usa o quítalo
+import { FichaEnMesaParaLogica } from '@/utils/dominoUtils'; // Importar el tipo correcto
+import { useDominoSocket, UseDominoSocketProps, UseDominoSocketReturn } from '@/hooks/useDominoSocket';
+import { Socket } from 'socket.io-client'; // Necesario para tipar el mockSocketObject
+import '@testing-library/jest-dom';
 import { useParams, useRouter } from 'next/navigation';
-import { io } from 'socket.io-client'; // Se usará el mock
 
-// Importa tus tipos (asegúrate de que sean exportables)
-// Ejemplo: import { EstadoMesaPublicoCliente, FichaDomino, FichaEnMesaParaLogica } from '@/utils/types';
-// Por ahora, asumiré que los tipos están definidos en el propio archivo page.tsx y son accesibles
-// o que los importas desde donde estén definidos. Para este ejemplo, los definiré inline simplificados.
+// Constantes de prueba
+const MESA_ID = 'test-mesa-123';
+const USER_ID = 'user-test-id'; // Cambiado de 'user-test-id' a USER_ID para consistencia
+const USER_NOMBRE = 'Jugador Test'; // Cambiado de 'JugadorTest' a USER_NOMBRE para consistencia
 
-// Tipos simplificados para el ejemplo de prueba (deberías importar los reales)
-interface FichaDomino { id: string; valorSuperior: number; valorInferior: number; }
-interface FichaEnMesaParaLogica extends FichaDomino { posicionCuadricula: { fila: number; columna: number }; rotacion: number; jugadorIdOriginal?: string; }
-interface EstadoMesaPublicoCliente {
-  mesaId: string;
-  jugadores: Array<{ id: string; nombre: string; estaConectado: boolean; ordenTurnoEnRondaActual?: number; numFichas?: number }>;
-  configuracionJuego: any;
-  partidaActualId: string | null;
-  estadoGeneralMesa: string;
-  creadorMesaId: string;
-  partidaActual?: {
-    partidaId: string;
-    tipoJuego: string;
-    jugadoresParticipantesIds: string[];
-    rondaActualNumero: number;
-    puntuacionesPartida: any[];
-    estadoPartida: string;
-    rondaActual?: {
-      rondaId: string;
-      jugadoresRonda: Array<{ id: string; nombre: string; estaConectado: boolean; ordenTurnoEnRondaActual?: number; numFichas?: number }>;
-      currentPlayerId: string | null;
-      anclaFicha: FichaEnMesaParaLogica | null;
-      fichasIzquierda: FichaEnMesaParaLogica[];
-      fichasDerecha: FichaEnMesaParaLogica[];
-      extremos: { izquierda: number | null; derecha: number | null };
-      infoExtremos: any;
-      estadoActual: string;
-      duracionTurnoActual?: number;
-      timestampTurnoInicio?: number;
-      idUltimaFichaJugada?: string;
-      idJugadorQueRealizoUltimaAccion?: string;
-    };
-  };
-}
+// Mock para el custom hook useDominoSocket
+jest.mock('@/hooks/useDominoSocket');
 
-// Tipo para los argumentos de las llamadas al mock del socket.on
-type MockSocketCallTuple = [string, (...args: any[]) => void];
+// Mock para next/navigation
+let mockRouterPush: jest.Mock;
+(useParams as jest.Mock) = jest.fn();
+(useRouter as jest.Mock) = jest.fn();
 
+
+// Variables para controlar el mock de useDominoSocket
+let mockEmitEvent: jest.Mock;
+let mockConnectSocket: jest.Mock;
+let mockDisconnectSocket: jest.Mock;
+let mockRegisterEventHandlers: jest.Mock;
+let mockUnregisterEventHandlers: jest.Mock;
+let mockIsConnected: boolean;
+let mockHookError: string | null;
+let mockSocketObject: Partial<Socket>; // Un objeto Socket parcial para el `socket` devuelto por el hook
+
+// Callbacks capturados del hook
+let capturedOnConnect: UseDominoSocketProps['onConnect'];
+let capturedOnDisconnect: UseDominoSocketProps['onDisconnect'];
+let capturedOnConnectError: UseDominoSocketProps['onConnectError'];
+let registeredEventHandlers: Record<string, (...args: any[]) => void> = {};
+
+const mockUseDominoSocket = useDominoSocket as jest.MockedFunction<typeof useDominoSocket>;
+
+// Estado base de la mesa para las pruebas
+const estadoMesaBase: EstadoMesaPublicoCliente = {
+  mesaId: MESA_ID,
+  jugadores: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 7 }],
+  configuracionJuego: { tipoJuego: 'rondaUnica', maxJugadores: 2, fichasPorJugadorOriginal: 7, duracionTurnoSegundos: 15 },
+  partidaActualId: 'partida-1',
+  estadoGeneralMesa: 'partidaEnProgreso',
+  creadorMesaId: USER_ID,
+  partidaActual: {
+    partidaId: 'partida-1',
+    tipoJuego: 'rondaUnica',
+    jugadoresParticipantesIds: [USER_ID],
+    rondaActualNumero: 1,
+    puntuacionesPartida: [],
+    estadoPartida: 'rondaEnProgreso',
+    rondaActual: {
+      rondaId: 'ronda-1',
+      jugadoresRonda: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 7 }],
+      currentPlayerId: USER_ID,
+      anclaFicha: null,
+      fichasIzquierda: [],
+      fichasDerecha: [],
+      extremos: { izquierda: null, derecha: null },
+      infoExtremos: {},
+      estadoActual: 'enProgreso',
+    },
+  },
+};
 
 describe('JuegoPage', () => {
-  let mockRouterPush: jest.Mock;
-  let currentMockSocket: any; // Para acceder a la instancia del socket mockeada
-  let mockUrlParamsGet: jest.Mock;
-
-  const MESA_ID = 'test-mesa-123';
-  const USER_ID = 'test-user-id';
-  const USER_NOMBRE = 'Jugador Test';
+  let mockUrlParamsGet: jest.Mock; // Definido aquí para que esté en el scope de beforeEach
 
   beforeEach(() => {
-    // Configurar mocks de next/navigation
     mockRouterPush = jest.fn();
     (useParams as jest.Mock).mockReturnValue({ mesaId: MESA_ID });
     (useRouter as jest.Mock).mockReturnValue({ push: mockRouterPush });
 
-    // Configurar sessionStorage
-    window.sessionStorage.clear(); // Limpiar entre tests
-    window.sessionStorage.setItem('jmu_userId', USER_ID);
-    window.sessionStorage.setItem('jmu_nombreJugador', USER_NOMBRE);
-    window.sessionStorage.setItem('jmu_tipoJuegoSolicitado', 'rondaUnica');
+    // Configuración inicial del mock de useDominoSocket
+    mockEmitEvent = jest.fn();
+    mockConnectSocket = jest.fn(() => {
+      if (!mockIsConnected) {
+        mockIsConnected = true;
+        mockHookError = null;
+        if (mockSocketObject) mockSocketObject.connected = true;
+        const connectHandler = capturedOnConnect; // Asignar a una constante local
+        if (connectHandler) { // Verificar la constante local
+          act(() => {
+            connectHandler(mockEmitEvent); // Usar la constante local
+          });
+        }
+      }
+    });
+    mockDisconnectSocket = jest.fn(() => {
+      if (mockIsConnected) {
+        mockIsConnected = false;
+        if (mockSocketObject) mockSocketObject.connected = false;
+        const disconnectHandler = capturedOnDisconnect; // Asignar a una constante local
+        if (disconnectHandler) { // Verificar la constante local
+          act(() => {
+            disconnectHandler('io client disconnect'); // Usar la constante local
+          });
+        }
+      }
+    });
+    mockRegisterEventHandlers = jest.fn((handlers) => {
+      registeredEventHandlers = { ...registeredEventHandlers, ...handlers };
+    });
+    mockUnregisterEventHandlers = jest.fn((eventNames: string[]) => {
+      eventNames.forEach((name: string) => delete registeredEventHandlers[name]);
+    });
+    mockIsConnected = false;
+    mockHookError = null;
+    mockSocketObject = { id: `mock-socket-${Math.random()}`, connected: false };
+
+    mockUseDominoSocket.mockImplementation((props: UseDominoSocketProps): UseDominoSocketReturn => {
+      capturedOnConnect = props.onConnect;
+      capturedOnDisconnect = props.onDisconnect;
+      capturedOnConnectError = props.onConnectError;
+
+      if (props.autoConnect && props.onConnect) {
+        // props.onConnect está garantizado que no es undefined aquí debido a la condición.
+        const onConnectCallbackFromProps = props.onConnect;
+        Promise.resolve().then(() => {
+          if (!mockIsConnected) {
+            mockIsConnected = true;
+            if (mockSocketObject) mockSocketObject.connected = true;
+            mockHookError = null;
+            act(() => {
+                onConnectCallbackFromProps(mockEmitEvent); // Llamar directamente usando la constante derivada de props
+            });
+          }
+        });
+      }
+
+      return {
+        socket: mockSocketObject as Socket,
+        isConnected: mockIsConnected,
+        error: mockHookError,
+        emitEvent: mockEmitEvent,
+        connectSocket: mockConnectSocket,
+        disconnectSocket: mockDisconnectSocket,
+        registerEventHandlers: mockRegisterEventHandlers,
+        unregisterEventHandlers: mockUnregisterEventHandlers,
+      };
+    });
+
+    // Mock de sessionStorage
+    Object.defineProperty(window, 'sessionStorage', {
+      value: {
+        getItem: jest.fn(),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn(),
+      },
+      writable: true,
+    });
+    (window.sessionStorage.getItem as jest.Mock).mockImplementation((key: string) => {
+        if (key === 'jmu_userId') return USER_ID;
+        if (key === 'jmu_nombreJugador') return USER_NOMBRE;
+        if (key === 'jmu_tipoJuegoSolicitado') return 'rondaUnica';
+        return null;
+    });
 
     // Configurar mock de URLSearchParams
-    mockUrlParamsGet = (global as any).getMockURLSearchParams().get;
-    mockUrlParamsGet.mockReset(); // Limpiar llamadas anteriores
-    // Resetear query params usando el helper de jest.setup.js
-    (global as any).setWindowLocationSearch('');
-
-    // Configurar una nueva instancia del mock de socket para cada test
-    currentMockSocket = (global as any).setupMockSocket();
-    currentMockSocket.id = `test-socket-id-${Math.random()}`; // Darle un ID único
+    // Asumiendo que tienes un setup global para esto o lo haces aquí
+    mockUrlParamsGet = jest.fn();
+    const mockURLSearchParams = { get: mockUrlParamsGet };
+    jest.spyOn(global, 'URLSearchParams').mockImplementation(() => mockURLSearchParams as any);
+    // Resetear query params
+    // Usar history.replaceState para modificar la URL de forma segura en JSDOM.
+    // Esto establecerá window.location.search en "" si el pathname no contiene un query string.
+    const currentPathname = window.location.pathname; // Preserva el pathname actual
+    history.replaceState(null, '', currentPathname);
   });
 
   afterEach(() => {
-    jest.clearAllMocks(); // Limpia todos los mocks, incluyendo los de jest.fn()
-    if (currentMockSocket && currentMockSocket.disconnect) {
-        // Simular desconexión si el componente lo hace en su cleanup
-        // currentMockSocket.disconnect();
-    }
+    jest.clearAllMocks();
+    sessionStorage.clear();
+    (sessionStorage.getItem as jest.Mock).mockClear();
+    registeredEventHandlers = {};
+    capturedOnConnect = undefined;
+    capturedOnDisconnect = undefined;
+    capturedOnConnectError = undefined;
   });
 
-  // Helper para simular la conexión del socket y el evento 'teUnisteAMesa'
   const simulateSuccessfulConnectionAndJoin = (initialEstadoMesa?: Partial<EstadoMesaPublicoCliente>) => {
-    const connectHandler = currentMockSocket.on.mock.calls.find((call: MockSocketCallTuple) => call[0] === 'connect')?.[1];
-    if (connectHandler) {
-      act(() => {
-        currentMockSocket.connected = true;
-        connectHandler();
-      });
-    }
-    const teUnisteAMesaHandler = currentMockSocket.on.mock.calls.find((call: MockSocketCallTuple) => call[0] === 'servidor:teUnisteAMesa')?.[1];
+    const teUnisteAMesaHandler = registeredEventHandlers['servidor:teUnisteAMesa'];
     if (teUnisteAMesaHandler) {
-      const estadoMesaBase: EstadoMesaPublicoCliente = {
-        mesaId: MESA_ID,
-        jugadores: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 7 }],
-        configuracionJuego: { tipoJuego: 'rondaUnica', maxJugadores: 2, fichasPorJugadorOriginal: 7, duracionTurnoSegundos: 15 },
-        partidaActualId: 'partida-1',
-        estadoGeneralMesa: 'partidaEnProgreso',
-        creadorMesaId: USER_ID,
-        partidaActual: {
-          partidaId: 'partida-1',
-          tipoJuego: 'rondaUnica',
-          jugadoresParticipantesIds: [USER_ID],
-          rondaActualNumero: 1,
-          puntuacionesPartida: [],
-          estadoPartida: 'rondaEnProgreso',
-          rondaActual: {
-            rondaId: 'ronda-1',
-            jugadoresRonda: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 7 }],
-            currentPlayerId: USER_ID,
-            anclaFicha: null,
-            fichasIzquierda: [],
-            fichasDerecha: [],
-            extremos: { izquierda: null, derecha: null },
-            infoExtremos: {},
-            estadoActual: 'enProgreso',
-          },
-        },
-        ...initialEstadoMesa
-      };
+      const estadoMesaCompleto = { ...estadoMesaBase, ...initialEstadoMesa };
       act(() => {
         teUnisteAMesaHandler({
           mesaId: MESA_ID,
           tuJugadorIdEnPartida: USER_ID,
-          estadoMesa: estadoMesaBase,
+          estadoMesa: estadoMesaCompleto,
         });
       });
+    } else {
+      console.warn("Handler para 'servidor:teUnisteAMesa' no fue registrado por JuegoPage a través del hook.");
     }
   };
   
-  // Helper para simular la recepción de la mano del jugador
   const simulateReceivePlayerHand = (fichas: FichaDomino[]) => {
-    const tuManoHandler = currentMockSocket.on.mock.calls.find((call: MockSocketCallTuple) => call[0] === 'servidor:tuMano')?.[1];
+    const tuManoHandler = registeredEventHandlers['servidor:tuMano'];
     if (tuManoHandler) {
       act(() => {
         tuManoHandler({ fichas });
       });
+    } else {
+        console.warn("Handler para 'servidor:tuMano' no fue registrado.");
     }
   };
 
-  // Helper para simular el evento 'tuTurno'
-  const simulatePlayerTurn = (playableFichaIds: string[], duracionTurnoTotal: number = 15) => {
-     const tuTurnoHandler = currentMockSocket.on.mock.calls.find((call: MockSocketCallTuple) => call[0] === 'servidor:tuTurno')?.[1];
+  const simulatePlayerTurn = (playableFichaIds: string[], duracionTurnoTotal: number = 15, currentPlayerId: string = USER_ID) => {
+     const tuTurnoHandler = registeredEventHandlers['servidor:tuTurno'];
      if (tuTurnoHandler) {
        act(() => {
          tuTurnoHandler({
-           currentPlayerId: USER_ID,
+           currentPlayerId: currentPlayerId,
            playableFichaIds,
            duracionTurnoTotal,
          });
        });
+     } else {
+        console.warn("Handler para 'servidor:tuTurno' no fue registrado.");
      }
   };
 
@@ -167,35 +234,36 @@ describe('JuegoPage', () => {
     render(<JuegoPage />);
     expect(screen.getByText(/Cargando datos de la mesa.../i)).toBeInTheDocument();
 
-    // Verificar que se intentó conectar al socket
-    expect(io).toHaveBeenCalledWith(expect.stringContaining('localhost:3001'), {
-      auth: { userId: USER_ID, nombreJugador: USER_NOMBRE },
-      transports: ['websocket'],
+    await waitFor(() => {
+      expect(mockUseDominoSocket).toHaveBeenCalledWith(expect.objectContaining({
+        userId: USER_ID,
+        nombreJugador: USER_NOMBRE,
+        autoConnect: true,
+        onConnect: expect.any(Function),
+      }));
     });
-    expect(currentMockSocket.on).toHaveBeenCalledWith('connect', expect.any(Function));
+
+    await waitFor(() => {
+      expect(mockEmitEvent).toHaveBeenCalledWith('cliente:unirseAMesa', {
+        juegoSolicitado: 'rondaUnica',
+        nombreJugador: USER_NOMBRE, // JuegoPage lo envía en su onConnect
+        mesaId: MESA_ID,
+      });
+    });
   });
 
-  test('debería unirse a la mesa después de conectar y emitir listoParaMano', () => {
+  test('debería unirse a la mesa después de conectar y emitir listoParaMano', async () => {
     render(<JuegoPage />);
     
-    // Simular conexión
-    const connectHandler = currentMockSocket.on.mock.calls.find((call: MockSocketCallTuple) => call[0] === 'connect')?.[1];
-    expect(connectHandler).toBeDefined();
-    act(() => {
-      currentMockSocket.connected = true; // Importante para que el emit dentro del handler funcione
-      if (connectHandler) connectHandler();
+    await waitFor(() => {
+      expect(mockEmitEvent).toHaveBeenCalledWith('cliente:unirseAMesa', expect.objectContaining({
+        mesaId: MESA_ID,
+      }));
     });
 
-    expect(currentMockSocket.emit).toHaveBeenCalledWith('cliente:unirseAMesa', {
-      juegoSolicitado: 'rondaUnica',
-      nombreJugador: USER_NOMBRE,
-      mesaId: MESA_ID,
-    });
+    simulateSuccessfulConnectionAndJoin();
 
-    // Simular recepción de 'servidor:teUnisteAMesa'
-    simulateSuccessfulConnectionAndJoin(); // Usa el helper
-
-    expect(currentMockSocket.emit).toHaveBeenCalledWith('cliente:listoParaMano', {
+    expect(mockEmitEvent).toHaveBeenCalledWith('cliente:listoParaMano', {
       mesaId: MESA_ID,
       jugadorId: USER_ID,
     });
@@ -203,50 +271,34 @@ describe('JuegoPage', () => {
 
   test('debería actualizar el estado de la mesa al recibir servidor:estadoMesaActualizado', async () => {
     render(<JuegoPage />);
-    simulateSuccessfulConnectionAndJoin(); // Estado inicial
+    
+    await waitFor(() => { // Esperar conexión y unión inicial
+        expect(mockEmitEvent).toHaveBeenCalledWith('cliente:unirseAMesa', expect.anything());
+    });
+    simulateSuccessfulConnectionAndJoin(); 
 
-    // Esperar a que el nombre del jugador (parte del estado inicial) se renderice
-    // Asumiendo que ContenedorInfoJugador para mano1 (local) muestra el nombre.
-    // Puede que necesites un data-testid en ContenedorInfoJugador para hacerlo más robusto.
     await waitFor(() => {
-        // Buscamos el ContenedorInfoJugador que corresponda al jugador local.
-        // Esto es un poco frágil, idealmente ContenedorInfoJugador tendría un testid.
         const playerInfoContainers = screen.getAllByText(USER_NOMBRE);
         expect(playerInfoContainers.length).toBeGreaterThan(0);
     });
 
-
-    const estadoMesaActualizadoHandler = currentMockSocket.on.mock.calls.find((call: MockSocketCallTuple) => call[0] === 'servidor:estadoMesaActualizado')?.[1];
+    const estadoMesaActualizadoHandler = registeredEventHandlers['servidor:estadoMesaActualizado'];
     expect(estadoMesaActualizadoHandler).toBeDefined();
 
     const anclaNueva: FichaEnMesaParaLogica = { id: '5-5', valorSuperior: 5, valorInferior: 5, posicionCuadricula: { fila: 7, columna: 7 }, rotacion: 0 };
     const nuevoEstado: EstadoMesaPublicoCliente = {
-      // ...copia el estado base y modifica lo necesario...
-      mesaId: MESA_ID,
-      jugadores: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 6 }], // 1 ficha menos
-      configuracionJuego: { tipoJuego: 'rondaUnica', maxJugadores: 2, fichasPorJugadorOriginal: 7, duracionTurnoSegundos: 15 },
-      partidaActualId: 'partida-1',
-      estadoGeneralMesa: 'partidaEnProgreso',
-      creadorMesaId: USER_ID,
+      ...estadoMesaBase, // Usar el base y sobreescribir
+      jugadores: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 6 }],
       partidaActual: {
-        partidaId: 'partida-1',
-        tipoJuego: 'rondaUnica',
-        jugadoresParticipantesIds: [USER_ID],
-        rondaActualNumero: 1,
-        puntuacionesPartida: [],
-        estadoPartida: 'rondaEnProgreso',
+        ...estadoMesaBase.partidaActual!,
         rondaActual: {
-          rondaId: 'ronda-1',
+          ...estadoMesaBase.partidaActual!.rondaActual!,
           jugadoresRonda: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 6 }],
-          currentPlayerId: 'otro-jugador-id', // Turno de otro
+          currentPlayerId: 'otro-jugador-id',
           anclaFicha: anclaNueva,
-          fichasIzquierda: [],
-          fichasDerecha: [],
           extremos: { izquierda: 5, derecha: 5 },
-          infoExtremos: { /* ... */ },
-          estadoActual: 'enProgreso',
-          idUltimaFichaJugada: '5-5', // Ficha que se acaba de jugar
-          idJugadorQueRealizoUltimaAccion: USER_ID, // El jugador local jugó
+          idUltimaFichaJugada: '5-5',
+          idJugadorQueRealizoUltimaAccion: USER_ID,
         },
       },
     };
@@ -255,138 +307,106 @@ describe('JuegoPage', () => {
       if (estadoMesaActualizadoHandler) estadoMesaActualizadoHandler({ estadoMesa: nuevoEstado });
     });
     
-    // Verificar que la UI se actualizó.
-    // Por ejemplo, si MesaDomino renderiza las fichas con un data-testid:
-    // Asumiendo que MesaDomino es un mock o que podemos inspeccionar sus props.
-    // O, si la ficha '5-5' se muestra visualmente:
-    // Esta prueba es más compleja porque depende del renderizado interno de MesaDomino.
-    // Una forma sería mockear MesaDomino y verificar las props que recibe.
-    // await waitFor(() => expect(screen.getByTestId('ficha-mesa-5-5')).toBeInTheDocument());
-    // Por ahora, verificamos que el nombre del jugador sigue ahí (estado no se rompió)
     await waitFor(() => expect(screen.getAllByText(USER_NOMBRE).length).toBeGreaterThan(0) );
+    // Aquí podrías añadir una verificación más específica si MesaDomino renderiza la ficha '5-5'
+    // Por ejemplo, si MesaDomino tuviera un testid para las fichas en mesa:
+    // await waitFor(() => expect(screen.getByTestId('ficha-en-mesa-5-5')).toBeInTheDocument());
   });
 
   test('debería mostrar las fichas del jugador y permitir seleccionar una jugable', async () => {
     render(<JuegoPage />);
-    simulateSuccessfulConnectionAndJoin();
+    
+    await waitFor(() => { // Esperar conexión y unión inicial
+        expect(mockEmitEvent).toHaveBeenCalledWith('cliente:unirseAMesa', expect.anything());
+    });
 
     const misFichas: FichaDomino[] = [
       { id: '1-2', valorSuperior: 1, valorInferior: 2 },
-      { id: '3-4', valorSuperior: 3, valorInferior: 4 }, // No jugable
-      { id: '6-5', valorSuperior: 6, valorInferior: 5 }, // Jugable si el ancla es 6-6
+      { id: '3-4', valorSuperior: 3, valorInferior: 4 },
+      { id: '6-5', valorSuperior: 6, valorInferior: 5 },
     ];    
     
-    // Asumimos que el ancla es 6-6 y el extremo es 6.
-    // Para que '6-5' sea jugable, necesitamos un estado de mesa con ancla.
-    // Se simulará que el estado de la mesa se actualiza para incluir el ancla.
     const anclaFichaData: FichaEnMesaParaLogica = { id: '6-6', valorSuperior: 6, valorInferior: 6, posicionCuadricula: {fila: 7, columna: 7}, rotacion: 0 };
     
-    // Construir el estado completo que se enviará al componente
     const estadoParaActualizarConAncla: EstadoMesaPublicoCliente = {
-        mesaId: MESA_ID,
-        jugadores: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 3 }], // 3 fichas en mano
-        configuracionJuego: { tipoJuego: 'rondaUnica', maxJugadores: 2, fichasPorJugadorOriginal: 7, duracionTurnoSegundos: 15 },
-        partidaActualId: 'partida-1',
-        estadoGeneralMesa: 'partidaEnProgreso',
-        creadorMesaId: USER_ID,
+        ...estadoMesaBase,
+        jugadores: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 3 }],
         partidaActual: {
-            partidaId: 'partida-1',
-            tipoJuego: 'rondaUnica',
-            jugadoresParticipantesIds: [USER_ID],
-            rondaActualNumero: 1,
-            puntuacionesPartida: [],
-            estadoPartida: 'rondaEnProgreso',
+            ...estadoMesaBase.partidaActual!,
             rondaActual: {
-                rondaId: 'ronda-1',
+                ...estadoMesaBase.partidaActual!.rondaActual!,
                 jugadoresRonda: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 3 }],
-                currentPlayerId: USER_ID, // Es el turno del jugador local
-                anclaFicha: anclaFichaData, // Ancla establecida
-                fichasIzquierda: [],
-                fichasDerecha: [],
-                extremos: { izquierda: 6, derecha: 6 }, // Extremos actualizados
-                infoExtremos: { /* datos de infoExtremos si son relevantes */ },
-                estadoActual: 'enProgreso',
+                currentPlayerId: USER_ID,
+                anclaFicha: anclaFichaData,
+                extremos: { izquierda: 6, derecha: 6 },
             }
         }
     };
 
-    // Aplicar el estado inicial y la mano ANTES de cualquier simulación de turno o clic
+    // Simular la unión y luego la recepción del estado con ancla
+    simulateSuccessfulConnectionAndJoin(estadoParaActualizarConAncla);
     simulateReceivePlayerHand(misFichas);
-
-    // Actualizar el estado de la mesa para que tenga el ancla
-    const estadoMesaActualizadoHandler = currentMockSocket.on.mock.calls.find((call: MockSocketCallTuple) => call[0] === 'servidor:estadoMesaActualizado')?.[1];
-    if (estadoMesaActualizadoHandler) {
-      act(() => {
-        estadoMesaActualizadoHandler({ estadoMesa: estadoParaActualizarConAncla });
-      });
-    }
-
     simulatePlayerTurn(['6-5']); // Solo '6-5' es jugable
 
-    // NUEVO: Esperar a que el ContenedorInfoJugador del jugador local (mano1) se renderice.
-    // Esto indica que la lógica de RENDER_MANOS_VISUAL ha encontrado al localPlayer
-    // y ha pasado la información necesaria a ContenedorInfoJugador.
-    // Usamos un texto que se espera esté en el ContenedorInfoJugador del jugador local.
     await waitFor(() => {
-      // Asumiendo que ContenedorInfoJugador para el jugador local (mano1)
-      // siempre renderizará el nombre del jugador.
       expect(screen.getAllByText(USER_NOMBRE).some(el => el.closest('[class*="fixed bottom-0"]'))).toBe(true);
-    }, { timeout: 7000 }); // Aumentar un poco el timeout para esta espera específica
+    }, { timeout: 7000 });
 
     const fichaWrapper65 = await screen.findByTestId('ficha-mano-6-5');
     expect(fichaWrapper65).toBeInTheDocument();
-    // El FichaDomino (que tiene el onClick) es el primer hijo del wrapper.
     const fichaDominoElement65 = fichaWrapper65.firstChild as HTMLElement;
-    expect(fichaDominoElement65).toBeInTheDocument(); // Verificar que el elemento interno existe
+    expect(fichaDominoElement65).toBeInTheDocument();
 
     const consoleSpy = jest.spyOn(console, 'log');
 
     await act(async () => {
-      fireEvent.click(fichaDominoElement65); // <-- HACER CLIC EN EL ELEMENTO CORRECTO
+      fireEvent.click(fichaDominoElement65);
     });
 
-
-    // Esperar a que el log de JuegoPage muestre que está pasando el prop correcto
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('[JuegoPage->ManoJugadorComponent] Passing fichaSeleccionada prop: 6-5 to mano1 (local player)'));
-    }, { timeout: 5000 }); // Aumentar timeout aquí para dar más margen
+    }, { timeout: 5000 });
     consoleSpy.mockRestore();
 
-    // Ahora que esperamos que el estado se actualice, podemos verificar la clase
     await waitFor(() => {
-      // Re-obtenemos el elemento FichaDomino, ya que puede haberse re-renderizado
       const updatedFichaWrapper = screen.getByTestId('ficha-mano-6-5');
       const updatedFichaElement = updatedFichaWrapper.firstChild as HTMLElement;
       expect(updatedFichaElement).toHaveClass('ring-yellow-400');
       expect(updatedFichaElement).toHaveClass('bg-yellow-200');
     }, { timeout: 5000 });
-
   });
 
   test('debería mostrar el botón "Pasar Turno" si no hay fichas jugables y es el turno del jugador', async () => {
     render(<JuegoPage />);
-    // Estado con ancla, es mi turno, pero no tengo fichas jugables
+    
+    await waitFor(() => { // Esperar conexión y unión inicial
+        expect(mockEmitEvent).toHaveBeenCalledWith('cliente:unirseAMesa', expect.anything());
+    });
+
     const anclaFichaData: FichaEnMesaParaLogica = { id: '6-6', valorSuperior: 6, valorInferior: 6, posicionCuadricula: {fila:7, columna:7}, rotacion:0 };
     simulateSuccessfulConnectionAndJoin({
+        ...estadoMesaBase,
         partidaActual: {
-            partidaId: 'partida-1', tipoJuego: 'rondaUnica', jugadoresParticipantesIds: [USER_ID], rondaActualNumero: 1, puntuacionesPartida: [], estadoPartida: 'rondaEnProgreso',
+            ...estadoMesaBase.partidaActual!,
             rondaActual: {
-                rondaId: 'ronda-1', jugadoresRonda: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 1 }],
-                currentPlayerId: USER_ID, anclaFicha: anclaFichaData, fichasIzquierda: [], fichasDerecha: [],
-                extremos: { izquierda: 6, derecha: 6 }, infoExtremos: { /* ... */ }, estadoActual: 'enProgreso',
+                ...estadoMesaBase.partidaActual!.rondaActual!,
+                jugadoresRonda: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 1 }],
+                currentPlayerId: USER_ID, 
+                anclaFicha: anclaFichaData, 
+                extremos: { izquierda: 6, derecha: 6 },
             }
         }
     });
-    simulateReceivePlayerHand([{ id: '1-2', valorSuperior: 1, valorInferior: 2 }]); // Ficha no jugable con ancla 6-6
-    simulatePlayerTurn([]); // Ninguna ficha jugable
+    simulateReceivePlayerHand([{ id: '1-2', valorSuperior: 1, valorInferior: 2 }]);
+    simulatePlayerTurn([]);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Pasar Turno/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Pasar Turno/i }));
-    expect(currentMockSocket.emit).toHaveBeenCalledWith('cliente:pasarTurno', {
-      rondaId: 'ronda-1',
+    expect(mockEmitEvent).toHaveBeenCalledWith('cliente:pasarTurno', {
+      rondaId: 'ronda-1', // Asumiendo que el rondaId es 'ronda-1' del estadoMesaBase
     });
   });
   
@@ -394,15 +414,20 @@ describe('JuegoPage', () => {
     jest.useFakeTimers();
     render(<JuegoPage />);
 
-    const timestampInicio = Date.now() - 5000; // Turno inició hace 5 segundos
+    await waitFor(() => { // Esperar conexión y unión inicial
+        expect(mockEmitEvent).toHaveBeenCalledWith('cliente:unirseAMesa', expect.anything());
+    });
+
+    const timestampInicio = Date.now() - 5000; 
     const duracionTurno = 15;
     simulateSuccessfulConnectionAndJoin({
+        ...estadoMesaBase,
         partidaActual: {
-            partidaId: 'partida-1', tipoJuego: 'rondaUnica', jugadoresParticipantesIds: [USER_ID], rondaActualNumero: 1, puntuacionesPartida: [], estadoPartida: 'rondaEnProgreso',
+            ...estadoMesaBase.partidaActual!,
             rondaActual: {
-                rondaId: 'ronda-1', jugadoresRonda: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 1 }],
-                currentPlayerId: USER_ID, anclaFicha: null, fichasIzquierda: [], fichasDerecha: [],
-                extremos: { izquierda: null, derecha: null }, infoExtremos: { /* ... */ }, estadoActual: 'enProgreso',
+                ...estadoMesaBase.partidaActual!.rondaActual!,
+                jugadoresRonda: [{ id: USER_ID, nombre: USER_NOMBRE, estaConectado: true, ordenTurnoEnRondaActual: 0, numFichas: 1 }],
+                currentPlayerId: USER_ID, 
                 duracionTurnoActual: duracionTurno,
                 timestampTurnoInicio: timestampInicio,
             }
@@ -412,35 +437,59 @@ describe('JuegoPage', () => {
     simulatePlayerTurn(['1-2'], duracionTurno);
 
 
-    // El timer debería mostrar inicialmente 10s (15s total - 5s transcurridos)
     await waitFor(() => {
         expect(screen.getByText(`${duracionTurno - 5}s`)).toBeInTheDocument();
     });
 
-    // Avanzar el tiempo
     act(() => {
-      jest.advanceTimersByTime(7000); // Avanza 7s, quedan 3s
+      jest.advanceTimersByTime(7000);
     });
     await waitFor(() => {
       expect(screen.getByText('3s')).toBeInTheDocument();
     });
 
-    // Avanzar hasta que expire
     act(() => {
-      jest.advanceTimersByTime(4000); // Avanza 4s, total 5+7+4 = 16s. El turno expira.
+      jest.advanceTimersByTime(4000); 
     });
 
     await waitFor(() => {
-      // El timer debería desaparecer o mostrar 0s
-      expect(screen.queryByText(/\ds$/i)).not.toBeInTheDocument(); // Asumiendo que desaparece
-      // isMyTurnTimerJustExpired debería ser true, lo que deshabilita acciones.
-      // Si intentamos seleccionar una ficha, no deberían aparecer los botones de jugar.
-      const ficha12 = screen.getByTestId('ficha-mano-1-2');
-      fireEvent.click(ficha12);
-      expect(screen.queryByText(/Jugar 1-2/i)).not.toBeInTheDocument(); // El botón de jugar para la primera ficha
+      expect(screen.queryByText(/\ds$/i)).not.toBeInTheDocument();
+      // Para verificar que las acciones están deshabilitadas, intentamos una acción
+      // que normalmente estaría habilitada si el timer no hubiera expirado.
+      // Por ejemplo, si al hacer clic en una ficha jugable se muestra un panel de acciones.
+      const ficha12Wrapper = screen.getByTestId('ficha-mano-1-2');
+      const ficha12Element = ficha12Wrapper.firstChild as HTMLElement;
+      fireEvent.click(ficha12Element);
+      // Asumimos que el panel de acciones (si existe) no aparece o que la ficha no se selecciona.
+      // Si la selección añade una clase, verificamos que no la tenga.
+      expect(ficha12Element).not.toHaveClass('ring-yellow-400'); // O la clase que uses para selección
     });
 
     jest.useRealTimers();
+  });
+
+  test('debería redirigir al lobby si falta userId o nombreJugador en sessionStorage al inicio', async () => {
+    (window.sessionStorage.getItem as jest.Mock).mockImplementation((key: string) => {
+      if (key === 'jmu_userId') return null; // Simula que falta userId
+      if (key === 'jmu_nombreJugador') return USER_NOMBRE;
+      return null;
+    });
+  
+    render(<JuegoPage />);
+  
+    // El componente debería mostrar "Cargando..." brevemente, luego detectar el error y redirigir.
+    // No podemos testear directamente el `router.push` en el mismo ciclo de render inicial
+    // sin `waitFor` si la lógica de redirección está en un `useEffect`.
+    await waitFor(() => {
+      expect(mockRouterPush).toHaveBeenCalledWith('/lobby');
+    });
+    // Verificar que el hook fue llamado, pero con props que indican que no hay auth.
+    // Y, más importante, que no se intentó ninguna acción de socket como emitir.
+    expect(mockUseDominoSocket).toHaveBeenCalledWith(expect.objectContaining({
+      userId: null, // Porque playerAuthReady sería false
+      nombreJugador: null, // Porque playerAuthReady sería false
+    }));
+    expect(mockEmitEvent).not.toHaveBeenCalled(); // No se debería haber intentado emitir nada
   });
 
 });
