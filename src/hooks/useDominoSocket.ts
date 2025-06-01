@@ -33,6 +33,7 @@ export const useDominoSocket = ({
   onConnectError: onConnectErrorCallback,
 }: UseDominoSocketProps): UseDominoSocketReturn => {
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null); // Ref para acceso síncrono al socket
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -42,10 +43,11 @@ export const useDominoSocket = ({
   // Effect for socket creation, core event handling, and connection management
   useEffect(() => {
     if (!userId || !nombreJugador) {
-      if (socketInstance) {
+      if (socketRef.current) { // Usar socketRef para la comprobación
         console.log('[useDominoSocket] userId or nombreJugador became null. Disconnecting existing socket.');
-        socketInstance.disconnect();
+        socketRef.current.disconnect(); // Usar socketRef para desconectar
         setSocketInstance(null);
+        socketRef.current = null; // Limpiar ref
         setIsConnected(false);
         // Clear dynamic handlers as the socket is gone
         dynamicHandlersRef.current = {};
@@ -60,6 +62,7 @@ export const useDominoSocket = ({
       autoConnect: false, // We control connection explicitly via autoConnect prop or connectSocket()
     });
     setSocketInstance(newSocket);
+    socketRef.current = newSocket; // Asignar a ref
 
     // Crear una función emit específica para este newSocket, para pasarla a onConnect
     // Esto asegura que el onConnectCallback use el socket correcto que acaba de ser creado
@@ -116,6 +119,7 @@ export const useDominoSocket = ({
 
       newSocket.disconnect();
       setSocketInstance(null);
+      socketRef.current = null; // Limpiar ref
       setIsConnected(false);
     };
   // La dependencia de `emitEvent` (la función del hook) fue intencionalmente omitida del array de dependencias
@@ -158,37 +162,37 @@ export const useDominoSocket = ({
   }, [socketInstance]);
 
   const registerEventHandlers = useCallback((handlers: Record<string, (...args: any[]) => void>) => {
-    if (socketInstance) {
+    if (socketRef.current) { // Usar socketRef.current para acceso síncrono
       Object.entries(handlers).forEach(([event, handler]) => {
         // Remove previous handler for this event, if any, to prevent duplicates
         if (dynamicHandlersRef.current[event]) {
-          socketInstance.off(event, dynamicHandlersRef.current[event]);
+          socketRef.current!.off(event, dynamicHandlersRef.current[event]);
         }
         // Add new handler
-        socketInstance.on(event, handler);
+        socketRef.current!.on(event, handler);
         // Store in ref
         dynamicHandlersRef.current[event] = handler;
       });
     } else {
         console.warn('[useDominoSocket] Cannot register event handlers: socket instance is null.');
     }
-  }, [socketInstance]);
+  }, []); // socketRef y dynamicHandlersRef son estables, por lo que las dependencias pueden ser vacías
 
   const unregisterEventHandlers = useCallback((eventNames: string[]) => {
-    if (socketInstance) {
+    if (socketRef.current) { // Usar socketRef.current para acceso síncrono
       eventNames.forEach(event => {
         if (dynamicHandlersRef.current[event]) {
-          socketInstance.off(event, dynamicHandlersRef.current[event]);
+          socketRef.current!.off(event, dynamicHandlersRef.current[event]);
           delete dynamicHandlersRef.current[event];
         }
       });
     }
-  }, [socketInstance]);
+  }, []); // socketRef y dynamicHandlersRef son estables
 
   return { 
     socket: socketInstance, 
     isConnected, 
-    error: error, // Renamed to avoid conflict if component also has 'error' state
+    error: error, 
     emitEvent, 
     connectSocket, 
     disconnectSocket, 

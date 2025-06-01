@@ -11,7 +11,7 @@ interface FichaEnMano {
 interface ManoJugadorProps {
   fichas: FichaEnMano[];
   fichaSeleccionada?: string;
-  onFichaClick: (idFicha: string, idJugadorMano: string) => void;
+  onFichaClick: (idFicha: string) => void; // Modificado: ya no necesita idJugadorMano
   idJugadorMano: string;
   playableFichaIds?: string[];
   className?: string;
@@ -91,8 +91,8 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
                     id={ficha.id}
                     valorSuperior={ficha.valorSuperior}
                     valorInferior={ficha.valorInferior}
-                    seleccionada={ficha.id === fichaSeleccionada}
-                    onClick={() => onFichaClick(ficha.id, idJugadorMano)}
+                    seleccionada={ficha.id === fichaSeleccionada} // El estado de selección viene de selectedFichaInfo.idFicha
+                    onClick={() => onFichaClick(ficha.id)} // Modificado: solo pasar ficha.id
                     arrastrable={isLocalPlayer && isFichaPlayable} // CORRECCIÓN: Hacerla condicional
                     esEnMano={true}
                     isPlayable={isFichaPlayable}

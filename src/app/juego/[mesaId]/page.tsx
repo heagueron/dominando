@@ -4,7 +4,8 @@
 import { PanInfo } from 'framer-motion';
 import { motion } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import { usePlayerHandLogic, FichaSeleccionadaInfo } from '@/hooks/usePlayerHandLogic'; // Importar el nuevo hook y tipo
 import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador';
@@ -18,7 +19,7 @@ import {
   FILA_ANCLA_INICIAL,
   COLUMNA_ANCLA_INICIAL
 } from '@/utils/posicionamientoUtils';
-import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay';
+// import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Comentado para prueba
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
 
 interface JugadorCliente {
@@ -28,11 +29,6 @@ interface JugadorCliente {
   numFichas?: number;
   estaConectado?: boolean;
   ordenTurno?: number;
-}
-
-interface FichaSeleccionadaInfo {
-  idFicha: string;
-  idJugadorMano: string;
 }
 
 const DURACION_TURNO_SEGUNDOS = 15;
@@ -149,8 +145,6 @@ export default function JuegoPage() {
   const [fichasDerecha, setFichasDerecha] = useState<FichaEnMesaParaLogica[]>([]);
   const [extremos, setExtremos] = useState<{ izquierda: number | null, derecha: number | null }>({ izquierda: null, derecha: null });
   const [infoExtremos, setInfoExtremos] = useState<any>({ izquierda: null, derecha: null });
-
-  const [fichaSeleccionada, setFichaSeleccionada] = useState<FichaSeleccionadaInfo | undefined>();
   const [tiempoTurnoRestante, setTiempoTurnoRestante] = useState<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [duracionTurnoActualConfigurada, setDuracionTurnoActualConfigurada] = useState<number>(DURACION_TURNO_SEGUNDOS);
@@ -217,10 +211,6 @@ export default function JuegoPage() {
     authoritativeMesaIdRef.current = mesaIdFromUrl;
   }, [mesaIdFromUrl]);
 
-  useEffect(() => {
-    console.log(`[FICHA_SELECCIONADA_STATE_EFFECT_DEBUG] fichaSeleccionada state changed to: ${JSON.stringify(fichaSeleccionada)}`);
-  }, [fichaSeleccionada]);
-
   // useEffect para inicializar userId, nombreJugador y tipoJuego desde sessionStorage/query
   // Esto debe ocurrir ANTES de inicializar el hook useDominoSocket
   useEffect(() => {
@@ -262,10 +252,7 @@ export default function JuegoPage() {
     } else {
       setPlayerAuthReady(true); // Marcar como listo para que el hook useDominoSocket se active
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // EJECUTAR SOLO UNA VEZ AL MONTAR.
-  // Asumimos que mesaIdFromUrl y la necesidad de router.push no cambian después del montaje inicial
-  // sin una navegación completa que remonte este componente.
+  }, []); 
 
   const formatPlayerNameForTitle = (name: string | null): string => {
     if (!name) return "";
@@ -279,7 +266,6 @@ export default function JuegoPage() {
   // Effect to update document title with player name
   useEffect(() => {
     const defaultTitle = "Juego - Dominando";
-    // Usar authoritativeMesaIdRef.current que tiene el ID de mesa confirmado por el servidor.
     const currentMesaIdForTitle = authoritativeMesaIdRef.current;
 
     if (playerAuthReady && finalNombreJugadorRef.current) {
@@ -289,24 +275,19 @@ export default function JuegoPage() {
     } else {
       document.title = defaultTitle;
     }
-    // Opcional: Restaurar el título original cuando el componente se desmonte
-    // return () => { document.title = "Dominando"; };
-  }, [playerAuthReady, estadoMesaCliente]); // Depender de playerAuthReady y estadoMesaCliente.
-                                           // Cuando estadoMesaCliente se actualiza (ej. en handleTeUnisteAMesa),
-                                           // authoritativeMesaIdRef.current ya debería tener el ID correcto.
+  }, [playerAuthReady, estadoMesaCliente]);
 
   // Log para depurar los props pasados a useDominoSocket
   const userIdForSocket = playerAuthReady ? finalUserIdRef.current : null;
   const nombreJugadorForSocket = playerAuthReady ? finalNombreJugadorRef.current : null;
   const autoConnectForSocket = playerAuthReady;
 
-  // Usamos un useEffect para loguear estos valores solo cuando cambian,
-  // para no llenar la consola en cada render si son estables.
+  // Usamos un useEffect para loguear estos valores solo cuando cambian.
   useEffect(() => {
     console.log('[JUEGO_PAGE] Props para useDominoSocket (evaluados):', {
       userId: userIdForSocket,
       nombreJugador: nombreJugadorForSocket,
-      playerAuthReady: playerAuthReady, // Loguear playerAuthReady directamente también
+      playerAuthReady: playerAuthReady, 
       finalUserIdRefCurrent: finalUserIdRef.current,
       finalNombreJugadorRefCurrent: finalNombreJugadorRef.current,
     });
@@ -370,6 +351,23 @@ export default function JuegoPage() {
         });
       }
     }, []), // Array de dependencias vacío para que el callback sea estable. Accede a refs para valores dinámicos.
+  });
+
+  // Derivaciones de estado para usePlayerHandLogic
+  const rondaActualParaUI = estadoMesaCliente?.partidaActual?.rondaActual;
+  const partidaActualParaUI = estadoMesaCliente?.partidaActual;
+
+  const isMyTurnForHandLogic = !!(rondaActualParaUI && rondaActualParaUI.currentPlayerId === miIdJugadorSocketRef.current);
+  const isRoundActiveForHandLogic = !!(rondaActualParaUI && rondaActualParaUI.estadoActual !== 'terminada' && !resultadoRonda);
+  const isAutoPasoForMeForHandLogic = !!(autoPaseInfoCliente && autoPaseInfoCliente.jugadorId === miIdJugadorSocketRef.current);
+
+  const { selectedFichaInfo, selectFicha, clearSelection: clearFichaSelection } = usePlayerHandLogic({
+    idJugadorMano: miIdJugadorSocketRef.current,
+    isMyTurn: isMyTurnForHandLogic,
+    isRoundActive: isRoundActiveForHandLogic,
+    isMyTurnTimerJustExpired: isMyTurnTimerJustExpired,
+    isAutoPasoForMe: isAutoPasoForMeForHandLogic,
+    currentPlayableFichaIds: playableFichaIds,
   });
 
   // --- INICIO: Handlers de Socket.IO memoizados ---
@@ -473,14 +471,14 @@ export default function JuegoPage() {
   const handleFinDeRonda = useCallback((payload: FinDeRondaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDeRonda recibido:', payload);
     // Setters son estables. limpiarIntervaloTimerRef.current() usa la ref a la función estable.
+    clearFichaSelection(); // Usar la función del hook
     setPlayableFichaIds([]);
-    setFichaSeleccionada(undefined);
     limpiarIntervaloTimerRef.current();
     setAutoPaseInfoCliente(null);
     setIsMyTurnTimerJustExpired(false);
     setManoVersion(prev => prev + 1);
     setManosAlFinalizarRonda(payload.manosFinales || null);
-  }, [setPlayableFichaIds, setFichaSeleccionada, setAutoPaseInfoCliente, setIsMyTurnTimerJustExpired, setManoVersion, setManosAlFinalizarRonda]);
+  }, [clearFichaSelection, setPlayableFichaIds, setAutoPaseInfoCliente, setIsMyTurnTimerJustExpired, setManoVersion, setManosAlFinalizarRonda]);
 
   const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDePartida recibido:', payload);
@@ -747,25 +745,11 @@ export default function JuegoPage() {
     );
   }, []);
 
+  // Handler para clics en fichas de la mesa (actualmente solo loguea)
   const handleMesaFichaClick = useCallback((id: string) => {
     console.log('[MESA] Ficha en mesa clickeada:', id);
   }, []);
 
-  const handleFichaClick = (idFicha: string, idJugadorMano: string) => {
-    const rondaActual = estadoMesaCliente?.partidaActual?.rondaActual;
-    if (!rondaActual || rondaActual.estadoActual === 'terminada' || resultadoRonda) return;
-
-    if (autoPaseInfoCliente && autoPaseInfoCliente.jugadorId === miIdJugadorSocketRef.current) return;
-    if (isMyTurnTimerJustExpired && idJugadorMano === miIdJugadorSocketRef.current) return;
-    if (idJugadorMano !== miIdJugadorSocketRef.current || miIdJugadorSocketRef.current !== rondaActual.currentPlayerId) return;
-    if (!playableFichaIds.includes(idFicha)) return;
-    
-    setFichaSeleccionada(prev =>
-      (prev && prev.idFicha === idFicha && prev.idJugadorMano === idJugadorMano)
-        ? undefined : { idFicha, idJugadorMano }
-    );
-
-  };
   
   const determinarJugadaCliente = (ficha: FichaDomino, valorExtremo: number): { puedeJugar: boolean; valorConexion?: number; valorNuevoExtremo?: number } => {
     if (ficha.valorSuperior === valorExtremo) return { puedeJugar: true, valorConexion: ficha.valorSuperior, valorNuevoExtremo: ficha.valorInferior };
@@ -785,7 +769,7 @@ export default function JuegoPage() {
     limpiarIntervaloTimer();
     setTiempoTurnoRestante(null);
 
-    const idFichaAJugar = fichaIdParam || fichaSeleccionada?.idFicha;
+    const idFichaAJugar = fichaIdParam || selectedFichaInfo?.idFicha; // Usar selectedFichaInfo del hook
     if (!idFichaAJugar) return;
 
     const fichaParaJugar = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.find(f => f.id === idFichaAJugar);
@@ -793,18 +777,18 @@ export default function JuegoPage() {
 
     if (!rondaActual.anclaFicha) {
       socket.emit('cliente:jugarFicha', { rondaId: rondaActual.rondaId, fichaId: idFichaAJugar, extremoElegido: extremoElegidoParam });
-      setFichaSeleccionada(undefined);
+      clearFichaSelection(); // Usar la función del hook
       return;
     }
 
     const valorExtremoNumerico = extremoElegidoParam === 'izquierda' ? rondaActual.extremos.izquierda : rondaActual.extremos.derecha;
     if (valorExtremoNumerico === null) return;
-    
+
     const jugadaDeterminada = determinarJugadaCliente(fichaParaJugar, valorExtremoNumerico);
     if (!jugadaDeterminada.puedeJugar) return;
-    
+
     emitEvent('cliente:jugarFicha', { rondaId: rondaActual.rondaId, fichaId: idFichaAJugar, extremoElegido: extremoElegidoParam });
-    setFichaSeleccionada(undefined);
+    clearFichaSelection(); // Usar la función del hook
   };
 
   const handlePasarTurnoServidor = () => {
@@ -828,8 +812,6 @@ export default function JuegoPage() {
     }
   };
 
-  const rondaActualParaUI = estadoMesaCliente?.partidaActual?.rondaActual;
-  const partidaActualParaUI = estadoMesaCliente?.partidaActual;
   const currentPlayerIdRonda = rondaActualParaUI?.currentPlayerId;
 
 
@@ -1075,93 +1057,17 @@ export default function JuegoPage() {
   };
 
   let fichaSeleccionadaActual: FichaDomino | undefined;
-  if (fichaSeleccionada && miIdJugadorSocketRef.current) {
+  if (selectedFichaInfo && miIdJugadorSocketRef.current) { // Usar selectedFichaInfo del hook
     const manoOrigen = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current);
     if (manoOrigen) {
-      console.log('[FICHA_SELECCIONADA_ACTUAL_DEBUG] manoOrigen.fichas:', manoOrigen.fichas.map(f => f.id), 'buscando idFicha:', fichaSeleccionada.idFicha);
-      const foundFicha = manoOrigen.fichas.find(f => f.id === fichaSeleccionada.idFicha);
+      console.log('[FICHA_SELECCIONADA_ACTUAL_DEBUG] manoOrigen.fichas:', manoOrigen.fichas.map(f => f.id), 'buscando idFicha:', selectedFichaInfo.idFicha);
+      const foundFicha = manoOrigen.fichas.find(f => f.id === selectedFichaInfo.idFicha);
       console.log('[FICHA_SELECCIONADA_ACTUAL_DEBUG] foundFicha:', foundFicha ? foundFicha.id : 'undefined');
       fichaSeleccionadaActual = foundFicha;
     }
   } else {
     fichaSeleccionadaActual = undefined;
   }
-
-  // // DEBUG LOGS PARA BOTONES DE ACCIÓN
-  // if (fichaSeleccionadaActual) {
-  //   // Este log ya existe y es útil
-  //   console.log('[DEBUG_BOTONES] Condiciones para panel:', {
-  //     fichaSeleccionadaActual: !!fichaSeleccionadaActual,
-  //     fichaSeleccionada: !!fichaSeleccionada,
-  //     rondaActualParaUI: !!rondaActualParaUI,
-  //     idJugadorManoCorrecto: fichaSeleccionada?.idJugadorMano === rondaActualParaUI?.currentPlayerId,
-  //     esMiTurnoSocketId: fichaSeleccionada?.idJugadorMano === miIdJugadorSocketRef.current,
-  //     autoPaseOK: !autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current,
-  //     timerNoExpirado: !isMyTurnTimerJustExpired,
-  //     resultadoRondaNulo: !resultadoRonda,
-  //   });
-  //   if (rondaActualParaUI?.anclaFicha && fichaSeleccionadaActual && rondaActualParaUI.extremos.izquierda !== null) {
-  //     const jugadaIzquierdaDebug = determinarJugadaCliente(fichaSeleccionadaActual, rondaActualParaUI.extremos.izquierda);
-  //     console.log('[DEBUG_BOTONES] jugadaIzquierdaDebug:', jugadaIzquierdaDebug);
-  //   }
-  //   if (rondaActualParaUI?.anclaFicha && fichaSeleccionadaActual && rondaActualParaUI.extremos.derecha !== null) {
-  //     const jugadaDerechaDebug = determinarJugadaCliente(fichaSeleccionadaActual, rondaActualParaUI.extremos.derecha);
-  //     console.log('[DEBUG_BOTONES] jugadaDerechaDebug:', jugadaDerechaDebug);
-  //   }
-  // }
-
-  // let puedeJugarIzquierda = false, textoBotonIzquierda = "Punta Izquierda";
-  // let puedeJugarDerecha = false, textoBotonDerecha = "Punta Derecha";
-
-  // // Log detallado de las condiciones ANTES del IF principal para los botones
-  // console.log('[PRE_IF_BOTONES_DEBUG]', {
-  //   is_fichaSeleccionadaActual_defined: !!fichaSeleccionadaActual,
-  //   is_fichaSeleccionada_defined: !!fichaSeleccionada,
-  //   is_rondaActualParaUI_defined: !!rondaActualParaUI,
-  //   is_idJugadorMano_eq_currentPlayerId: fichaSeleccionada?.idJugadorMano === rondaActualParaUI?.currentPlayerId,
-  //   currentPlayerId_in_ronda: rondaActualParaUI?.currentPlayerId,
-  //   idJugadorMano_in_fichaSeleccionada: fichaSeleccionada?.idJugadorMano,
-  //   is_idJugadorMano_eq_miIdSocket: fichaSeleccionada?.idJugadorMano === miIdJugadorSocketRef.current,
-  //   miIdSocket: miIdJugadorSocketRef.current,
-  //   autoPaseCheck: (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current),
-  //   isMyTurnTimerJustExpired: isMyTurnTimerJustExpired,
-  // });
-
-  // if (fichaSeleccionadaActual && fichaSeleccionada && 
-  //     rondaActualParaUI && 
-  //     fichaSeleccionada.idJugadorMano === rondaActualParaUI.currentPlayerId && 
-  //     fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current &&
-  //     (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) &&
-  //     !isMyTurnTimerJustExpired){
-  //       console.log('[DEBUG_BOTONES_PANEL_LOGIC] Condición IF principal para botones es TRUE');
-  //   if (!rondaActualParaUI.anclaFicha) {
-  //     puedeJugarIzquierda = true;
-  //     textoBotonIzquierda = `Jugar ${fichaSeleccionadaActual.valorSuperior}-${fichaSeleccionadaActual.valorInferior}`;
-  //     puedeJugarDerecha = false; 
-  //   } else {
-  //     const extremosRonda = rondaActualParaUI.extremos;
-  //     // const esIzquierdaMasCorta = (rondaActualParaUI.fichasIzquierda?.length || 0) <= (rondaActualParaUI.fichasDerecha?.length || 0);
-
-  //     if (extremosRonda.izquierda !== null) {
-  //       const jugadaIzquierda = determinarJugadaCliente(fichaSeleccionadaActual, extremosRonda.izquierda);
-  //       if (jugadaIzquierda.puedeJugar) {
-  //         puedeJugarIzquierda = true;
-  //         textoBotonIzquierda = `Punta Izquierda (${extremosRonda.izquierda})`;
-  //       }
-  //     }
-  //     if (extremosRonda.derecha !== null) {
-  //       const jugadaDerecha = determinarJugadaCliente(fichaSeleccionadaActual, extremosRonda.derecha);
-  //       if (jugadaDerecha.puedeJugar) {
-  //         puedeJugarDerecha = true;
-  //         textoBotonDerecha = `Punta Derecha (${extremosRonda.derecha})`;
-  //       }
-  //     }
-  //     // Logic for "esIzquierdaMasCorta" (forcing one side if extremes are equal) removed as per user confirmation.
-  //   }
-  // }
-  
-  // console.log(`[DEBUG_BOTONES_FINAL] puedeJugarIzquierda: ${puedeJugarIzquierda} textoBotonIzquierda: ${textoBotonIzquierda}`);
-  // console.log(`[DEBUG_BOTONES_FINAL] puedeJugarDerecha: ${puedeJugarDerecha} textoBotonDerecha: ${textoBotonDerecha}`);
 
   const jugadorLocal = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current);
   
@@ -1251,7 +1157,7 @@ export default function JuegoPage() {
 
   // Log para depurar el prop fichaSeleccionada que se pasa a ManoJugadorComponent (mano1)
   if (mano1 && mano1.idJugador === miIdJugadorSocketRef.current) {
-    console.log(`[JuegoPage->ManoJugadorComponent] Passing fichaSeleccionada prop: ${fichaSeleccionada?.idFicha} to mano1 (local player)`);
+    console.log(`[JuegoPage->ManoJugadorComponent] Passing fichaSeleccionada prop: ${selectedFichaInfo?.idFicha} to mano1 (local player)`);
   }
 
   return (
@@ -1269,59 +1175,25 @@ export default function JuegoPage() {
           fichasEnMesa={combinedFichasParaMesa}
           ref={mesaRef}
           posicionAnclaFija={posicionAnclaFija}
-          onFichaClick={handleMesaFichaClick}
+          onFichaClick={handleMesaFichaClick} // Añadido el handler requerido
           onMesaDimensionsChange={handleMesaDimensionsChange}
           fichaAnimandose={fichaAnimandose}
           jugadoresInfo={estadoMesaCliente.jugadores.map(j => ({id: j.id, ordenTurno: j.ordenTurnoEnRondaActual}))}
           miIdJugador={miIdJugadorSocketRef.current}
         />
-        <DebugInfoOverlay
+        {/* <DebugInfoOverlay // Comentado para prueba
           viewportWidth={viewportDims.width} viewportHeight={viewportDims.height}
           mesaWidth={mesaDims.width} mesaHeight={mesaDims.height} mesaScale={mesaDims.scale}
           dominoConstWidth={DOMINO_WIDTH_PX} dominoConstHeight={DOMINO_HEIGHT_PX}
-        />
-        
-        {/* {fichaSeleccionadaActual && fichaSeleccionada && 
-         rondaActualParaUI && fichaSeleccionada.idJugadorMano === rondaActualParaUI.currentPlayerId && 
-         fichaSeleccionada.idJugadorMano === miIdJugadorSocketRef.current && 
-         (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) &&
-         !isMyTurnTimerJustExpired && !resultadoRonda && ( 
-          <div className="absolute top-4 right-4 flex flex-col gap-2 items-end p-2 bg-black bg-opacity-75 rounded shadow-lg z-10">
-            <p className="text-white text-sm font-semibold">Jugar: {fichaSeleccionadaActual.valorSuperior}-{fichaSeleccionadaActual.valorInferior}</p>
-            {!rondaActualParaUI.anclaFicha ? (
-               <button className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-3 rounded text-sm w-full text-center" onClick={() => handleJugarFichaServidor('derecha', fichaSeleccionada.idFicha)}>
-                {textoBotonIzquierda}
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                {puedeJugarIzquierda && (
-                  <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm" onClick={() => handleJugarFichaServidor('izquierda', fichaSeleccionada.idFicha)}>
-                    {textoBotonIzquierda}
-                  </button>
-                )}
-                {puedeJugarDerecha && (
-                  <button className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded text-sm" onClick={() => handleJugarFichaServidor('derecha', fichaSeleccionada.idFicha)}>
-                    {textoBotonDerecha}
-                  </button>
-                )}
-                {!puedeJugarIzquierda && !puedeJugarDerecha && (
-                    <div className="bg-red-600 text-white font-bold py-2 px-3 rounded text-sm w-full text-center">
-                        No puedes jugar esta ficha
-                    </div>
-                )}
-              </div>
-            )}
-            <button onClick={() => setFichaSeleccionada(undefined)} className="text-xs text-gray-300 hover:text-white mt-1">Cancelar selección</button>
-          </div>
-        )} */}
+        /> */}
 
-         {tiempoTurnoRestante !== null && tiempoTurnoRestante > 0 && !resultadoRonda && 
+         {/* {tiempoTurnoRestante !== null && tiempoTurnoRestante > 0 && !resultadoRonda && 
           rondaActualParaUI?.currentPlayerId && 
           (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== rondaActualParaUI.currentPlayerId || autoPaseInfoCliente.estado !== 'mostrando_mensaje_paso') && (
           <div className="absolute top-20 right-4 bg-yellow-500 text-white p-2 rounded-full shadow-lg text-lg font-bold animate-pulse z-30">
             {tiempoTurnoRestante}s
           </div>
-        )}
+        )} */}
         
         {mostrarBotonPasarManual && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
@@ -1352,10 +1224,10 @@ export default function JuegoPage() {
           <div className="flex justify-center">
             {/* Log movido justo antes del return del componente o donde se calcula el prop */}
             <ManoJugadorComponent
-              key={`mano-local-${manoVersion}-${mano1.fichas.length}`} 
+              key={`mano-local-${manoVersion}-${mano1.fichas.length}-${selectedFichaInfo?.idFicha || 'no-sel'}`}
               fichas={mano1.fichas}
-              fichaSeleccionada={fichaSeleccionada?.idFicha}
-              onFichaClick={handleFichaClick}
+              fichaSeleccionada={selectedFichaInfo?.idFicha} // Usar selectedFichaInfo del hook
+              onFichaClick={selectFicha} // Usar selectFicha del hook
               idJugadorMano={mano1.idJugador}
               layoutDirection="row"
               isLocalPlayer={true}
