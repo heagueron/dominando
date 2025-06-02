@@ -1,8 +1,7 @@
 // /home/heagueron/jmu/dominando/src/components/jugador/ContenedorInfoJugador.tsx
 'use client';
-import DominoFicha from '@/components/domino/FichaDomino'; // <--- IMPORTAR DominoFicha
-import { DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
-import { FichaDomino } from '@/utils/dominoUtils';
+import FichaDomino from '@/components/domino/FichaDomino'; // <--- IMPORTAR DominoFicha
+import { FichaDomino as TipoFichaDomino } from '@/utils/dominoUtils';
 import React from 'react';
 
 interface ContenedorInfoJugadorProps {
@@ -18,7 +17,7 @@ interface ContenedorInfoJugadorProps {
     estado: 'esperando_confirmacion_paso' | 'mostrando_mensaje_paso';
   } | null;
   idJugadorProp: string; 
-  fichasRestantesAlFinalizar?: FichaDomino[];
+  fichasRestantesAlFinalizar?: TipoFichaDomino[];
   mostrarFichasFinales?: boolean;
   className?: string;
 }
@@ -83,86 +82,116 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
     </div>
   );
 
-  const renderFichasRestantes = () => {
-    if (!mostrarFichasFinales || !fichasRestantesAlFinalizar || fichasRestantesAlFinalizar.length === 0) {
+  const fichaSizeClass = 'w-[23px] h-[46px] sm:w-[23px] sm:h-[46px] md:w-[23px] md:h-[46px] lg:w-[40px] lg:h-[80px] xl:w-[40px] xl:h-[80px] 2xl:w-[40px] 2xl:h-[80px]';
+
+  const renderInfoBoxContent = () => {
+    // Esta función ahora solo renderiza el contenido principal del cuadro de información.
+
+    if (posicion === 'arriba' || posicion === 'abajo') { // Modificado para incluir 'abajo'
+      return (
+        <div className={`flex ${posicion === 'arriba' ? 'items-start' : 'items-center'} gap-2 p-2 bg-black bg-opacity-20 rounded-lg shadow-md`}>
+          <div className="flex-shrink-0">
+            <div className="relative">
+              <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16" />
+              {mostrarMensajePaso && <MensajePasoOverlay />}
+              {typeof numFichas === 'number' && !mostrarFichasFinales && (
+                <FichaCountEar count={numFichas} side="left" />
+              )}
+            </div>
+          </div>
+          <div className={`flex ${posicion === 'arriba' ? 'flex-row items-start' : 'flex-col justify-center'} overflow-hidden`}>
+            <div className="flex flex-col justify-center">
+              <p className="text-xs sm:text-sm md:text-base font-semibold text-white truncate" title={nombreJugador}>
+                {nombreJugador}
+              </p>
+              {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (
+                <BarraProgresoTurno tiempoRestante={tiempoRestante} duracionTotalTurno={duracionTotalTurno} />
+              )}
+            </div>
+            {/* La llamada a renderFichasRestantes se elimina de aquí */}
+          </div>
+        </div>
+      );
+    }
+
+    if (posicion === 'izquierda' || posicion === 'derecha') {
+      return (
+        <div className={`flex flex-col items-center gap-1 p-2 bg-black bg-opacity-20 rounded-lg shadow-md`}>
+          <div className="relative flex-shrink-0">
+            <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" />
+            {mostrarMensajePaso && <MensajePasoOverlay />}
+            {posicion === 'derecha' && typeof numFichas === 'number' && !mostrarFichasFinales && (
+              <FichaCountEar count={numFichas} side="left" />
+            )}
+            {posicion === 'izquierda' && typeof numFichas === 'number' && !mostrarFichasFinales && (
+              <FichaCountEar count={numFichas} side="right" />
+            )}
+          </div>
+          <div className="flex flex-col items-center overflow-hidden w-full">
+            <p className="text-xs sm:text-sm font-semibold text-white text-center truncate w-full" title={nombreJugador}>
+              {nombreJugador}
+            </p>
+            {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (
+              <div className="w-full px-1">
+                <BarraProgresoTurno tiempoRestante={tiempoRestante} duracionTotalTurno={duracionTotalTurno} />
+              </div>
+            )}
+            {/* La llamada a renderFichasRestantes se elimina de aquí */}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const renderFichasRestantesAbsolutas = () => {
+    if (!mostrarFichasFinales || !fichasRestantesAlFinalizar || fichasRestantesAlFinalizar.length === 0 || posicion === 'abajo') {
       return null;
     }
-    // Las fichas siempre se muestran horizontalmente, agrupadas.
-    const isTopPlayer = posicion === 'arriba';
-    const fichaScale = 0.6; // Ajusta esta escala para DominoFicha (0.6 = 60% del tamaño original)
+
+    const fichaScale = 0.70; // Escala más pequeña para las fichas reveladas (se mantiene)
+    // Eliminar el fondo negro (bg-black/60) y ajustar las clases flex/gap/overflow
+    let containerClasses = "absolute flex gap-px p-0.5 rounded shadow-lg z-20"; // Eliminado flex-wrap de la base
+    // Ajustar max-width/max-height para controlar el tamaño del contenedor de fichas reveladas
+    // y permitir scroll si es necesario (overflow-auto si se desea)
+
+    if (posicion === 'arriba') {
+      // Fichas a la izquierda del contenedor de información
+      // El contenedor de información (padre relativo) está centrado en la parte superior.
+      containerClasses += " right-[100%] mr-1 top-1/2 -translate-y-1/2 max-w-[150px] max-h-20 justify-start items-center flex-row flex-nowrap overflow-x-auto"; // Aumentada max-h a max-h-20 (80px)
+    } else if (posicion === 'izquierda' || posicion === 'derecha') { // Estos ya estaban en flex-row
+      // Fichas encima del contenedor de información
+      containerClasses += " bottom-full left-1/2 -translate-x-1/2 mb-1 max-w-[160px] max-h-[50px] justify-center items-center";
+    } else {
+      return null; // No mostrar para 'abajo' o si la posición no coincide
+    }
+
     return (
-      <div className={`flex flex-row flex-wrap gap-1 p-1 rounded bg-black/30 
-                      ${isTopPlayer ? 'ml-2 mt-1 self-start max-w-[150px]' : 'mt-1 w-full justify-center max-w-[180px] sm:max-w-[220px]'}`}>
+      <div className={containerClasses} style={{ gap: '1px' }}> {/* gap-px y style={{ gap: '1px' }} son redundantes, puedes dejar solo uno */}
         {fichasRestantesAlFinalizar.map(ficha => (
-          <DominoFicha
-            key={ficha.id}
-            id={ficha.id}
-            valorSuperior={ficha.valorSuperior}
-            valorInferior={ficha.valorInferior}
-            scale={fichaScale} // Pasa la escala a DominoFicha
-            arrastrable={false} // No deben ser arrastrables
-            // No pasar onClick o onDragEndCallback
-          />
+          <div key={ficha.id} className="flex-shrink-0"> {/* Evitar que las fichas se encojan demasiado */}
+            <FichaDomino
+              id={ficha.id}
+              valorSuperior={ficha.valorSuperior}
+              valorInferior={ficha.valorInferior}
+              scale={fichaScale}
+              arrastrable={false}
+              sizeClass={fichaSizeClass} // Se puede pasar la clase base, pero 'scale' determinará el tamaño
+              // rotacion={posicion === 'arriba' ? 90 : 0} // Opcional: rotar fichas para el jugador de arriba si se apilan verticalmente
+            />
+          </div>
         ))}
       </div>
     );
   };
 
-  if (posicion === 'abajo' || posicion === 'arriba') {
-    return (
-      <div className={`flex ${posicion === 'arriba' ? 'items-start' : 'items-center'} gap-2 p-2 bg-black bg-opacity-20 rounded-lg shadow-md ${className}`}>
-        <div className="flex-shrink-0"> 
-          <div className="relative">
-            <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16" />
-            {mostrarMensajePaso && (posicion === 'arriba' || posicion === 'abajo') && <MensajePasoOverlay />}
-            {posicion === 'arriba' && typeof numFichas === 'number' && !mostrarFichasFinales && (
-              <FichaCountEar count={numFichas} side="left" />
-            )}
-          </div>
-        </div>
-        <div className={`flex ${posicion === 'arriba' ? 'flex-row items-start' : 'flex-col justify-center'} overflow-hidden`}>
-          <div className="flex flex-col justify-center">
-            <p className="text-xs sm:text-sm md:text-base font-semibold text-white truncate" title={nombreJugador}>
-              {nombreJugador}
-            </p>
-            {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (
-              <BarraProgresoTurno tiempoRestante={tiempoRestante} duracionTotalTurno={duracionTotalTurno} />
-            )}
-          </div>
-          {posicion === 'arriba' && renderFichasRestantes()}
-        </div>
-      </div>
-    );
-  }
-
-  if (posicion === 'izquierda' || posicion === 'derecha') {
-    return (
-      <div className={`flex flex-col items-center gap-1 p-2 bg-black bg-opacity-20 rounded-lg shadow-md ${className}`}>
-        <div className="relative flex-shrink-0"> 
-          <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" />
-          {mostrarMensajePaso && <MensajePasoOverlay />}
-          {posicion === 'derecha' && typeof numFichas === 'number' && !mostrarFichasFinales && (
-            <FichaCountEar count={numFichas} side="left" />
-          )}
-          {posicion === 'izquierda' && typeof numFichas === 'number' && !mostrarFichasFinales && (
-            <FichaCountEar count={numFichas} side="right" />
-          )}
-        </div>
-        <div className="flex flex-col items-center overflow-hidden w-full">
-          <p className="text-xs sm:text-sm font-semibold text-white text-center truncate w-full" title={nombreJugador}>
-            {nombreJugador}
-          </p>
-          {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (
-            <div className="w-full px-1">
-              <BarraProgresoTurno tiempoRestante={tiempoRestante} duracionTotalTurno={duracionTotalTurno} />
-            </div>
-          )}
-          {renderFichasRestantes()}
-        </div>
-      </div>
-    );
-  }
-  return null;
+  // El componente principal ahora devuelve un div relativo que contiene el cuadro de información y las fichas restantes (si aplica)
+  return (
+    <div className={`relative ${className}`}>
+      {renderInfoBoxContent()}
+      {renderFichasRestantesAbsolutas()}
+    </div>
+  );
 };
 
 export default ContenedorInfoJugador;
