@@ -2,6 +2,7 @@
 'use client';
 import FichaDomino from '@/components/domino/FichaDomino'; // <--- IMPORTAR DominoFicha
 import { FichaDomino as TipoFichaDomino } from '@/utils/dominoUtils';
+import SpeechBubble, { BubbleDirection } from '@/components/jugador/SpeechBubble'; // Importar SpeechBubble
 import React from 'react';
 
 interface ContenedorInfoJugadorProps {
@@ -63,6 +64,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
   const mostrarBarra = esTurnoActual && typeof tiempoRestante === 'number' && typeof duracionTotalTurno === 'number' && duracionTotalTurno > 0 && 
                        (!autoPaseInfo || autoPaseInfo.jugadorId !== idJugadorProp); 
 
+  // Determinar si se debe mostrar el mensaje de "Paso"
   const mostrarMensajePaso = autoPaseInfo?.jugadorId === idJugadorProp && autoPaseInfo?.estado === 'mostrando_mensaje_paso'; 
 
   const FichaCountEar: React.FC<{ count: number; side: 'left' | 'right' }> = ({ count, side }) => (
@@ -76,13 +78,28 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
     </div>
   );
 
-  const MensajePasoOverlay: React.FC = () => (
-    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
-      <span className="text-white font-bold text-sm md:text-base">Paso</span>
-    </div>
-  );
+  // Ya no se necesita MensajePasoOverlay, se reemplaza por SpeechBubble
+  // const MensajePasoOverlay: React.FC = () => (
+  //   <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
+  //     <span className="text-white font-bold text-sm md:text-base">Paso</span>
+  //   </div>
+  // );
 
   const fichaSizeClass = 'w-[23px] h-[46px] sm:w-[23px] sm:h-[46px] md:w-[23px] md:h-[46px] lg:w-[40px] lg:h-[80px] xl:w-[40px] xl:h-[80px] 2xl:w-[40px] 2xl:h-[80px]';
+
+  let speechBubbleDirection: BubbleDirection = 'bottom'; // Default: points down (bubble is above player info)
+  let bubbleWrapperClasses = 'absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-20'; // Default for player at bottom
+
+  if (posicion === 'arriba') { // Jugador arriba, globo abajo, pico hacia arriba
+    speechBubbleDirection = 'top';
+    bubbleWrapperClasses = 'absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-20';
+  } else if (posicion === 'izquierda') { // Jugador a la izquierda, globo a la derecha, pico hacia la izquierda
+    speechBubbleDirection = 'left';
+    bubbleWrapperClasses = 'absolute top-1/2 -translate-y-1/2 left-full ml-1.5 z-20';
+  } else if (posicion === 'derecha') { // Jugador a la derecha, globo a la izquierda, pico hacia la derecha
+    speechBubbleDirection = 'right';
+    bubbleWrapperClasses = 'absolute top-1/2 -translate-y-1/2 right-full mr-1.5 z-20';
+  }
 
   const renderInfoBoxContent = () => {
     // Esta función ahora solo renderiza el contenido principal del cuadro de información.
@@ -93,7 +110,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
           <div className="flex-shrink-0">
             <div className="relative">
               <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16" />
-              {mostrarMensajePaso && <MensajePasoOverlay />}
+              {/* El SpeechBubble se renderizará fuera de este flujo, posicionado absolutamente */}
               {typeof numFichas === 'number' && !mostrarFichasFinales && (
                 <FichaCountEar count={numFichas} side="left" />
               )}
@@ -119,7 +136,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
         <div className={`flex flex-col items-center gap-1 p-2 bg-black bg-opacity-20 rounded-lg shadow-md`}>
           <div className="relative flex-shrink-0">
             <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" />
-            {mostrarMensajePaso && <MensajePasoOverlay />}
+            {/* El SpeechBubble se renderizará fuera de este flujo, posicionado absolutamente */}
             {posicion === 'derecha' && typeof numFichas === 'number' && !mostrarFichasFinales && (
               <FichaCountEar count={numFichas} side="left" />
             )}
@@ -190,6 +207,16 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
     <div className={`relative ${className}`}>
       {renderInfoBoxContent()}
       {renderFichasRestantesAbsolutas()}
+
+      {/* Globo de diálogo para "Paso", posicionado absolutamente */}
+      {mostrarMensajePaso && (
+        <div className={bubbleWrapperClasses}>
+          <SpeechBubble
+            text="Paso"
+            direction={speechBubbleDirection}
+          />
+        </div>
+      )}
     </div>
   );
 };
