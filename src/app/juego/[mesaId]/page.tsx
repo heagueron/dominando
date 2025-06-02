@@ -89,7 +89,7 @@ export interface EstadoMesaPublicoCliente {
     duracionTurnoSegundos: number;
   };
   partidaActualId: string | null;
-  estadoGeneralMesa: 'esperandoJugadores' | 'partidaEnProgreso' | 'esperandoParaSiguientePartida' | 'configurandoNuevaPartida';
+  estadoGeneralMesa: 'esperandoJugadores' | 'partidaEnProgreso' | 'esperandoParaSiguientePartida' | 'configurandoNuevaPartida' | 'transicionNuevaRonda';
   creadorMesaId: string;
   partidaActual?: EstadoPartidaPublicoCliente;
 }
@@ -178,6 +178,7 @@ export default function JuegoPage() {
     posicionAnclaSnapshot: { fila: number; columna: number };
   } | null>(null);
   const finRondaDisplayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [mensajeTransicion, setMensajeTransicion] = useState<string | null>(null);
 
   const mesaRef = useRef<HTMLDivElement>(null);
   const params = useParams();
@@ -605,7 +606,7 @@ export default function JuegoPage() {
 
     // Si finRondaInfoVisible está activo, la UI se basa en finRondaData.
     // Si no, se basa en el estadoMesaCliente actual.
-
+    // Primero, manejamos el estado de transición, ya que tiene precedencia.
     if (finRondaInfoVisible) {
       console.log('[EFFECT_ESTADO_MESA] State at snapshot capture:', {
           // Acceder de forma segura a las propiedades de rondaActual
@@ -628,9 +629,36 @@ export default function JuegoPage() {
       }
     }
 
-    // Logic to update UI based on the *current* state, ONLY if not showing end-of-round info
-    if (!finRondaInfoVisible) {
-      console.log('[EFFECT_ESTADO_MESA] Not showing end-of-round info. Updating UI based on current state.');
+    // 1. Manejar el estado de transición
+    if (estadoMesaCliente.estadoGeneralMesa === 'transicionNuevaRonda') {
+      if (!mensajeTransicion) setMensajeTransicion("Empezando nueva partida...");
+      if (finRondaInfoVisible) setFinRondaInfoVisible(false); // Asegurar que el modal de fin de ronda se oculte
+      if (finRondaDisplayTimerRef.current) {
+        clearTimeout(finRondaDisplayTimerRef.current);
+        finRondaDisplayTimerRef.current = null;
+      }
+      // Limpiar estados de juego activo, ya que estamos en transición
+      setAnclaFicha(null);
+      setFichasIzquierda([]);
+      setFichasDerecha([]);
+      setExtremos({ izquierda: null, derecha: null });
+      setInfoExtremos({ izquierda: null, derecha: null });
+      setAutoPaseInfoCliente(null);
+      setResultadoRonda(null); // Limpiar resultadoRonda explícitamente
+      limpiarIntervaloTimer();
+      setTiempoTurnoRestante(null);
+      setPlayableFichaIds([]); // Importante para que no se muestren como jugables fichas de la mano anterior
+      if (fichaAnimandose) setFichaAnimandose(null); // Cancelar animación si la había
+      // No es necesario limpiar manosJugadores aquí, se actualizará por su propio effect o por servidor:tuMano
+
+    } else if (mensajeTransicion && ((estadoMesaCliente.estadoGeneralMesa === 'partidaEnProgreso' && rondaActual) || estadoMesaCliente.estadoGeneralMesa === 'esperandoJugadores')) {
+      // Si estábamos en transición y ahora la partida ha comenzado o volvimos a esperar, limpiar el mensaje
+      setMensajeTransicion(null);
+    }
+
+    // 2. Lógica para actualizar UI basada en el estado actual, SOLO si no estamos mostrando finRondaInfoVisible NI mensajeTransicion
+    if (!finRondaInfoVisible && !mensajeTransicion) {
+      console.log('[EFFECT_ESTADO_MESA] Not showing finRondaInfoVisible AND not in transition. Updating UI based on current state.');
       if (rondaActual) {
         setAnclaFicha(rondaActual.anclaFicha);
         setFichasIzquierda(rondaActual.fichasIzquierda);
@@ -712,11 +740,14 @@ export default function JuegoPage() {
         setFichaAnimandose(null);
       }
     } else if (finRondaInfoVisible && fichaAnimandose) {
-        // If we transition to showing end-of-round info while an animation was running, cancel it.
-        console.log('[EFFECT_ESTADO_MESA] Showing end-of-round info, cancelling animation.');
-        setFichaAnimandose(null);
+      // Si estamos mostrando info de fin de ronda y había una animación, cancelarla.
+      console.log('[EFFECT_ESTADO_MESA] Showing end-of-round info, cancelling fichaAnimandose.');
+      setFichaAnimandose(null);
+    } else if (mensajeTransicion && fichaAnimandose) {
+      // Si estamos en transición y había una animación, cancelarla.
+      console.log('[EFFECT_ESTADO_MESA] In transition, cancelling fichaAnimandose.');
+      setFichaAnimandose(null);
     }
-
   }, [
     estadoMesaCliente, 
     finRondaInfoVisible, 
@@ -724,6 +755,7 @@ export default function JuegoPage() {
     clearFichaSelection,
     // Ya no necesitamos manosAlFinalizarRonda ni puntuacionesFinRonda como dependencias aquí
     // porque la activación del display de fin de ronda ahora ocurre en handleFinDeRonda.
+    mensajeTransicion, // Añadido como dependencia
     finRondaData, // Necesario para la lógica de salvaguarda dentro del if(finRondaInfoVisible)
   ]);
 
@@ -1500,6 +1532,20 @@ export default function JuegoPage() {
           >
             ¡Listo para otra partida!
           </button>
+        </div>
+      )}
+
+      {/* Mensaje de Transición a Nueva Partida */}
+      {mensajeTransicion && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <motion.div
+            className="text-xl sm:text-2xl font-bold p-6 sm:p-8 bg-white shadow-xl rounded-lg text-gray-800"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            {mensajeTransicion}
+          </motion.div>
         </div>
       )}
     </div>
