@@ -192,6 +192,9 @@ export default function JuegoPage() {
   
   const [playerAuthReady, setPlayerAuthReady] = useState(false);
 
+  const audioFichaJugadaRef = useRef<HTMLAudioElement | null>(null);
+  const prevIdUltimaFichaJugadaRef = useRef<string | null | undefined>(null);
+
   const prevPropsForSocketRef = useRef<{ userId: string | null, nombre: string | null, autoConnect: boolean } | null>(null);
   const initialAuthReportedRef = useRef(false);
 
@@ -199,6 +202,13 @@ export default function JuegoPage() {
   useEffect(() => {
     estadoMesaClienteRef.current = estadoMesaCliente;
   }, [estadoMesaCliente]);
+
+  useEffect(() => {
+    // Inicializar el reproductor de audio una vez
+    audioFichaJugadaRef.current = new Audio('/sounds/ficha_jugada.mp3'); 
+    audioFichaJugadaRef.current.load(); // Pre-cargar para mejor rendimiento
+    console.log('[AUDIO_EFFECT] Audio player for ficha_colocada initialized.');
+  }, []);
 
 
   const limpiarIntervaloTimer = useCallback(() => {
@@ -604,6 +614,9 @@ export default function JuegoPage() {
     const partidaActual = estadoMesaCliente.partidaActual;
     const rondaActual = partidaActual?.rondaActual;
 
+    const idActualUltimaFicha = rondaActual?.idUltimaFichaJugada;
+    // const idJugadorUltimaAccion = rondaActual?.idJugadorQueRealizoUltimaAccion; // Para lógica condicional de sonido
+
     // Si finRondaInfoVisible está activo, la UI se basa en finRondaData.
     // Si no, se basa en el estadoMesaCliente actual.
     // Primero, manejamos el estado de transición, ya que tiene precedencia.
@@ -724,6 +737,23 @@ export default function JuegoPage() {
         } else if (!rondaActual?.idUltimaFichaJugada && fichaAnimandose) {
            setFichaAnimandose(null); // Clear animation if server state no longer has it
         }
+
+        // Lógica para reproducir sonido de ficha jugada
+        if (rondaActual && rondaActual.estadoActual === 'enProgreso') {
+          if (idActualUltimaFicha && idActualUltimaFicha !== prevIdUltimaFichaJugadaRef.current) {
+            // Opcional: No reproducir si la jugada fue del jugador local
+            // if (idJugadorUltimaAccion !== miIdJugadorSocketRef.current) {
+            if (audioFichaJugadaRef.current) {
+              audioFichaJugadaRef.current.currentTime = 0; // Reiniciar si se llama rápido
+              audioFichaJugadaRef.current.play().catch(error => {
+                console.error("Error al reproducir sonido de ficha:", error);
+              });
+              console.log(`[AUDIO_PLAY] Playing sound for ficha ${idActualUltimaFicha}`);
+            }
+            // }
+          }
+        }
+        prevIdUltimaFichaJugadaRef.current = idActualUltimaFicha;
 
       } else {
         console.log('[EFFECT_ESTADO_MESA] No active ronda and not showing end-of-round info. Clearing game states.');
