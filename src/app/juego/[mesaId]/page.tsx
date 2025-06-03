@@ -10,6 +10,7 @@ import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la 
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador';
 import {
+ FichaDomino as FichaDominoType, // Renombrar para evitar conflicto con la interfaz local
  FichaDomino,
  FichaEnMesaParaLogica,
 } from '@/utils/dominoUtils';
@@ -21,8 +22,9 @@ import {
 } from '@/utils/posicionamientoUtils';
 // import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Comentado para prueba
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
+import PlayerInfoLayout from '@/components/juego/PlayerInfoLayout'; // Importar el nuevo componente
 
-interface JugadorCliente {
+export interface JugadorCliente {
   idJugador: string;
   nombre?: string;
   fichas: FichaDomino[];
@@ -46,7 +48,7 @@ interface JugadorPublicoInfoCliente {
   listoParaSiguientePartida?: boolean;
 }
 
-interface EstadoRondaPublicoCliente {
+export interface EstadoRondaPublicoCliente {
   rondaId: string;
   jugadoresRonda: JugadorPublicoInfoCliente[];
   currentPlayerId: string | null;
@@ -110,7 +112,7 @@ interface TuTurnoPayloadCliente {
   playableFichaIds: string[];
 }
 
-interface FinDeRondaPayloadCliente {
+export interface FinDeRondaPayloadCliente {
   rondaId: string;
   partidaId: string;
   ganadorRondaId?: string;
@@ -786,6 +788,28 @@ export default function JuegoPage() {
     };
   }, []);
 
+  // Sincroniza el estado de las fichas jugables con el turno actual y estado de la ronda
+  useEffect(() => {
+    const rondaActual = estadoMesaCliente?.partidaActual?.rondaActual;
+    const esMiTurno = rondaActual?.currentPlayerId === miIdJugadorSocketRef.current;
+    const rondaEnProgreso = rondaActual?.estadoActual === 'enProgreso';
+
+    // Si no es mi turno, o la ronda no está en progreso, o se está mostrando el modal de fin de ronda,
+    // y todavía hay fichas marcadas como jugables, limpiarlas.
+    if ((!esMiTurno || !rondaEnProgreso || finRondaInfoVisible) && playableFichaIds.length > 0) {
+      // console.log(`[EFFECT_SYNC_PLAYABLE_FICHAS] Condiciones para limpiar: !esMiTurno=${!esMiTurno}, !rondaEnProgreso=${!rondaEnProgreso}, finRondaInfoVisible=${finRondaInfoVisible}. Limpiando playableFichaIds.`);
+      setPlayableFichaIds([]);
+    }
+    // Nota: El poblar playableFichaIds cuando SÍ es mi turno lo maneja el evento 'servidor:tuTurno'.
+    // Este efecto es principalmente una salvaguarda para limpiar.
+  }, [
+    estadoMesaCliente?.partidaActual?.rondaActual?.currentPlayerId,
+    estadoMesaCliente?.partidaActual?.rondaActual?.estadoActual,
+    finRondaInfoVisible,
+    // No se incluye playableFichaIds en las dependencias para evitar bucles,
+    // la condición playableFichaIds.length > 0 previene la llamada a setPlayableFichaIds si ya está vacío.
+  ]);
+
   // Actualizar `resultadoRonda` para el modal basado en `finRondaData` cuando `finRondaInfoVisible`
   useEffect(() => {
     console.log(`[EFFECT_RESULTADO_RONDA] finRondaInfoVisible: ${finRondaInfoVisible}, finRondaData exists: ${!!finRondaData}`);
@@ -940,6 +964,7 @@ export default function JuegoPage() {
 
     limpiarIntervaloTimer();
     setTiempoTurnoRestante(null);
+    setPlayableFichaIds([]); // Limpiar fichas jugables localmente de inmediato
 
     const idFichaAJugar = fichaIdParam || selectedFichaInfo?.idFicha; 
     if (!idFichaAJugar) return;
@@ -974,6 +999,7 @@ export default function JuegoPage() {
     console.log(`[SOCKET] Emitiendo cliente:pasarTurno para ronda ${rondaActual.rondaId}`);
     limpiarIntervaloTimer();
     setTiempoTurnoRestante(null);
+    setPlayableFichaIds([]); // Limpiar fichas jugables localmente de inmediato
     emitEvent('cliente:pasarTurno', { rondaId: rondaActual.rondaId });
   };
 
@@ -1269,67 +1295,6 @@ export default function JuegoPage() {
     fichaSeleccionadaActual = undefined;
   }
 
-  const esTipoJuegoRondaUnica = estadoMesaCliente?.partidaActual?.tipoJuego === 'rondaUnica';
-
-  const jugadorLocal = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current);
-  
-  
-  let mano1: JugadorCliente | undefined, mano2: JugadorCliente | undefined, mano3: JugadorCliente | undefined, mano4: JugadorCliente | undefined;
-  let pIds1: string[] = []; 
-
-  if (miIdJugadorSocketRef.current && estadoMesaCliente) {
-    const localPlayerId = miIdJugadorSocketRef.current; 
-
-    if (manosJugadores.length > 0) {
-      // console.log(`[RENDER_MANOS_VISUAL_DEBUG] Intentando encontrar localPlayerId: "${localPlayerId}"`);
-      // console.log(`[RENDER_MANOS_VISUAL_DEBUG] En manosJugadores (solo IDs):`, manosJugadores.map(j => j.idJugador));
-      // manosJugadores.forEach(j => {
-      //   console.log(`[RENDER_MANOS_VISUAL_DEBUG] Comparando "${localPlayerId}" (tipo: ${typeof localPlayerId}) con "${j.idJugador}" (tipo: ${typeof j.idJugador})`);
-      // });
-      const localPlayer = manosJugadores.find(j => j.idJugador === localPlayerId);
-
-      if (localPlayer) {
-        mano1 = localPlayer; 
-
-        const numJugadoresEnRonda = estadoMesaCliente.partidaActual?.rondaActual?.jugadoresRonda.length || 0;
-
-        if (typeof localPlayer.ordenTurno === 'number' && numJugadoresEnRonda >= 2 && numJugadoresEnRonda <= 4) {
-          const ordenLocal = localPlayer.ordenTurno;
-
-          const targetOrdenMano2 = (ordenLocal + 1) % numJugadoresEnRonda; 
-          const targetOrdenMano3 = (ordenLocal + 2) % numJugadoresEnRonda; 
-          const targetOrdenMano4 = (ordenLocal + 3) % numJugadoresEnRonda; 
-          
-          mano2 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano2);
-          
-          if (numJugadoresEnRonda > 2) { 
-            mano3 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano3);
-          }
-          if (numJugadoresEnRonda > 3) { 
-            mano4 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano4);
-          }
-
-        } else {
-          // console.warn(`[RENDER_MANOS_VISUAL] Usando orden visual de fallback. ordenTurno local: ${localPlayer.ordenTurno}, numJugadoresEnRonda: ${numJugadoresEnRonda}`);
-          const otrosJugadores = manosJugadores.filter(j => j.idJugador !== localPlayerId);
-          if (otrosJugadores.length >= 1) mano2 = otrosJugadores[0]; 
-          if (otrosJugadores.length >= 2) mano3 = otrosJugadores[1]; 
-          if (otrosJugadores.length >= 3) mano4 = otrosJugadores[2]; 
-        }
-      } else { 
-        // console.warn(`[RENDER_MANOS_VISUAL] Jugador local ${localPlayerId} no encontrado en manosJugadores para ordenamiento visual.`);
-      }
-    } else {
-      // console.log(`[RENDER_MANOS_VISUAL] manosJugadores está vacío. Esperando que se popule.`);
-    }
-
-    if (mano1 && mano1.idJugador === localPlayerId && rondaActualParaUI && 
-        mano1.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible) { // Añadido chequeo de finRondaInfoVisible
-      pIds1 = playableFichaIds; 
-    }
-  }
-
-
   if (!playerAuthReady || !estadoMesaCliente) { 
     return <div className="flex items-center justify-center min-h-screen">Cargando datos de la mesa...</div>;
   }
@@ -1366,112 +1331,44 @@ export default function JuegoPage() {
         /> */}
         
 
+        {/* Renderizar la mano del jugador local */}
+        {miIdJugadorSocketRef.current && manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current) && (
+           <motion.div 
+            className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1" // Aumentado z-index
+            initial={{ y: 150 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }}
+          >
+            <div className="w-full"></div> {/* Espacio para info izquierda (si existiera) */}
+            <div className="flex justify-center">
+              <ManoJugadorComponent
+                key={`mano-local-${manoVersion}-${manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.length}-${selectedFichaInfo?.idFicha || 'no-sel'}`}
+                fichas={manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas || []}
+                fichaSeleccionada={selectedFichaInfo?.idFicha} 
+                onFichaClick={selectFicha} 
+                idJugadorMano={miIdJugadorSocketRef.current}
+                layoutDirection="row"
+                isLocalPlayer={true}
+                playableFichaIds={playableFichaIds}
+                onFichaDragEnd={handleFichaDragEnd}
+              />
+            </div>
+            <div className="w-full"></div> {/* Espacio para info derecha (si existiera) */}
+          </motion.div>
+        )}
+
       </main>
 
-      {mano1 && mano1.idJugador === miIdJugadorSocketRef.current && estadoMesaCliente && (
-        <motion.div 
-          className="fixed bottom-0 left-0 right-0 z-20 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1"
-          initial={{ y: 150 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }}
-        >
-          <div className="flex justify-center">
-            <ContenedorInfoJugador
-              idJugadorProp={mano1.idJugador}
-              nombreJugador={mano1.nombre}
-              esTurnoActual={!!(rondaActualParaUI && mano1.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
-              tiempoRestante={tiempoTurnoRestante}
-              duracionTotalTurno={duracionTurnoActualConfigurada}
-              posicion="abajo"
-              autoPaseInfo={autoPaseInfoCliente}
-              className="max-w-[180px] sm:max-w-[220px] md:max-w-xs" 
-              // Fichas restantes no se muestran para el jugador local aquí
-            />
-          </div>
-          <div className="flex justify-center">
-            <ManoJugadorComponent
-              key={`mano-local-${manoVersion}-${mano1.fichas.length}-${selectedFichaInfo?.idFicha || 'no-sel'}`}
-              fichas={mano1.fichas}
-              fichaSeleccionada={selectedFichaInfo?.idFicha} 
-              onFichaClick={selectFicha} 
-              idJugadorMano={mano1.idJugador}
-              layoutDirection="row"
-              isLocalPlayer={true}
-              playableFichaIds={pIds1}
-              onFichaDragEnd={handleFichaDragEnd}
-            />
-          </div>
-          <div className="w-full"></div>
-        </motion.div>
-      )}
-
-      {mano2 && estadoMesaCliente && (
-        <div className="fixed right-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-          <ContenedorInfoJugador
-            idJugadorProp={mano2.idJugador}
-            nombreJugador={mano2.nombre}
-            esTurnoActual={!!(rondaActualParaUI && mano2.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
-            tiempoRestante={tiempoTurnoRestante}
-            duracionTotalTurno={duracionTurnoActualConfigurada}
-            posicion="derecha"
-            autoPaseInfo={autoPaseInfoCliente}
-            numFichas={mano2.numFichas}
-            fichasRestantesAlFinalizar={
-              finRondaInfoVisible && finRondaData?.resultadoPayload?.manosFinales
-                ? finRondaData.resultadoPayload.manosFinales.find(m => m.jugadorId === mano2?.idJugador)?.fichas
-                : undefined
-            }
-            mostrarFichasFinales={finRondaInfoVisible}
-            className="mb-2 w-28 md:w-36"
-          />
-        </div>
-      )}
-      
-      {mano3 && estadoMesaCliente && (
-         <div className="fixed top-2 left-0 right-0 z-20 grid grid-cols-3 items-start gap-2 px-2 pt-1">
-          <div className="w-full"></div>
-          <div className="flex justify-center">
-            <ContenedorInfoJugador
-              idJugadorProp={mano3.idJugador}
-              nombreJugador={mano3.nombre}
-              esTurnoActual={!!(rondaActualParaUI && mano3.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
-              tiempoRestante={tiempoTurnoRestante}
-              duracionTotalTurno={duracionTurnoActualConfigurada}
-              posicion="arriba"
-              autoPaseInfo={autoPaseInfoCliente}
-              numFichas={mano3.numFichas}
-              fichasRestantesAlFinalizar={
-                finRondaInfoVisible && finRondaData?.resultadoPayload?.manosFinales
-                  ? finRondaData.resultadoPayload.manosFinales.find(m => m.jugadorId === mano3?.idJugador)?.fichas
-                  : undefined
-              }
-              mostrarFichasFinales={finRondaInfoVisible}
-              className="max-w-xs"
-            />
-          </div>
-          <div className="w-full"></div>
-        </div>
-      )}
-
-      {mano4 && estadoMesaCliente && (
-        <div className="fixed left-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-          <ContenedorInfoJugador
-            idJugadorProp={mano4.idJugador}
-            nombreJugador={mano4.nombre}
-            esTurnoActual={!!(rondaActualParaUI && mano4.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
-            tiempoRestante={tiempoTurnoRestante}
-            duracionTotalTurno={duracionTurnoActualConfigurada}
-            posicion="izquierda"
-            autoPaseInfo={autoPaseInfoCliente}
-            numFichas={mano4.numFichas}
-            fichasRestantesAlFinalizar={
-              finRondaInfoVisible && finRondaData?.resultadoPayload?.manosFinales
-                ? finRondaData.resultadoPayload.manosFinales.find(m => m.jugadorId === mano4?.idJugador)?.fichas
-                : undefined
-            }
-            mostrarFichasFinales={finRondaInfoVisible}
-            className="mb-2 w-28 md:w-36"
-          />
-        </div>
-      )}
+      {/* Renderizar la información de los jugadores (incluido el local) */}
+      <PlayerInfoLayout
+        manosJugadores={manosJugadores}
+        miIdJugadorSocket={miIdJugadorSocketRef.current}
+        estadoMesaCliente={estadoMesaCliente}
+        rondaActualParaUI={rondaActualParaUI}
+        tiempoTurnoRestante={tiempoTurnoRestante}
+        duracionTurnoActualConfigurada={duracionTurnoActualConfigurada}
+        autoPaseInfoCliente={autoPaseInfoCliente}
+        finRondaInfoVisible={finRondaInfoVisible}
+        finRondaData={finRondaData}
+      />
 
       {/* Modal de Fin de Ronda */}
       {finRondaInfoVisible && finRondaData?.resultadoPayload && (
