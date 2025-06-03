@@ -988,30 +988,6 @@ export default function JuegoPage() {
     clearFichaSelection(); 
   };
 
-  const handlePasarTurnoServidor = () => {
-    if (!socket || !emitEvent || finRondaInfoVisible) return; // No permitir pasar si se muestran resultados
-    const rondaActual = estadoMesaCliente?.partidaActual?.rondaActual;
-    if (!rondaActual || rondaActual.estadoActual === 'terminada' || rondaActual.currentPlayerId !== miIdJugadorSocketRef.current) return;
-
-    if (isMyTurnTimerJustExpired && rondaActual.currentPlayerId === miIdJugadorSocketRef.current) return;
-    if (autoPaseInfoCliente && autoPaseInfoCliente.jugadorId === miIdJugadorSocketRef.current) return;
-    
-    console.log(`[SOCKET] Emitiendo cliente:pasarTurno para ronda ${rondaActual.rondaId}`);
-    limpiarIntervaloTimer();
-    setTiempoTurnoRestante(null);
-    setPlayableFichaIds([]); // Limpiar fichas jugables localmente de inmediato
-    emitEvent('cliente:pasarTurno', { rondaId: rondaActual.rondaId });
-  };
-
-  const handleListoParaSiguientePartida = () => {
-    if (socket && emitEvent && estadoMesaCliente && 
-        estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida' && 
-        !finRondaInfoVisible) { // Solo permitir si no se está mostrando info de fin de ronda
-      console.log(`[SOCKET] Emitiendo cliente:listoParaSiguientePartida para mesa ${estadoMesaCliente.mesaId}`);
-      emitEvent('cliente:listoParaSiguientePartida', { mesaId: estadoMesaCliente.mesaId });
-    }
-  };
-
   const currentPlayerIdRonda = rondaActualParaUI?.currentPlayerId;
 
 
