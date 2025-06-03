@@ -33,8 +33,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   isLocalPlayer = false, // Default to false
   onFichaDragEnd, // Nueva prop
 }) => {
-  // console.log(`[ManoJugador ${idJugadorMano}] Render. Prop fichaSeleccionada (ID):`, fichaSeleccionada);
-  console.log(`[ManoJugador ${idJugadorMano}] Render. Received playableFichaIds:`, playableFichaIds);
+  
 
   const fichaSizeClass = isLocalPlayer // Use isLocalPlayer here
     ? 'w-[30px] h-[60px] sm:w-[30px] sm:h-[60px] md:w-[30px] md:h-[60px] lg:w-[48px] lg:h-[96px] xl:w-[48px] xl:h-[96px] 2xl:w-[48px] 2xl:h-[96px]'

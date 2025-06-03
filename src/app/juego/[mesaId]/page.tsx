@@ -408,7 +408,7 @@ export default function JuegoPage() {
   }, [setMiIdJugadorSocket, setEstadoMesaCliente, stableEmitEvent, socket]);
 
   const handleEstadoMesaActualizado = useCallback((payload: { estadoMesa: EstadoMesaPublicoCliente }) => {
-    console.log('[SOCKET] Evento servidor:estadoMesaActualizado recibido para mesaId:', payload.estadoMesa.mesaId);
+    //console.log('[SOCKET] Evento servidor:estadoMesaActualizado recibido para mesaId:', payload.estadoMesa.mesaId);
     setEstadoMesaCliente(payload.estadoMesa);
   }, [setEstadoMesaCliente]);
 
@@ -458,7 +458,7 @@ export default function JuegoPage() {
   }, [setManosJugadores]); 
   
   const handleTuTurno = useCallback((payload: TuTurnoPayloadCliente) => {
-    console.log('[SOCKET] Evento servidor:tuTurno recibido:', payload);
+    //console.log('[SOCKET] Evento servidor:tuTurno recibido:', payload);
     if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
       setPlayableFichaIds(payload.playableFichaIds);
       if (payload.duracionTurnoTotal) {
@@ -588,10 +588,6 @@ export default function JuegoPage() {
 
   // useEffect para actualizar la UI basada en estadoMesaCliente y manejar la visualización de fin de ronda
   useEffect(() => {
-    console.log(`[EFFECT_ESTADO_MESA] Run. estadoMesaCliente exists: ${!!estadoMesaCliente}. finRondaInfoVisible: ${finRondaInfoVisible}.`);
-    console.log(`[EFFECT_ESTADO_MESA] Current rondaActual state: ${estadoMesaCliente?.partidaActual?.rondaActual?.estadoActual}`);
-
-
     if (!estadoMesaCliente) {
       console.log('[EFFECT_ESTADO_MESA] estadoMesaCliente is null. Cleaning up all states.');
       // Estado inicial o desconexión, limpiar todo
@@ -671,7 +667,6 @@ export default function JuegoPage() {
 
     // 2. Lógica para actualizar UI basada en el estado actual, SOLO si no estamos mostrando finRondaInfoVisible NI mensajeTransicion
     if (!finRondaInfoVisible && !mensajeTransicion) {
-      console.log('[EFFECT_ESTADO_MESA] Not showing finRondaInfoVisible AND not in transition. Updating UI based on current state.');
       if (rondaActual) {
         setAnclaFicha(rondaActual.anclaFicha);
         setFichasIzquierda(rondaActual.fichasIzquierda);
@@ -735,7 +730,7 @@ export default function JuegoPage() {
           });
           setTimeout(() => setFichaAnimandose(null), 700);
         } else if (!rondaActual?.idUltimaFichaJugada && fichaAnimandose) {
-           setFichaAnimandose(null); // Clear animation if server state no longer has it
+           setFichaAnimandose(null); 
         }
 
         // Lógica para reproducir sonido de ficha jugada
@@ -744,11 +739,10 @@ export default function JuegoPage() {
             // Opcional: No reproducir si la jugada fue del jugador local
             // if (idJugadorUltimaAccion !== miIdJugadorSocketRef.current) {
             if (audioFichaJugadaRef.current) {
-              audioFichaJugadaRef.current.currentTime = 0; // Reiniciar si se llama rápido
+              audioFichaJugadaRef.current.currentTime = 0; 
               audioFichaJugadaRef.current.play().catch(error => {
                 console.error("Error al reproducir sonido de ficha:", error);
               });
-              console.log(`[AUDIO_PLAY] Playing sound for ficha ${idActualUltimaFicha}`);
             }
             // }
           }
@@ -770,12 +764,8 @@ export default function JuegoPage() {
         setFichaAnimandose(null);
       }
     } else if (finRondaInfoVisible && fichaAnimandose) {
-      // Si estamos mostrando info de fin de ronda y había una animación, cancelarla.
-      console.log('[EFFECT_ESTADO_MESA] Showing end-of-round info, cancelling fichaAnimandose.');
       setFichaAnimandose(null);
     } else if (mensajeTransicion && fichaAnimandose) {
-      // Si estamos en transición y había una animación, cancelarla.
-      console.log('[EFFECT_ESTADO_MESA] In transition, cancelling fichaAnimandose.');
       setFichaAnimandose(null);
     }
   }, [
@@ -783,8 +773,6 @@ export default function JuegoPage() {
     finRondaInfoVisible, 
     limpiarIntervaloTimer, 
     clearFichaSelection,
-    // Ya no necesitamos manosAlFinalizarRonda ni puntuacionesFinRonda como dependencias aquí
-    // porque la activación del display de fin de ronda ahora ocurre en handleFinDeRonda.
     mensajeTransicion, // Añadido como dependencia
     finRondaData, // Necesario para la lógica de salvaguarda dentro del if(finRondaInfoVisible)
   ]);
@@ -819,9 +807,7 @@ export default function JuegoPage() {
 
   // useEffect específico para actualizar manosJugadores (para la UI)
   useEffect(() => {
-    console.log('[EFFECT_MANOS_JUGADORES] Running.');
     if (!estadoMesaCliente?.jugadores) {
-      console.log('[EFFECT_MANOS_JUGADORES] No estadoMesaCliente.jugadores. Clearing manosJugadores.');
       if (manosJugadores.length > 0) {
          setManosJugadores([]);
       }
@@ -895,7 +881,6 @@ export default function JuegoPage() {
       }
 
       if (hasChanged) {
-        console.log('[EFFECT_MANOS_JUGADORES] Updating manosJugadores.');
         return newManosArray;
       }
       
@@ -1011,7 +996,6 @@ export default function JuegoPage() {
         console.log('[combinedFichasParaMesa] Using snapshot.');
         return finRondaData.fichasEnMesaSnapshot;
     }
-    console.log('[combinedFichasParaMesa] Using live state.');
     if (!rondaActualParaUI) return []; 
     return [
       ...(rondaActualParaUI.fichasIzquierda || []).slice().reverse(),
@@ -1026,7 +1010,6 @@ export default function JuegoPage() {
         console.log('[posicionAnclaFija] Using snapshot.');
         return finRondaData.posicionAnclaSnapshot;
     }
-    console.log('[posicionAnclaFija] Using live state.');
     return rondaActualParaUI?.anclaFicha 
       ? rondaActualParaUI.anclaFicha.posicionCuadricula 
       : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
@@ -1290,15 +1273,6 @@ export default function JuegoPage() {
 
   const jugadorLocal = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current);
   
-  const mostrarBotonPasarManual = rondaActualParaUI && 
-                                rondaActualParaUI.currentPlayerId === miIdJugadorSocketRef.current && 
-                                (rondaActualParaUI.anclaFicha || (rondaActualParaUI.fichasIzquierda.length === 0 && rondaActualParaUI.fichasDerecha.length === 0)) && 
-                                playableFichaIds.length === 0 && 
-                                (jugadorLocal?.fichas.length ?? 0) > 0 && 
-                                (!autoPaseInfoCliente || autoPaseInfoCliente.jugadorId !== miIdJugadorSocketRef.current) &&
-                                !isMyTurnTimerJustExpired &&
-                                rondaActualParaUI.estadoActual === 'enProgreso' &&
-                                !finRondaInfoVisible; // Añadido chequeo de finRondaInfoVisible
   
   let mano1: JugadorCliente | undefined, mano2: JugadorCliente | undefined, mano3: JugadorCliente | undefined, mano4: JugadorCliente | undefined;
   let pIds1: string[] = []; 
@@ -1355,13 +1329,6 @@ export default function JuegoPage() {
     }
   }
 
-  const mostrarBotonListo = estadoMesaCliente && 
-                            !esTipoJuegoRondaUnica && 
-                            estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida' &&
-                            !finRondaInfoVisible && // Solo mostrar si no estamos en el display de fin de ronda
-                            partidaActualParaUI && partidaActualParaUI.estadoPartida === 'partidaTerminada' &&
-                            !estadoMesaCliente.jugadores.find(j => j.id === miIdJugadorSocketRef.current)?.listoParaSiguientePartida;
-
 
   if (!playerAuthReady || !estadoMesaCliente) { 
     return <div className="flex items-center justify-center min-h-screen">Cargando datos de la mesa...</div>;
@@ -1398,13 +1365,7 @@ export default function JuegoPage() {
           dominoConstWidth={DOMINO_WIDTH_PX} dominoConstHeight={DOMINO_HEIGHT_PX}
         /> */}
         
-        {mostrarBotonPasarManual && ( // mostrarBotonPasarManual ya incluye !finRondaInfoVisible
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-            <button onClick={handlePasarTurnoServidor} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-md">
-              Pasar Turno
-            </button>
-          </div>
-        )}
+
       </main>
 
       {mano1 && mano1.idJugador === miIdJugadorSocketRef.current && estadoMesaCliente && (
@@ -1553,17 +1514,6 @@ export default function JuegoPage() {
         </div>
       )}
 
-      {/* Botón para Listo para Siguiente Partida */}
-      {mostrarBotonListo && estadoMesaCliente && ( // mostrarBotonListo ya incluye !finRondaInfoVisible
-        <div className="fixed bottom-1/2 left-1/2 transform -translate-x-1/2 translate-y-1/2 z-50">
-          <button 
-            onClick={handleListoParaSiguientePartida}
-            className="px-6 py-3 text-lg font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition duration-150 ease-in-out"
-          >
-            ¡Listo para otra partida!
-          </button>
-        </div>
-      )}
 
       {/* Mensaje de Transición a Nueva Partida */}
       {mensajeTransicion && (
