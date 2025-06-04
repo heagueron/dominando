@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente } from '@/app/juego/[mesaId]/page'; // Importar tipos necesarios
+// Importar tipos desde el nuevo archivo centralizado
+import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente } from '@/types/domino';
 
 interface DominoModalsProps {
   showRotateMessage: boolean;

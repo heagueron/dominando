@@ -8,7 +8,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from '
 import { usePlayerHandLogic, FichaSeleccionadaInfo } from '@/hooks/usePlayerHandLogic'; // Importar el nuevo hook y tipo
 import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
 import MesaDomino from '@/components/domino/MesaDomino';
-import ManoJugadorComponent from '@/components/domino/ManoJugador';
+import ManoJugadorComponent from '@/components/domino/ManoJugador'; // Mantener esta importación
 import {
  FichaDomino as FichaDominoType, // Renombrar para evitar conflicto con la interfaz local
  FichaDomino,
@@ -23,124 +23,13 @@ import {
 // import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Comentado para prueba
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
 import PlayerInfoLayout from '@/components/juego/PlayerInfoLayout'; // Importar el nuevo componente
-import DominoModals from '@/components/juego/DominoModals'; // Importar el nuevo componente de modales
+import DominoModals from '@/components/juego/DominoModals'; // Importar el nuevo componente de modales (ya actualizado)
 
-export interface JugadorCliente {
-  idJugador: string;
-  nombre?: string;
-  fichas: FichaDomino[];
-  numFichas?: number;
-  estaConectado?: boolean;
-  ordenTurno?: number;
-}
+// Importar tipos desde el nuevo archivo centralizado
+import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, JugadorPublicoInfoCliente, EstadoPartidaPublicoCliente } from '@/types/domino';
 
-const DURACION_TURNO_SEGUNDOS = 5;
+const DURACION_TURNO_SEGUNDOS = 15;
 const TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE = 10000; // 10 segundos
-
-type TipoJuegoSolicitado = 'rondaUnica' | 'partidaCompleta';
-
-interface JugadorPublicoInfoCliente {
-  id: string;
-  nombre: string;
-  numFichas?: number;
-  estaConectado: boolean;
-  ordenTurnoEnRondaActual?: number;
-  puntosPartidaActual?: number;
-  listoParaSiguientePartida?: boolean;
-}
-
-export interface EstadoRondaPublicoCliente {
-  rondaId: string;
-  jugadoresRonda: JugadorPublicoInfoCliente[];
-  currentPlayerId: string | null;
-  anclaFicha: FichaEnMesaParaLogica | null;
-  fichasIzquierda: FichaEnMesaParaLogica[];
-  fichasDerecha: FichaEnMesaParaLogica[];
-  extremos: { izquierda: number | null; derecha: number | null };
-  infoExtremos: any;
-  estadoActual: 'enProgreso' | 'terminada';
-  idJugadorQueRealizoUltimaAccion?: string;
-  idUltimaFichaJugada?: string;
-  autoPaseInfo?: {
-    jugadorId: string;
-    estado: 'esperando_confirmacion_paso' | 'mostrando_mensaje_paso';
-  };
-  duracionTurnoActual?: number;
-  timestampTurnoInicio?: number;
-  ganadorRondaId?: string;
-  tipoFinRonda?: 'domino' | 'trancado';
-}
-
-interface EstadoPartidaPublicoCliente {
-  partidaId: string;
-  tipoJuego: TipoJuegoSolicitado;
-  jugadoresParticipantesIds: string[];
-  rondaActualNumero: number;
-  puntuacionesPartida: { jugadorId: string, puntos: number }[];
-  estadoPartida: 'iniciandoRonda' | 'rondaEnProgreso' | 'rondaTerminadaEsperandoSiguiente' | 'partidaTerminada';
-  ganadorPartidaId?: string;
-  rondaActual?: EstadoRondaPublicoCliente;
-}
-
-export interface EstadoMesaPublicoCliente {
-  mesaId: string;
-  jugadores: JugadorPublicoInfoCliente[];
-  configuracionJuego: {
-    tipoJuego: TipoJuegoSolicitado;
-    maxJugadores: number;
-    fichasPorJugadorOriginal: number;
-    duracionTurnoSegundos: number;
-  };
-  partidaActualId: string | null;
-  estadoGeneralMesa: 'esperandoJugadores' | 'partidaEnProgreso' | 'esperandoParaSiguientePartida' | 'configurandoNuevaPartida' | 'transicionNuevaRonda';
-  creadorMesaId: string;
-  partidaActual?: EstadoPartidaPublicoCliente;
-}
-
-interface TeUnisteAMesaPayloadCliente {
-  mesaId: string;
-  tuJugadorIdEnPartida: string;
-  estadoMesa: EstadoMesaPublicoCliente;
-}
-
-interface TuManoPayloadCliente {
-  fichas: FichaDomino[];
-}
-
-interface TuTurnoPayloadCliente {
-  currentPlayerId: string;
-  duracionTurnoTotal?: number;
-  playableFichaIds: string[];
-}
-
-export interface FinDeRondaPayloadCliente {
-  rondaId: string;
-  partidaId: string;
-  ganadorRondaId?: string;
-  nombreGanador?: string;
-  tipoFinRonda: 'domino' | 'trancado';
-  detalleAdicional?: string;
-  puntuaciones?: {
-    jugadorId: string;
-    puntos: number;
-  }[];
-  manosFinales?: {
-    jugadorId: string;
-    fichas: FichaDomino[];
-  }[];
-  // Incluir los campos del tablero que vienen del servidor
-  anclaFicha?: FichaEnMesaParaLogica | null;
-  fichasIzquierda?: FichaEnMesaParaLogica[];
-  fichasDerecha?: FichaEnMesaParaLogica[];
-  extremos?: { izquierda: number | null; derecha: number | null };
-}
-
-interface FinDePartidaPayloadCliente {
-  partidaId: string;
-  mesaId: string;
-  ganadorPartidaId?: string;
-  puntuacionesFinalesPartida: { jugadorId: string, puntos: number }[];
-}
 
 
 export default function JuegoPage() {

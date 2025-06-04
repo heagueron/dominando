@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
-import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente } from '@/app/juego/[mesaId]/page'; // Importar tipos necesarios
+// Importar tipos desde el nuevo archivo centralizado
+import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente } from '@/types/domino';
 
 interface PlayerInfoLayoutProps {
   manosJugadores: JugadorCliente[];
