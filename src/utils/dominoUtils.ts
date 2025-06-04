@@ -124,3 +124,15 @@ export const determinarGanadorJuegoTrancado = (
     return mejorResultado;
   }, { ganadorId: manos[0]?.idJugador || '', puntajeMinimo: calcularPuntosMano(manos[0]?.fichas || []) });
 };
+
+/**
+ * Determina si una ficha puede jugarse en un extremo dado y devuelve información de conexión.
+ * @param ficha La ficha que se intenta jugar.
+ * @param valorExtremo El valor numérico del extremo de la mesa donde se intenta jugar.
+ * @returns Un objeto indicando si se puede jugar, el valor de conexión y el nuevo valor del extremo.
+ */
+export const determinarJugadaCliente = (ficha: FichaDomino, valorExtremo: number): { puedeJugar: boolean; valorConexion?: number; valorNuevoExtremo?: number } => {
+  if (ficha.valorSuperior === valorExtremo) return { puedeJugar: true, valorConexion: ficha.valorSuperior, valorNuevoExtremo: ficha.valorInferior };
+  if (ficha.valorInferior === valorExtremo) return { puedeJugar: true, valorConexion: ficha.valorInferior, valorNuevoExtremo: ficha.valorSuperior };
+  return { puedeJugar: false };
+};

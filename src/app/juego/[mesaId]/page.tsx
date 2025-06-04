@@ -5,7 +5,7 @@ import { PanInfo } from 'framer-motion';
 import { motion } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
-import { usePlayerHandLogic, FichaSeleccionadaInfo } from '@/hooks/usePlayerHandLogic'; // Importar el nuevo hook y tipo
+import { usePlayerHandLogic } from '@/hooks/usePlayerHandLogic'; // Importar el nuevo hook y tipo
 import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador'; // Mantener esta importación
@@ -13,20 +13,22 @@ import {
  FichaDomino as FichaDominoType, // Renombrar para evitar conflicto con la interfaz local
  FichaDomino,
  FichaEnMesaParaLogica,
+ determinarJugadaCliente, // Importar la función movida
 } from '@/utils/dominoUtils';
 
 import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
 import {
   FILA_ANCLA_INICIAL,
-  COLUMNA_ANCLA_INICIAL
+  COLUMNA_ANCLA_INICIAL,
+  getDesignCanvasCoordinates, // Importar la función movida
 } from '@/utils/posicionamientoUtils';
 // import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Comentado para prueba
-import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
 import PlayerInfoLayout from '@/components/juego/PlayerInfoLayout'; // Importar el nuevo componente
 import DominoModals from '@/components/juego/DominoModals'; // Importar el nuevo componente de modales (ya actualizado)
 
 // Importar tipos desde el nuevo archivo centralizado
 import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, JugadorPublicoInfoCliente, EstadoPartidaPublicoCliente } from '@/types/domino';
+import { formatPlayerNameForTitle } from '@/utils/stringUtils'; // Importar la función movida
 
 const DURACION_TURNO_SEGUNDOS = 15;
 const TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE = 10000; // 10 segundos
@@ -165,15 +167,6 @@ export default function JuegoPage() {
     }
   }, []); 
 
-  const formatPlayerNameForTitle = (name: string | null): string => {
-    if (!name) return "";
-    let processedName = name;
-    if (name.startsWith("Jugador ")) {
-      processedName = name.substring("Jugador ".length);
-    }
-    return processedName.slice(-4);
-  };
-
   useEffect(() => {
     const defaultTitle = "Juego - Dominando";
     const currentMesaIdForTitle = authoritativeMesaIdRef.current;
@@ -255,7 +248,6 @@ export default function JuegoPage() {
   });
 
   const rondaActualParaUI = estadoMesaCliente?.partidaActual?.rondaActual;
-  const partidaActualParaUI = estadoMesaCliente?.partidaActual;
 
   const isMyTurnForHandLogic = !!(rondaActualParaUI && rondaActualParaUI.currentPlayerId === miIdJugadorSocketRef.current && !finRondaInfoVisible);
   const isRoundActiveForHandLogic = !!(rondaActualParaUI && rondaActualParaUI.estadoActual !== 'terminada' && !finRondaInfoVisible);
@@ -836,13 +828,6 @@ export default function JuegoPage() {
     console.log('[MESA] Ficha en mesa clickeada:', id);
   }, []);
 
-  
-  const determinarJugadaCliente = (ficha: FichaDomino, valorExtremo: number): { puedeJugar: boolean; valorConexion?: number; valorNuevoExtremo?: number } => {
-    if (ficha.valorSuperior === valorExtremo) return { puedeJugar: true, valorConexion: ficha.valorSuperior, valorNuevoExtremo: ficha.valorInferior };
-    if (ficha.valorInferior === valorExtremo) return { puedeJugar: true, valorConexion: ficha.valorInferior, valorNuevoExtremo: ficha.valorSuperior };
-    return { puedeJugar: false };
-  };
-
   const handleJugarFichaServidor = (extremoElegidoParam: 'izquierda' | 'derecha', fichaIdParam?: string) => {
     if (!socket || finRondaInfoVisible) return; // No permitir jugar si se muestran resultados
     const rondaActual = estadoMesaCliente?.partidaActual?.rondaActual;
@@ -907,151 +892,11 @@ export default function JuegoPage() {
       : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
   } , [rondaActualParaUI?.anclaFicha, finRondaInfoVisible, finRondaData]); // Añadida finRondaInfoVisible y finRondaData
 
-  const getDesignCanvasCoordinates = useCallback((
-    targetFichaPos: { fila: number; columna: number },
-    currentAnclaFicha: FichaEnMesaParaLogica | null,
-    currentFichasIzquierda: FichaEnMesaParaLogica[],
-    currentFichasDerecha: FichaEnMesaParaLogica[]
-  ): { x: number; y: number } | null => {
-    const todasLasFichasEnMesaParaCalculo = [
-      ...currentFichasIzquierda.slice().reverse(),
-      ...(currentAnclaFicha ? [currentAnclaFicha] : []),
-      ...currentFichasDerecha,
-    ];
-
-    if (todasLasFichasEnMesaParaCalculo.length === 0) {
-      // Si la mesa está vacía y se pide la posición del ancla inicial, devolver el centro.
-      // Esta condición es importante para el primer drop.
-      const anclaInicialPos = currentAnclaFicha?.posicionCuadricula || { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
-      if (targetFichaPos.fila === anclaInicialPos.fila && targetFichaPos.columna === anclaInicialPos.columna) {
-        return { x: DESIGN_TABLE_WIDTH_PX / 2, y: DESIGN_TABLE_HEIGHT_PX / 2 };
-      }
-      return null;
-    }
-
-    const calculatedPositions: { [key: string]: { x: number; y: number; fichaLogic: FichaEnMesaParaLogica; } } = {};
-    // El ancla lógica para el cálculo es la ficha ancla actual, o la primera ficha si solo hay una.
-    const anclaLogicaParaCalculo = currentAnclaFicha || (todasLasFichasEnMesaParaCalculo.length === 1 ? todasLasFichasEnMesaParaCalculo[0] : null);
-
-    if (anclaLogicaParaCalculo) {
-      calculatedPositions[`${anclaLogicaParaCalculo.posicionCuadricula.fila},${anclaLogicaParaCalculo.posicionCuadricula.columna}`] = {
-        x: DESIGN_TABLE_WIDTH_PX / 2,
-        y: DESIGN_TABLE_HEIGHT_PX / 2,
-        fichaLogic: anclaLogicaParaCalculo,
-      };
-    } else {
-      // Si no hay ancla lógica y hay múltiples fichas, algo está mal.
-      // O si la mesa está vacía y no se pide la posición del ancla inicial.
-      return null;
-    }
-    
-    let piecesToProcess = todasLasFichasEnMesaParaCalculo.filter(f =>
-        !calculatedPositions[`${f.posicionCuadricula.fila},${f.posicionCuadricula.columna}`]
-    );
-    let iterations = 0;
-    const maxIterations = todasLasFichasEnMesaParaCalculo.length * 2;
-
-    while (piecesToProcess.length > 0 && iterations < maxIterations) {
-        iterations++;
-        const processedInThisIterationIds: string[] = [];
-
-        piecesToProcess.forEach(fichaLogic => {
-            const possiblePrevPositions = [
-                { df: 0, dc: -1, dir: 'RightOfPrev' }, { df: 0, dc: 1,  dir: 'LeftOfPrev'  },
-                { df: -1, dc: 0, dir: 'BelowPrev'   }, { df: 1, dc: 0,  dir: 'AbovePrev'   },
-            ];
-
-            let connectedToCalculated: { x: number; y: number; fichaLogic: FichaEnMesaParaLogica } | undefined;
-            let connectionDirection = '';
-
-            for (const offset of possiblePrevPositions) {
-                const prevFila = fichaLogic.posicionCuadricula.fila + offset.df;
-                const prevCol = fichaLogic.posicionCuadricula.columna + offset.dc;
-                const prevPosKey = `${prevFila},${prevCol}`;
-                const calculatedPrev = calculatedPositions[prevPosKey];
-
-                if (calculatedPrev) {
-                    connectedToCalculated = calculatedPrev;
-                    connectionDirection = offset.dir;
-                    break;
-                }
-            }
-
-            if (connectedToCalculated) {
-                const ux = connectedToCalculated.x;
-                const uy = connectedToCalculated.y;
-                const uIsVertical = Math.abs(connectedToCalculated.fichaLogic.rotacion % 180) === 0;
-                const uActualWidth = uIsVertical ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
-                const uActualHeight = uIsVertical ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
-
-                const nIsVertical = Math.abs(fichaLogic.rotacion % 180) === 0;
-                const nActualWidth = nIsVertical ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
-                const nActualHeight = nIsVertical ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
-
-                let nx = 0, ny = 0;
-
-                switch (connectionDirection) {
-                    case 'RightOfPrev':
-                        nx = ux + uActualWidth / 2 + nActualWidth / 2;
-                        ny = uy;
-                        break;
-                    case 'LeftOfPrev':
-                        nx = ux - uActualWidth / 2 - nActualWidth / 2;
-                        ny = uy;
-                        break;
-                    case 'BelowPrev':
-                        nx = ux;
-                        ny = uy + uActualHeight / 2 + nActualHeight / 2;
-                        if (!uIsVertical && nIsVertical) { 
-                            if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 7 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && !(connectedToCalculated.fichaLogic.valorSuperior === connectedToCalculated.fichaLogic.valorInferior) && fichaLogic.posicionCuadricula.fila === 8 && fichaLogic.posicionCuadricula.columna === 1) {
-                                nx = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
-                            } else {
-                                nx = ux + uActualWidth / 2 - nActualWidth / 2;
-                            }
-                        } else if (uIsVertical && !nIsVertical) {
-                            nx = ux + uActualWidth / 2 - nActualWidth / 2;
-                             if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 8 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 9 && fichaLogic.posicionCuadricula.columna === 1) {
-                                nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
-                            }
-                        }
-                        break;
-                    case 'AbovePrev':
-                        nx = ux;
-                        ny = uy - uActualHeight / 2 - nActualHeight / 2;
-                        if (uIsVertical && !nIsVertical) { 
-                            if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 4 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 3 && fichaLogic.posicionCuadricula.columna === 1) {
-                                nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
-                            } else if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 2 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 1 && fichaLogic.posicionCuadricula.columna === 11) {
-                                nx = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
-                            }
-                        } else if (!uIsVertical && nIsVertical) { 
-                            if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 3 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 2 && fichaLogic.posicionCuadricula.columna === 11) {
-                                nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
-                            } else {
-                                nx = ux - uActualWidth / 2 + nActualWidth / 2;
-                            }
-                        }
-                        break;
-                }
-                if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 6 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && !uIsVertical &&
-                    fichaLogic.posicionCuadricula.fila === 7 && fichaLogic.posicionCuadricula.columna === 11 && nIsVertical) {
-                    nx = ux - DOMINO_HEIGHT_PX / 4;
-                }
-
-                calculatedPositions[`${fichaLogic.posicionCuadricula.fila},${fichaLogic.posicionCuadricula.columna}`] = { x: nx, y: ny, fichaLogic };
-                processedInThisIterationIds.push(fichaLogic.id);
-            }
-        });
-        piecesToProcess = piecesToProcess.filter(f => !processedInThisIterationIds.includes(f.id));
-        if(processedInThisIterationIds.length === 0 && piecesToProcess.length > 0) break;
-    }
-
-    const targetKey = `${targetFichaPos.fila},${targetFichaPos.columna}`;
-    if (calculatedPositions[targetKey]) {
-      return { x: calculatedPositions[targetKey].x, y: calculatedPositions[targetKey].y };
-    }
-    return null;
-  }, [posicionAnclaFija, anclaFicha, fichasIzquierda, fichasDerecha]); // Dependencias originales
+  // La función getDesignCanvasCoordinates ha sido movida a posicionamientoUtils.ts
+  // El useCallback que la envolvía ya no es necesario aquí si la función es importada directamente
+  // y se llama con los argumentos correctos.
+  // Si necesitas memoizar la *llamada* a getDesignCanvasCoordinates, puedes hacerlo con useMemo:
+  // const designCoordsForSpecificPurpose = useMemo(() => getDesignCanvasCoordinates(...), [...dependencies]);
 
   const getScreenCoordinatesOfConnectingEdge = useCallback((
     fichaPos: { fila: number; columna: number },
@@ -1065,7 +910,13 @@ export default function JuegoPage() {
     const currentIzquierda = currentRonda.fichasIzquierda;
     const currentDerecha = currentRonda.fichasDerecha;
 
-    const designCoords = getDesignCanvasCoordinates(fichaPos, currentAncla, currentIzquierda, currentDerecha);
+    // Llamar a la función de utilidad importada
+    const designCoords = getDesignCanvasCoordinates(
+      fichaPos, 
+      currentAncla, // Asegúrate que estos sean los correctos para el cálculo en este contexto
+      currentIzquierda, 
+      currentDerecha
+    );
     if (!designCoords) return null;
 
     let designEdgeX = designCoords.x;
@@ -1085,7 +936,15 @@ export default function JuegoPage() {
     const screenY = (designEdgeY * mesaDims.scale + mesaDims.translateY) + mesaRect.top;
 
     return { x: screenX, y: screenY };
-  }, [getDesignCanvasCoordinates, mesaDims]); // estadoMesaClienteRef es una ref, no necesita estar en dependencias
+  }, [mesaDims]); 
+  // getDesignCanvasCoordinates ya no es una dependencia directa del useCallback porque es una importación estable.
+  // Las dependencias de getDesignCanvasCoordinates (anclaFicha, fichasIzquierda, fichasDerecha del estado)
+  // se pasan como argumentos y si cambian, la función getScreenCoordinatesOfConnectingEdge se recalculará
+  // porque estadoMesaClienteRef.current cambiará (aunque no esté en el array de dependencias,
+  // su cambio provocará un re-render que re-evaluará el useCallback si sus dependencias cambian).
+  // Para mayor corrección, si los valores de currentRonda.anclaFicha, .fichasIzquierda, .fichasDerecha
+  // fueran dependencias directas de este useCallback, sería más explícito, pero dado que se leen de una ref
+  // dentro de la función, el comportamiento actual es que se usan los valores más recientes en cada ejecución.
 
   const handleFichaDragEnd = (
     fichaId: string,
@@ -1148,26 +1007,10 @@ export default function JuegoPage() {
     }
   };
 
-  let fichaSeleccionadaActual: FichaDomino | undefined;
-  if (selectedFichaInfo && miIdJugadorSocketRef.current) { 
-    const manoOrigen = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current);
-    if (manoOrigen) {
-      // console.log('[FICHA_SELECCIONADA_ACTUAL_DEBUG] manoOrigen.fichas:', manoOrigen.fichas.map(f => f.id), 'buscando idFicha:', selectedFichaInfo.idFicha);
-      const foundFicha = manoOrigen.fichas.find(f => f.id === selectedFichaInfo.idFicha);
-      // console.log('[FICHA_SELECCIONADA_ACTUAL_DEBUG] foundFicha:', foundFicha ? foundFicha.id : 'undefined');
-      fichaSeleccionadaActual = foundFicha;
-    }
-  } else {
-    fichaSeleccionadaActual = undefined;
-  }
-
   if (!playerAuthReady || !estadoMesaCliente) { 
     return <div className="flex items-center justify-center min-h-screen">Cargando datos de la mesa...</div>;
   }
 
-  // if (mano1 && mano1.idJugador === miIdJugadorSocketRef.current) {
-  //   console.log(`[JuegoPage->ManoJugadorComponent] Passing fichaSeleccionada prop: ${selectedFichaInfo?.idFicha} to mano1 (local player)`);
-  // }
 
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">

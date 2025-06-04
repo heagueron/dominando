@@ -1,6 +1,15 @@
 // /home/heagueron/projects/dominando/src/utils/posicionamientoUtils.ts
 import { FichaDomino, FichaEnMesaParaLogica } from './dominoUtils';
 
+// /home/heagueron/jmu/dominando/src/utils/posicionamientoUtils.ts
+import {
+  DESIGN_TABLE_WIDTH_PX,
+  DESIGN_TABLE_HEIGHT_PX,
+  DOMINO_WIDTH_PX,
+  DOMINO_HEIGHT_PX
+} from '@/utils/dominoConstants';
+
+
 // Constantes de posicionamiento
 export const FILA_ANCLA_INICIAL = 5;
 export const COLUMNA_BORDE_IZQUIERDO = 1;
@@ -231,3 +240,154 @@ export const calcularPosicionRotacionSiguienteFicha = (
   
     return { nuevaFichaAncla, nuevosExtremos, nuevaInfoExtremos };
   };
+
+/**
+ * Calcula las coordenadas (x, y) en el lienzo de diseño para una ficha dada su posición en la cuadrícula lógica,
+ * el estado actual de la ficha ancla y las cadenas de fichas a izquierda y derecha.
+ * Esta función es crucial para traducir la lógica de la cuadrícula a posiciones visuales.
+ * @param targetFichaPos La posición en la cuadrícula de la ficha para la cual se calculan las coordenadas.
+ * @param currentAnclaFicha La ficha ancla actual en la mesa, o null si no hay.
+ * @param currentFichasIzquierda Array de fichas a la izquierda del ancla.
+ * @param currentFichasDerecha Array de fichas a la derecha del ancla.
+ * @returns Un objeto {x, y} con las coordenadas en el lienzo de diseño, o null si no se pueden calcular.
+ */
+export const getDesignCanvasCoordinates = (
+  targetFichaPos: { fila: number; columna: number },
+  currentAnclaFicha: FichaEnMesaParaLogica | null,
+  currentFichasIzquierda: FichaEnMesaParaLogica[],
+  currentFichasDerecha: FichaEnMesaParaLogica[]
+): { x: number; y: number } | null => {
+  const todasLasFichasEnMesaParaCalculo = [
+    ...currentFichasIzquierda.slice().reverse(),
+    ...(currentAnclaFicha ? [currentAnclaFicha] : []),
+    ...currentFichasDerecha,
+  ];
+
+  if (todasLasFichasEnMesaParaCalculo.length === 0) {
+    const anclaInicialPos = currentAnclaFicha?.posicionCuadricula || { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
+    if (targetFichaPos.fila === anclaInicialPos.fila && targetFichaPos.columna === anclaInicialPos.columna) {
+      return { x: DESIGN_TABLE_WIDTH_PX / 2, y: DESIGN_TABLE_HEIGHT_PX / 2 };
+    }
+    return null;
+  }
+
+  const calculatedPositions: { [key: string]: { x: number; y: number; fichaLogic: FichaEnMesaParaLogica; } } = {};
+  const anclaLogicaParaCalculo = currentAnclaFicha || (todasLasFichasEnMesaParaCalculo.length === 1 ? todasLasFichasEnMesaParaCalculo[0] : null);
+
+  if (anclaLogicaParaCalculo) {
+    calculatedPositions[`${anclaLogicaParaCalculo.posicionCuadricula.fila},${anclaLogicaParaCalculo.posicionCuadricula.columna}`] = {
+      x: DESIGN_TABLE_WIDTH_PX / 2,
+      y: DESIGN_TABLE_HEIGHT_PX / 2,
+      fichaLogic: anclaLogicaParaCalculo,
+    };
+  } else {
+    return null;
+  }
+  
+  let piecesToProcess = todasLasFichasEnMesaParaCalculo.filter(f =>
+      !calculatedPositions[`${f.posicionCuadricula.fila},${f.posicionCuadricula.columna}`]
+  );
+  let iterations = 0;
+  const maxIterations = todasLasFichasEnMesaParaCalculo.length * 2;
+
+  while (piecesToProcess.length > 0 && iterations < maxIterations) {
+      iterations++;
+      const processedInThisIterationIds: string[] = [];
+
+      piecesToProcess.forEach(fichaLogic => {
+          const possiblePrevPositions = [
+              { df: 0, dc: -1, dir: 'RightOfPrev' }, { df: 0, dc: 1,  dir: 'LeftOfPrev'  },
+              { df: -1, dc: 0, dir: 'BelowPrev'   }, { df: 1, dc: 0,  dir: 'AbovePrev'   },
+          ];
+
+          let connectedToCalculated: { x: number; y: number; fichaLogic: FichaEnMesaParaLogica } | undefined;
+          let connectionDirection = '';
+
+          for (const offset of possiblePrevPositions) {
+              const prevFila = fichaLogic.posicionCuadricula.fila + offset.df;
+              const prevCol = fichaLogic.posicionCuadricula.columna + offset.dc;
+              const prevPosKey = `${prevFila},${prevCol}`;
+              const calculatedPrev = calculatedPositions[prevPosKey];
+
+              if (calculatedPrev) {
+                  connectedToCalculated = calculatedPrev;
+                  connectionDirection = offset.dir;
+                  break;
+              }
+          }
+
+          if (connectedToCalculated) {
+              const ux = connectedToCalculated.x;
+              const uy = connectedToCalculated.y;
+              const uIsVertical = Math.abs(connectedToCalculated.fichaLogic.rotacion % 180) === 0;
+              const uActualWidth = uIsVertical ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+              const uActualHeight = uIsVertical ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+
+              const nIsVertical = Math.abs(fichaLogic.rotacion % 180) === 0;
+              const nActualWidth = nIsVertical ? DOMINO_WIDTH_PX : DOMINO_HEIGHT_PX;
+              const nActualHeight = nIsVertical ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
+
+              let nx = 0, ny = 0;
+
+              switch (connectionDirection) {
+                  case 'RightOfPrev':
+                      nx = ux + uActualWidth / 2 + nActualWidth / 2;
+                      ny = uy;
+                      break;
+                  case 'LeftOfPrev':
+                      nx = ux - uActualWidth / 2 - nActualWidth / 2;
+                      ny = uy;
+                      break;
+                  case 'BelowPrev':
+                      nx = ux;
+                      ny = uy + uActualHeight / 2 + nActualHeight / 2;
+                      if (!uIsVertical && nIsVertical) { 
+                          if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 7 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && !(connectedToCalculated.fichaLogic.valorSuperior === connectedToCalculated.fichaLogic.valorInferior) && fichaLogic.posicionCuadricula.fila === 8 && fichaLogic.posicionCuadricula.columna === 1) {
+                              nx = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                          } else {
+                              nx = ux + uActualWidth / 2 - nActualWidth / 2;
+                          }
+                      } else if (uIsVertical && !nIsVertical) {
+                          nx = ux + uActualWidth / 2 - nActualWidth / 2;
+                           if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 8 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 9 && fichaLogic.posicionCuadricula.columna === 1) {
+                              nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                          }
+                      }
+                      break;
+                  case 'AbovePrev':
+                      nx = ux;
+                      ny = uy - uActualHeight / 2 - nActualHeight / 2;
+                      if (uIsVertical && !nIsVertical) { 
+                          if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 4 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 3 && fichaLogic.posicionCuadricula.columna === 1) {
+                              nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                          } else if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 2 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 1 && fichaLogic.posicionCuadricula.columna === 11) {
+                              nx = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                          }
+                      } else if (!uIsVertical && nIsVertical) { 
+                          if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 3 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 2 && fichaLogic.posicionCuadricula.columna === 11) {
+                              nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                          } else {
+                              nx = ux - uActualWidth / 2 + nActualWidth / 2;
+                          }
+                      }
+                      break;
+              }
+              if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 6 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && !uIsVertical &&
+                  fichaLogic.posicionCuadricula.fila === 7 && fichaLogic.posicionCuadricula.columna === 11 && nIsVertical) {
+                  nx = ux - DOMINO_HEIGHT_PX / 4;
+              }
+
+              calculatedPositions[`${fichaLogic.posicionCuadricula.fila},${fichaLogic.posicionCuadricula.columna}`] = { x: nx, y: ny, fichaLogic };
+              processedInThisIterationIds.push(fichaLogic.id);
+          }
+      });
+      piecesToProcess = piecesToProcess.filter(f => !processedInThisIterationIds.includes(f.id));
+      if(processedInThisIterationIds.length === 0 && piecesToProcess.length > 0) break;
+  }
+
+  const targetKey = `${targetFichaPos.fila},${targetFichaPos.columna}`;
+  if (calculatedPositions[targetKey]) {
+    return { x: calculatedPositions[targetKey].x, y: calculatedPositions[targetKey].y };
+  }
+  return null;
+};
