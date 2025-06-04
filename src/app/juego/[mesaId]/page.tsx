@@ -29,17 +29,31 @@ import DominoModals from '@/components/juego/DominoModals'; // Importar el nuevo
 // Importar tipos desde el nuevo archivo centralizado
 import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, JugadorPublicoInfoCliente, EstadoPartidaPublicoCliente } from '@/types/domino';
 import { formatPlayerNameForTitle } from '@/utils/stringUtils'; // Importar la función movida
+import { useDominoStore } from '@/store/dominoStore'; // Importar el store de Zustand
 
 const DURACION_TURNO_SEGUNDOS = 15;
 const TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE = 10000; // 10 segundos
 
 
 export default function JuegoPage() {
-  const [estadoMesaCliente, setEstadoMesaCliente] = useState<EstadoMesaPublicoCliente | null>(null);
-  const miIdJugadorSocketRef = useRef<string | null>(null);
-  const [miIdJugadorSocket, setMiIdJugadorSocket] = useState<string | null>(null);
+  // Leer estadoMesaCliente del store de Zustand
+  const estadoMesaCliente = useDominoStore((state) => state.estadoMesaCliente);
+  // Obtener la acción para actualizar estadoMesaCliente del store
+  const setEstadoMesaClienteStore = useDominoStore((state) => state.setEstadoMesaCliente);
 
-  const [manosJugadores, setManosJugadores] = useState<JugadorCliente[]>([]);
+  // Leer estados de jugador y mano del store de Zustand
+  const miIdJugadorSocketFromStore = useDominoStore((state) => state.miIdJugadorSocket);
+  const manosJugadoresFromStore = useDominoStore((state) => state.manosJugadores);
+  const playableFichaIdsFromStore = useDominoStore((state) => state.playableFichaIds);
+
+  // Obtener acciones para actualizar jugador y mano del store
+  const setMiIdJugadorSocketStore = useDominoStore((state) => state.setMiIdJugadorSocket);
+  const setManosJugadoresStore = useDominoStore((state) => state.setManosJugadores);
+  const setPlayableFichaIdsStore = useDominoStore((state) => state.setPlayableFichaIds);
+
+  const miIdJugadorSocketRef = useRef<string | null>(null);
+  // El estado local miIdJugadorSocket ya no es necesario, se usará miIdJugadorSocketRef y el del store.
+
   const [anclaFicha, setAnclaFicha] = useState<FichaEnMesaParaLogica | null>(null);
   const [fichasIzquierda, setFichasIzquierda] = useState<FichaEnMesaParaLogica[]>([]);
   const [fichasDerecha, setFichasDerecha] = useState<FichaEnMesaParaLogica[]>([]);
@@ -50,7 +64,6 @@ export default function JuegoPage() {
   const [duracionTurnoActualConfigurada, setDuracionTurnoActualConfigurada] = useState<number>(DURACION_TURNO_SEGUNDOS);
   const [viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
   const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 1, translateX: 0, translateY: 0 });
-  const [playableFichaIds, setPlayableFichaIds] = useState<string[]>([]);
   const [showRotateMessage, setShowRotateMessage] = useState(false);
   const [resultadoRonda, setResultadoRonda] = useState<{
     ganadorId?: string;
@@ -92,10 +105,17 @@ export default function JuegoPage() {
   const prevPropsForSocketRef = useRef<{ userId: string | null, nombre: string | null, autoConnect: boolean } | null>(null);
   const initialAuthReportedRef = useRef(false);
 
-  const estadoMesaClienteRef = useRef(estadoMesaCliente);
+  // Inicializar la ref con el valor actual del store.
+  const estadoMesaClienteRef = useRef(useDominoStore.getState().estadoMesaCliente);
   useEffect(() => {
     estadoMesaClienteRef.current = estadoMesaCliente;
   }, [estadoMesaCliente]);
+
+  // Sincronizar la ref miIdJugadorSocketRef con el valor del store si es necesario,
+  // aunque se establece principalmente en handleTeUnisteAMesa.
+  useEffect(() => {
+    miIdJugadorSocketRef.current = miIdJugadorSocketFromStore;
+  }, [miIdJugadorSocketFromStore]);
 
   useEffect(() => {
     // Inicializar el reproductor de audio una vez
@@ -259,7 +279,7 @@ export default function JuegoPage() {
     isRoundActive: isRoundActiveForHandLogic,
     isMyTurnTimerJustExpired: isMyTurnTimerJustExpired,
     isAutoPasoForMe: isAutoPasoForMeForHandLogic,
-    currentPlayableFichaIds: playableFichaIds,
+    currentPlayableFichaIds: playableFichaIdsFromStore, // Usar el valor del store
   });
 
   const stableEmitEvent = useCallback(emitEvent, [emitEvent]); 
@@ -273,8 +293,8 @@ export default function JuegoPage() {
         authoritativeMesaIdRef.current = payload.mesaId;
       }
       miIdJugadorSocketRef.current = payload.tuJugadorIdEnPartida;
-      setMiIdJugadorSocket(payload.tuJugadorIdEnPartida);
-      setEstadoMesaCliente(payload.estadoMesa);
+      setMiIdJugadorSocketStore(payload.tuJugadorIdEnPartida); // Usar la acción del store
+      setEstadoMesaClienteStore(payload.estadoMesa); // Usar la acción del store
 
     if (socket?.connected && payload.tuJugadorIdEnPartida && authoritativeMesaIdRef.current) {
       console.log(`[SOCKET] Cliente ${payload.tuJugadorIdEnPartida} procesó 'teUnisteAMesa'. Emitiendo 'cliente:listoParaMano' para mesa ${authoritativeMesaIdRef.current}`);
@@ -289,19 +309,19 @@ export default function JuegoPage() {
         mesaId: authoritativeMesaIdRef.current
       });
     }
-  }, [setMiIdJugadorSocket, setEstadoMesaCliente, stableEmitEvent, socket]);
+  }, [setMiIdJugadorSocketStore, setEstadoMesaClienteStore, stableEmitEvent, socket]);
 
   const handleEstadoMesaActualizado = useCallback((payload: { estadoMesa: EstadoMesaPublicoCliente }) => {
     //console.log('[SOCKET] Evento servidor:estadoMesaActualizado recibido para mesaId:', payload.estadoMesa.mesaId);
-    setEstadoMesaCliente(payload.estadoMesa);
-  }, [setEstadoMesaCliente]);
+    setEstadoMesaClienteStore(payload.estadoMesa); // Usar la acción del store
+  }, [setEstadoMesaClienteStore]);
 
   const handleTuMano = useCallback((payload: TuManoPayloadCliente) => {
     console.log(`[SOCKET] Evento servidor:tuMano recibido. Payload:`, payload);
     if (miIdJugadorSocketRef.current) {
       const jugadorIdLocal = miIdJugadorSocketRef.current;
       const currentEstadoMesa = estadoMesaClienteRef.current; 
-      setManosJugadores(prevManos => {
+      setManosJugadoresStore((prevManos: JugadorCliente[]) => { // Usar la acción del store y tipar prevManos
         const manoExistenteIdx = prevManos.findIndex(m => m.idJugador === jugadorIdLocal);
         if (manoExistenteIdx !== -1) {
           const nuevasManos = [...prevManos];
@@ -326,12 +346,12 @@ export default function JuegoPage() {
         }
       });
     }
-  }, [setManosJugadores]); 
+  }, [setManosJugadoresStore]); 
 
   const handleTuManoActualizada = useCallback((payload: TuManoPayloadCliente) => {
     console.log(`[SOCKET] Evento servidor:tuManoActualizada recibido. Payload:`, payload);
     if (miIdJugadorSocketRef.current) {
-      setManosJugadores(prevManos =>
+      setManosJugadoresStore(prevManos => // Usar la acción del store
         prevManos.map(mano =>
           mano.idJugador === miIdJugadorSocketRef.current
             ? { ...mano, fichas: payload.fichas, numFichas: payload.fichas.length }
@@ -339,21 +359,21 @@ export default function JuegoPage() {
         )
       );
     }
-  }, [setManosJugadores]); 
+  }, [setManosJugadoresStore]); 
   
   const handleTuTurno = useCallback((payload: TuTurnoPayloadCliente) => {
     //console.log('[SOCKET] Evento servidor:tuTurno recibido:', payload);
     if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
-      setPlayableFichaIds(payload.playableFichaIds);
+      setPlayableFichaIdsStore(payload.playableFichaIds); // Usar la acción del store
       if (payload.duracionTurnoTotal) {
         setDuracionTurnoActualConfigurada(payload.duracionTurnoTotal);
       }
       setIsMyTurnTimerJustExpired(false);
       setManoVersion(prev => prev + 1);
     } else {
-      setPlayableFichaIds([]);
+      setPlayableFichaIdsStore([]); // Usar la acción del store
     }
-  }, [setPlayableFichaIds, setDuracionTurnoActualConfigurada, setIsMyTurnTimerJustExpired, setManoVersion]);
+  }, [setPlayableFichaIdsStore, setDuracionTurnoActualConfigurada, setIsMyTurnTimerJustExpired, setManoVersion]);
 
   const handleFinDeRonda = useCallback((payload: FinDeRondaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDeRonda recibido:', payload);
@@ -408,7 +428,7 @@ export default function JuegoPage() {
 
     // Limpiar estados de juego activo
     clearFichaSelection();
-    setPlayableFichaIds([]);
+    setPlayableFichaIdsStore([]); // Usar la acción del store
     limpiarIntervaloTimerRef.current();
     setAutoPaseInfoCliente(null);
     setIsMyTurnTimerJustExpired(false);
@@ -540,7 +560,7 @@ export default function JuegoPage() {
       setResultadoRonda(null); // Limpiar resultadoRonda explícitamente
       limpiarIntervaloTimer();
       setTiempoTurnoRestante(null);
-      setPlayableFichaIds([]); // Importante para que no se muestren como jugables fichas de la mano anterior
+      setPlayableFichaIdsStore([]); // Usar la acción del store
       if (fichaAnimandose) setFichaAnimandose(null); // Cancelar animación si la había
       // No es necesario limpiar manosJugadores aquí, se actualizará por su propio effect o por servidor:tuMano
 
@@ -678,9 +698,9 @@ export default function JuegoPage() {
 
     // Si no es mi turno, o la ronda no está en progreso, o se está mostrando el modal de fin de ronda,
     // y todavía hay fichas marcadas como jugables, limpiarlas.
-    if ((!esMiTurno || !rondaEnProgreso || finRondaInfoVisible) && playableFichaIds.length > 0) {
-      // console.log(`[EFFECT_SYNC_PLAYABLE_FICHAS] Condiciones para limpiar: !esMiTurno=${!esMiTurno}, !rondaEnProgreso=${!rondaEnProgreso}, finRondaInfoVisible=${finRondaInfoVisible}. Limpiando playableFichaIds.`);
-      setPlayableFichaIds([]);
+    if ((!esMiTurno || !rondaEnProgreso || finRondaInfoVisible) && playableFichaIdsFromStore.length > 0) {
+      // console.log(`[EFFECT_SYNC_PLAYABLE_FICHAS] Condiciones para limpiar: !esMiTurno=${!esMiTurno}, !rondaEnProgreso=${!rondaEnProgreso}, finRondaInfoVisible=${finRondaInfoVisible}. Limpiando playableFichaIdsFromStore.`);
+      setPlayableFichaIdsStore([]); // Usar la acción del store
     }
     // Nota: El poblar playableFichaIds cuando SÍ es mi turno lo maneja el evento 'servidor:tuTurno'.
     // Este efecto es principalmente una salvaguarda para limpiar.
@@ -688,8 +708,8 @@ export default function JuegoPage() {
     estadoMesaCliente?.partidaActual?.rondaActual?.currentPlayerId,
     estadoMesaCliente?.partidaActual?.rondaActual?.estadoActual,
     finRondaInfoVisible,
-    // No se incluye playableFichaIds en las dependencias para evitar bucles,
-    // la condición playableFichaIds.length > 0 previene la llamada a setPlayableFichaIds si ya está vacío.
+    playableFichaIdsFromStore.length, // Depender de la longitud para re-evaluar si cambia
+    setPlayableFichaIdsStore // Acción del store es estable
   ]);
 
   // Actualizar `resultadoRonda` para el modal basado en `finRondaData` cuando `finRondaInfoVisible`
@@ -714,15 +734,14 @@ export default function JuegoPage() {
   // useEffect específico para actualizar manosJugadores (para la UI)
   useEffect(() => {
     if (!estadoMesaCliente?.jugadores) {
-      if (manosJugadores.length > 0) {
-         setManosJugadores([]);
+      if (manosJugadoresFromStore.length > 0) { // Usar el valor del store
+         setManosJugadoresStore([]); // Usar la acción del store
       }
       return;
     }
     
     const jugadorIdLocal = miIdJugadorSocketRef.current;
-
-    setManosJugadores(prevManos => {
+    setManosJugadoresStore(prevManos => { // Usar la acción del store
       const prevManosMap = new Map(prevManos.map(p => [p.idJugador, p]));
       let hasChanged = false;
 
@@ -793,7 +812,11 @@ export default function JuegoPage() {
       return prevManos; 
     });
 
-  }, [estadoMesaCliente?.jugadores, estadoMesaCliente?.partidaActual?.rondaActual?.jugadoresRonda]);
+  }, [
+    estadoMesaCliente?.jugadores, 
+    estadoMesaCliente?.partidaActual?.rondaActual?.jugadoresRonda, 
+    setManosJugadoresStore // Acción del store es estable
+  ]);
 
 
   useEffect(() => {
@@ -839,12 +862,11 @@ export default function JuegoPage() {
 
     limpiarIntervaloTimer();
     setTiempoTurnoRestante(null);
-    setPlayableFichaIds([]); // Limpiar fichas jugables localmente de inmediato
+    setPlayableFichaIdsStore([]); // Limpiar fichas jugables localmente de inmediato usando el store
 
     const idFichaAJugar = fichaIdParam || selectedFichaInfo?.idFicha; 
     if (!idFichaAJugar) return;
-
-    const fichaParaJugar = manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.find(f => f.id === idFichaAJugar);
+    const fichaParaJugar = manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.find(f => f.id === idFichaAJugar); // Usar el valor del store
     if (!fichaParaJugar || !emitEvent) return;
 
     if (!rondaActual.anclaFicha) {
@@ -1033,7 +1055,7 @@ export default function JuegoPage() {
         
 
         {/* Renderizar la mano del jugador local */}
-        {miIdJugadorSocketRef.current && manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current) && (
+        {miIdJugadorSocketRef.current && manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current) && ( // Usar manosJugadoresFromStore
            <motion.div 
             className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1" // Aumentado z-index
             initial={{ y: 150 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }}
@@ -1041,14 +1063,14 @@ export default function JuegoPage() {
             <div className="w-full"></div> {/* Espacio para info izquierda (si existiera) */}
             <div className="flex justify-center">
               <ManoJugadorComponent
-                key={`mano-local-${manoVersion}-${manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.length}-${selectedFichaInfo?.idFicha || 'no-sel'}`}
-                fichas={manosJugadores.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas || []}
+                key={`mano-local-${manoVersion}-${manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.length}-${selectedFichaInfo?.idFicha || 'no-sel'}`}
+                fichas={manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas || []} // Usar manosJugadoresFromStore
                 fichaSeleccionada={selectedFichaInfo?.idFicha} 
                 onFichaClick={selectFicha} 
                 idJugadorMano={miIdJugadorSocketRef.current}
                 layoutDirection="row"
                 isLocalPlayer={true}
-                playableFichaIds={playableFichaIds}
+                playableFichaIds={playableFichaIdsFromStore} // Usar playableFichaIdsFromStore
                 onFichaDragEnd={handleFichaDragEnd}
               />
             </div>
@@ -1060,7 +1082,7 @@ export default function JuegoPage() {
 
       {/* Renderizar la información de los jugadores (incluido el local) */}
       <PlayerInfoLayout
-        manosJugadores={manosJugadores}
+        manosJugadores={manosJugadoresFromStore} // Usar manosJugadoresFromStore
         miIdJugadorSocket={miIdJugadorSocketRef.current}
         estadoMesaCliente={estadoMesaCliente}
         rondaActualParaUI={rondaActualParaUI}
