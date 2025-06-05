@@ -24,7 +24,7 @@ export interface UsePlayerHandLogicProps {
   currentPlayableFichaIds: string[];
 }
 
-interface UsePlayerHandLogicReturn {
+export interface UsePlayerHandLogicReturn {
   /** Información de la ficha actualmente seleccionada, o undefined si no hay ninguna. */
   selectedFichaInfo: FichaSeleccionadaInfo | undefined;
   /** Función para intentar seleccionar una ficha. */
