@@ -36,7 +36,7 @@ export default function LobbyPage() {
   useEffect(() => {
     // Este efecto debe ejecutarse solo una vez para configurar el usuario.
     console.log('[LOBBY_USER_INIT] Inicializando usuario...');
-      let idFromStorage = sessionStorage.getItem('jmu_userId');
+      const idFromStorage = sessionStorage.getItem('jmu_userId');
       console.log('[LOBBY_USER_INIT] sessionStorage.getItem("jmu_userId") devolvió:', idFromStorage);
       
       let currentUserId = idFromStorage;

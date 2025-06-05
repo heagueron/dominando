@@ -1,6 +1,6 @@
 // /home/heagueron/jmu/dominando/src/hooks/__tests__/usePlayerHandLogic.test.ts
 import { renderHook, act } from '@testing-library/react';
-import { usePlayerHandLogic, UsePlayerHandLogicProps, FichaSeleccionadaInfo } from '../usePlayerHandLogic';
+import { usePlayerHandLogic, UsePlayerHandLogicProps} from '../usePlayerHandLogic';
 
 describe('usePlayerHandLogic', () => {
   let defaultProps: UsePlayerHandLogicProps;

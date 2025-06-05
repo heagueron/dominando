@@ -4,19 +4,19 @@
 // import { PanInfo } from 'framer-motion'; // Ya no se usa aquí
 import { motion } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
-import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePlayerHandLogic } from '@/hooks/usePlayerHandLogic'; // UsePlayerHandLogicReturn ya no se usa aquí
 import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador'; // Mantener esta importación
 import {
- FichaDomino as FichaDominoType, // Renombrar para evitar conflicto con la interfaz local
- FichaDomino,
+ //FichaDomino as FichaDominoType, // Renombrar para evitar conflicto con la interfaz local
+ //FichaDomino,
  FichaEnMesaParaLogica,
  // determinarJugadaCliente, // Ya no se usa aquí
 } from '@/utils/dominoUtils';
 
-import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
+//import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
 import {
   FILA_ANCLA_INICIAL,
   COLUMNA_ANCLA_INICIAL,
@@ -27,7 +27,8 @@ import PlayerInfoLayout from '@/components/juego/PlayerInfoLayout'; // Importar 
 import DominoModals from '@/components/juego/DominoModals'; // Importar el nuevo componente de modales (ya actualizado)
 
 // Importar tipos desde el nuevo archivo centralizado
-import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, JugadorPublicoInfoCliente, EstadoPartidaPublicoCliente } from '@/types/domino';
+//import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, JugadorPublicoInfoCliente, EstadoPartidaPublicoCliente } from '@/types/domino';
+import { JugadorCliente, EstadoMesaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado} from '@/types/domino';
 // EstadoRondaPublicoCliente ya no se usa directamente aquí para tipar estados locales
 import { formatPlayerNameForTitle } from '@/utils/stringUtils'; // Importar la función movida
 import { useDominoStore } from '@/store/dominoStore'; // Importar el store de Zustand

@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client'; // Socket type is used for mocks
 
 // --- Mock socket.io-client ---
 // Store the mock socket instance to control its behavior
-var mockSocketInstance: { // Cambiado a var para evitar TDZ en la asignación desde la fábrica del mock
+let mockSocketInstance: { // Cambiado a var para evitar TDZ en la asignación desde la fábrica del mock
   id: string;
   connected: boolean;
   on: jest.Mock;

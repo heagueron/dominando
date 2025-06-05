@@ -8,6 +8,6 @@
  */
 export const formatPlayerNameForTitle = (name: string | null | undefined): string => {
     if (!name) return "";
-    let processedName = name.startsWith("Jugador ") ? name.substring("Jugador ".length) : name;
+    const processedName = name.startsWith("Jugador ") ? name.substring("Jugador ".length) : name;
     return processedName.slice(-4);
   };

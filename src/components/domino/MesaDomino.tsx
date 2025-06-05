@@ -243,7 +243,7 @@ const MesaDominoComponent: React.FC<MesaDominoProps & { forwardedRef: React.Ref<
         const mesaElement = currentMesaRef;
         const currentMesaWidth = mesaElement.offsetWidth;
         const currentMesaHeight = mesaElement.offsetHeight; 
-        let currentScaleFactor = currentMesaWidth / DESIGN_TABLE_WIDTH_PX; 
+        const currentScaleFactor = currentMesaWidth / DESIGN_TABLE_WIDTH_PX; 
 
         let translateX = 0;
         let translateY = 0;
