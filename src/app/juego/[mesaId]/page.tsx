@@ -54,11 +54,6 @@ export default function JuegoPage() {
   const miIdJugadorSocketRef = useRef<string | null>(null);
   // El estado local miIdJugadorSocket ya no es necesario, se usará miIdJugadorSocketRef y el del store.
 
-  const [anclaFicha, setAnclaFicha] = useState<FichaEnMesaParaLogica | null>(null);
-  const [fichasIzquierda, setFichasIzquierda] = useState<FichaEnMesaParaLogica[]>([]);
-  const [fichasDerecha, setFichasDerecha] = useState<FichaEnMesaParaLogica[]>([]);
-  const [extremos, setExtremos] = useState<{ izquierda: number | null, derecha: number | null }>({ izquierda: null, derecha: null });
-  const [infoExtremos, setInfoExtremos] = useState<any>({ izquierda: null, derecha: null });
   const [tiempoTurnoRestante, setTiempoTurnoRestante] = useState<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [duracionTurnoActualConfigurada, setDuracionTurnoActualConfigurada] = useState<number>(DURACION_TURNO_SEGUNDOS);
@@ -494,12 +489,6 @@ export default function JuegoPage() {
   useEffect(() => {
     if (!estadoMesaCliente) {
       console.log('[EFFECT_ESTADO_MESA] estadoMesaCliente is null. Cleaning up all states.');
-      // Estado inicial o desconexión, limpiar todo
-      setAnclaFicha(null);
-      setFichasIzquierda([]);
-      setFichasDerecha([]);
-      setExtremos({ izquierda: null, derecha: null });
-      setInfoExtremos({ izquierda: null, derecha: null });
       setAutoPaseInfoCliente(null);
       setResultadoRonda(null); // Limpiar resultadoRonda explícitamente
       setFinRondaInfoVisible(false); // Asegurar que no se muestre info de fin de ronda
@@ -551,11 +540,6 @@ export default function JuegoPage() {
         finRondaDisplayTimerRef.current = null;
       }
       // Limpiar estados de juego activo, ya que estamos en transición
-      setAnclaFicha(null);
-      setFichasIzquierda([]);
-      setFichasDerecha([]);
-      setExtremos({ izquierda: null, derecha: null });
-      setInfoExtremos({ izquierda: null, derecha: null });
       setAutoPaseInfoCliente(null);
       setResultadoRonda(null); // Limpiar resultadoRonda explícitamente
       limpiarIntervaloTimer();
@@ -572,11 +556,6 @@ export default function JuegoPage() {
     // 2. Lógica para actualizar UI basada en el estado actual, SOLO si no estamos mostrando finRondaInfoVisible NI mensajeTransicion
     if (!finRondaInfoVisible && !mensajeTransicion) {
       if (rondaActual) {
-        setAnclaFicha(rondaActual.anclaFicha);
-        setFichasIzquierda(rondaActual.fichasIzquierda);
-        setFichasDerecha(rondaActual.fichasDerecha);
-        setExtremos(rondaActual.extremos);
-        setInfoExtremos(rondaActual.infoExtremos);
         setAutoPaseInfoCliente(rondaActual.autoPaseInfo || null);
 
         if (rondaActual.duracionTurnoActual) {
@@ -656,11 +635,6 @@ export default function JuegoPage() {
       } else {
         console.log('[EFFECT_ESTADO_MESA] No active ronda and not showing end-of-round info. Clearing game states.');
         // No hay ronda activa Y no estamos mostrando info de fin de ronda
-        setAnclaFicha(null);
-        setFichasIzquierda([]);
-        setFichasDerecha([]);
-        setExtremos({ izquierda: null, derecha: null });
-        setInfoExtremos({ izquierda: null, derecha: null });
         setAutoPaseInfoCliente(null);
         setResultadoRonda(null);
         limpiarIntervaloTimer();

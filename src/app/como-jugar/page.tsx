@@ -45,7 +45,7 @@ export default function ComoJugarPage() {
               <li>El primer jugador coloca una ficha en el centro de la mesa.</li>
               <li>Los jugadores se turnan en el sentido de las agujas del reloj.</li>
               <li>Cada jugador debe colocar una ficha que coincida con uno de los extremos abiertos en la mesa.</li>
-              <li>Si un jugador no puede jugar, debe "pasar" su turno.</li>
+              <li>Si un jugador no puede jugar, debe pasar (ceder) su turno.</li>
               <li>El juego continúa hasta que un jugador coloca todas sus fichas o hasta que el juego se bloquea (nadie puede jugar).</li>
             </ol>
           </section>

@@ -84,8 +84,8 @@ export const calcularPosicionRotacionSiguienteFicha = (
       }
       haSidoProcesadoPorLogicaDeGiroEspecial = true;
     }
-    else if (extremoElegido === 'derecha' && uPos.fila === 7 && uPos.columna > 1) {
-      nuevaPosicion = { fila: 7, columna: uPos.columna - 1 };
+    else if (extremoElegido === 'derecha' && uPos.fila === 7 && uPos.columna > 2) { // Cambiar la condición de giro de > 1 a > 2
+      nuevaPosicion = { fila: 7, columna: uPos.columna - 1 }; // La nueva ficha se coloca a la izquierda en la misma fila
       if (esDoble) {
         rotacionCalculada = 0;
       } else {
@@ -93,8 +93,8 @@ export const calcularPosicionRotacionSiguienteFicha = (
       }
       haSidoProcesadoPorLogicaDeGiroEspecial = true;
     }
-    else if (extremoElegido === 'derecha' && uPos.fila === 7 && uPos.columna === 1) {
-      nuevaPosicion = { fila: 8, columna: 1 };
+    else if (extremoElegido === 'derecha' && uPos.fila === 7 && uPos.columna === 2) { // Cambiar el punto de giro de 1 a 2
+      nuevaPosicion = { fila: 8, columna: 2 }; // La nueva ficha se coloca en (8,2)
       if (esDoble) {
         rotacionCalculada = 0;
       } else {
@@ -152,8 +152,8 @@ export const calcularPosicionRotacionSiguienteFicha = (
       }
       haSidoProcesadoPorLogicaDeGiroEspecial = true;
     }
-    else if (extremoElegido === 'izquierda' && uPos.fila === 3 && uPos.columna === 11) {
-      nuevaPosicion = { fila: 2, columna: 11 };
+    else if (extremoElegido === 'izquierda' && uPos.fila === 3 && uPos.columna === 10) { // Cambiar el punto de giro de 11 a 10
+      nuevaPosicion = { fila: 2, columna: 10 }; // La nueva ficha se coloca en (2,10)
       if (esDoble) {
         rotacionCalculada = 0;
       } else {
@@ -341,8 +341,11 @@ export const getDesignCanvasCoordinates = (
                   case 'BelowPrev':
                       nx = ux;
                       ny = uy + uActualHeight / 2 + nActualHeight / 2;
-                      if (!uIsVertical && nIsVertical) { 
-                          if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 7 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && !(connectedToCalculated.fichaLogic.valorSuperior === connectedToCalculated.fichaLogic.valorInferior) && fichaLogic.posicionCuadricula.fila === 8 && fichaLogic.posicionCuadricula.columna === 1) {
+                      if (!uIsVertical && nIsVertical) {
+                          // Ajuste para giro H -> V (ej. 7,1 -> 8,1 o 7,2 -> 8,2)
+                          if ((connectedToCalculated.fichaLogic.posicionCuadricula.fila === 7 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 8 && fichaLogic.posicionCuadricula.columna === 1) ||
+                              (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 7 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 2 && fichaLogic.posicionCuadricula.fila === 8 && fichaLogic.posicionCuadricula.columna === 2)
+                             ) {
                               nx = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
                           } else {
                               nx = ux + uActualWidth / 2 - nActualWidth / 2;
@@ -350,7 +353,10 @@ export const getDesignCanvasCoordinates = (
                       } else if (uIsVertical && !nIsVertical) {
                           nx = ux + uActualWidth / 2 - nActualWidth / 2;
                            if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 8 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 9 && fichaLogic.posicionCuadricula.columna === 1) {
-                              nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                              // Ajuste para giro V -> H (ej. 8,1 -> 9,1)
+                               nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                           } else if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 8 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 2 && fichaLogic.posicionCuadricula.fila === 9 && fichaLogic.posicionCuadricula.columna === 2) {
+                               nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
                           }
                       }
                       break;
@@ -358,7 +364,10 @@ export const getDesignCanvasCoordinates = (
                       nx = ux;
                       ny = uy - uActualHeight / 2 - nActualHeight / 2;
                       if (uIsVertical && !nIsVertical) { 
-                          if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 4 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 3 && fichaLogic.posicionCuadricula.columna === 1) {
+                          // Ajuste para giro V -> H (ej. 4,1 -> 3,1 o 2,11 -> 1,11)
+                          if ((connectedToCalculated.fichaLogic.posicionCuadricula.fila === 4 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 1 && fichaLogic.posicionCuadricula.fila === 3 && fichaLogic.posicionCuadricula.columna === 1) ||
+                              (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 2 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 1 && fichaLogic.posicionCuadricula.columna === 11)
+                             ) {
                               nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
                           } else if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 2 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 1 && fichaLogic.posicionCuadricula.columna === 11) {
                               nx = ux - (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
@@ -366,7 +375,12 @@ export const getDesignCanvasCoordinates = (
                       } else if (!uIsVertical && nIsVertical) { 
                           if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 3 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 11 && fichaLogic.posicionCuadricula.fila === 2 && fichaLogic.posicionCuadricula.columna === 11) {
                               nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
-                          } else {
+                          }
+                          // Añadir ajuste para el nuevo punto de giro (3,10) -> (2,10)
+                          else if (connectedToCalculated.fichaLogic.posicionCuadricula.fila === 3 && connectedToCalculated.fichaLogic.posicionCuadricula.columna === 10 && fichaLogic.posicionCuadricula.fila === 2 && fichaLogic.posicionCuadricula.columna === 10) {
+                              nx = ux + (DOMINO_HEIGHT_PX - DOMINO_WIDTH_PX) / 2;
+                          }
+                          else {
                               nx = ux - uActualWidth / 2 + nActualWidth / 2;
                           }
                       }
