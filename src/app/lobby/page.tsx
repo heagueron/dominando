@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
+import { useDominoSocket } from '@/hooks/useDominoSocket';
 
 
 // Tipos para los payloads de Socket.IO (simplificados para el lobby)
@@ -26,12 +26,6 @@ export default function LobbyPage() {
   const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
   const isNavigatingRef = useRef<boolean>(false); // Ref to track if navigation is in progress
 
-  // Ref para el nombre del jugador para estabilizar el callback onConnect
-  const nombreJugadorRefForSocket = useRef(nombreJugador);
-  useEffect(() => {
-    nombreJugadorRefForSocket.current = nombreJugador;
-  }, [nombreJugador]);
-
   // Effect for userId and nombreJugador initialization
   useEffect(() => {
     // Este efecto debe ejecutarse solo una vez para configurar el usuario.
@@ -53,7 +47,7 @@ export default function LobbyPage() {
       setUserId(currentUserId);
       setNombreJugador(currentNombreJugador);
     setAuthInitialized(true); // Marcar que la inicialización ha terminado
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    console.log(`[LOBBY_USER_INIT] Auth inicializada. userId=${currentUserId}, nombreJugador=${currentNombreJugador}`);
   }, []); // Array de dependencias vacío para ejecutar solo una vez al montar
 
   const formatPlayerNameForTitle = (name: string | null): string => {
@@ -78,38 +72,25 @@ export default function LobbyPage() {
     // return () => { document.title = "Dominando"; }; // O el título global de tu app
   }, [nombreJugador]);
 
+  // Usar el hook refactorizado
   const {
     socket, 
     isConnected, 
-    error: socketError, 
+    socketError, 
     emitEvent, 
-    connectSocket, 
     registerEventHandlers, 
-    unregisterEventHandlers 
-  } = useDominoSocket({
-    userId: authInitialized ? userId : null, // Solo pasar si la autenticación está inicializada
-    nombreJugador: authInitialized ? nombreJugador : null, // Solo pasar si la autenticación está inicializada
-    autoConnect: false, // El lobby conecta bajo demanda
-    onConnect: useCallback((emitFromHook: <T = any>(eventName: string, payload: T) => void) => { // Recibe emitEvent del hook
-      console.log('[LOBBY_SOCKET_HOOK_ON_CONNECT] Successfully connected to server.');
-      // Usar la ref para nombreJugador para asegurar la estabilidad del callback
-      if (tipoJuegoSolicitadoRef.current && nombreJugadorRefForSocket.current) {
-        console.log(`[LOBBY_SOCKET_HOOK_ON_CONNECT] Emitting cliente:unirseAMesa for ${tipoJuegoSolicitadoRef.current}`);
-        emitFromHook('cliente:unirseAMesa', { // Usa el emitEvent proporcionado por el hook
-          juegoSolicitado: tipoJuegoSolicitadoRef.current, 
-          nombreJugador: nombreJugadorRefForSocket.current 
-        });
-      }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []), // Array de dependencias vacío para que el callback sea estable.
+    unregisterEventHandlers,
+    initializeSocketIfNeeded, // Nueva función del hook
+  } = useDominoSocket();
 
-    onConnectError: useCallback((err: Error) => {
-      console.error('[LOBBY_SOCKET_HOOK_ON_CONNECT_ERROR] Connection Error:', err.message, err);
-      setLobbyError(`Error de conexión: ${err.message}. Intenta de nuevo.`);
-      setIsLoading(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []) // setLobbyError e setIsLoading son estables (vienen de useState)
-  });
+  // Inicializar el socket una vez que tengamos userId y nombreJugador
+  useEffect(() => {
+    if (authInitialized && userId && nombreJugador) {
+      console.log('[LOBBY_PAGE] Auth inicializada, llamando a initializeSocketIfNeeded.');
+      initializeSocketIfNeeded(userId, nombreJugador);
+    }
+  }, [authInitialized, userId, nombreJugador, initializeSocketIfNeeded]);
+
 
   // Effect for game-specific socket event listeners
   useEffect(() => {
@@ -118,15 +99,16 @@ export default function LobbyPage() {
     const handleTeUnisteAMesaCallback = (payload: TeUnisteAMesaPayloadLobby) => {
       console.log('[LOBBY_SOCKET] Evento servidor:teUnisteAMesa recibido:', payload);
       isNavigatingRef.current = true; // Set flag before navigating
-      const userIdForNav = userId; // Usar el estado de React que debería estar actualizado
-      const nombreJugadorForNav = nombreJugador;
-      console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - userId (estado React):', userIdForNav, 'nombreJugador (estado React):', nombreJugadorForNav);
-      console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - sessionStorage userId:', sessionStorage.getItem('jmu_userId'), 'sessionStorage nombreJugador:', sessionStorage.getItem('jmu_nombreJugador'));
+      // Usar userId y nombreJugador del closure del useEffect, que son los valores correctos para este render.
+      console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - userId (closure):', userId, 'nombreJugador (closure):', nombreJugador);
+      // Opcionalmente, podrías leer de sessionStorage aquí si hay dudas sobre la frescura del estado en el closure,
+      // pero el estado de React debería ser suficiente si las dependencias del useEffect son correctas.
       tipoJuegoSolicitadoRef.current = null; // Reset ref
       setIsLoading(null);
       setLobbyError(null);
-      if (userIdForNav && nombreJugadorForNav) {
-        router.push(`/juego/${payload.mesaId}?uid=${encodeURIComponent(userIdForNav)}&nombre=${encodeURIComponent(nombreJugadorForNav)}`);
+      // Usar userId y nombreJugador del closure del useEffect, que son los valores correctos para este render.
+      if (userId && nombreJugador) { 
+        router.push(`/juego/${payload.mesaId}?uid=${encodeURIComponent(userId)}&nombre=${encodeURIComponent(nombreJugador)}`);
       } else {
         console.error("[LOBBY_SOCKET] No se pudo navegar: userId o nombreJugador del estado de React son nulos.");
         setLobbyError("Error al preparar la navegación. Intenta de nuevo.");
@@ -150,21 +132,20 @@ export default function LobbyPage() {
     return () => {
       unregisterEventHandlers(Object.keys(eventHandlers));
     };
-  // userId y nombreJugador se usan en handleTeUnisteAMesaCallback.
-  // Para asegurar la estabilidad de este useEffect, los callbacks internos deberían ser memoizados
-  // o userId/nombreJugador deberían ser accedidos mediante refs si es posible.
-  // Por ahora, mantenemos userId y nombreJugador aquí, ya que el problema principal
-  // parece ser la inicialización del hook useDominoSocket en sí.
-  // Si el error persiste, este es el siguiente punto a revisar para la estabilidad de los handlers.
-  // registerEventHandlers y unregisterEventHandlers deberían ser estables desde el hook.
+  // Las dependencias userId y nombreJugador son correctas aquí porque
+  // handleTeUnisteAMesaCallback (definido dentro de este efecto) los usa en su closure.
+  // Si estos callbacks se movieran fuera y se memoizaran con useCallback,
+  // entonces este useEffect podría no necesitar userId/nombreJugador directamente si los callbacks son estables.
+  // registerEventHandlers y unregisterEventHandlers se asume que son estables desde el hook.
   }, [socket, router, userId, nombreJugador, registerEventHandlers, unregisterEventHandlers]);
 
   const handleJoinGame = useCallback((tipoJuego: TipoJuegoSolicitado) => {
-    if (!socket || !nombreJugador || !userId) {
+    // Asegurarse que auth esté completa y el socket esté listo (aunque el hook podría no devolver socket si auth no está lista)
+    if (!authInitialized || !nombreJugador || !userId ) {
       setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
       return;
     }
-    
+    // La comprobación de !socket y !emitEvent se hace implícitamente por isConnected
     console.log(`[LOBBY_SOCKET] handleJoinGame called for ${tipoJuego}`);
     setIsLoading(tipoJuego);
     setLobbyError(null);
@@ -176,13 +157,23 @@ export default function LobbyPage() {
     sessionStorage.setItem('jmu_tipoJuegoSolicitado', tipoJuego);
 
     if (isConnected) {
-      console.log('[LOBBY_SOCKET] Socket already connected. Emitting cliente:unirseAPartida.');
+      console.log('[LOBBY_SOCKET] Socket already connected. Emitting cliente:unirseAMesa.');
       emitEvent('cliente:unirseAMesa', { juegoSolicitado: tipoJuego, nombreJugador });
     } else {
-      console.log('[LOBBY_SOCKET] Socket not connected. Calling socket.connect().');
-      connectSocket(); // Conectar el socket. La emisión se gestionará en el onConnect del hook.
+      console.log('[LOBBY_SOCKET] Socket not connected. Intentando inicializar/conectar y luego unirse.');
+      // Asegurarse de que el socket se inicialice si aún no lo está
+      if (userId && nombreJugador) {
+        initializeSocketIfNeeded(userId, nombreJugador);
+        // Aquí podrías añadir una lógica para esperar a que isConnected sea true antes de emitir,
+        // o confiar en que el usuario reintente si la conexión tarda.
+        // Por simplicidad, asumimos que la conexión será rápida o el usuario reintentará.
+        // Una mejor UX sería deshabilitar el botón hasta que isConnected sea true después de llamar a initialize.
+        setLobbyError("Conectando al servidor... Por favor, inténtalo de nuevo en unos segundos si esto falla.");
+      } else {
+        setLobbyError("Falta información del usuario para conectar.");
+      }
     }
-  }, [socket, nombreJugador, userId, isConnected, emitEvent, connectSocket]);
+  }, [authInitialized, nombreJugador, userId, isConnected, emitEvent, initializeSocketIfNeeded]);
 
   useEffect(() => { if (socketError) setLobbyError(socketError); }, [socketError]);
 
