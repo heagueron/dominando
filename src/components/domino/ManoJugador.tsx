@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, PanInfo } from 'framer-motion'; // Importar PanInfo
 import FichaDomino from './FichaDomino';
 
@@ -20,6 +20,77 @@ interface ManoJugadorProps {
   isLocalPlayer?: boolean; // New prop to indicate if this is the local player's hand
   onFichaDragEnd?: (fichaId: string, event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void; // Nueva prop para drag & drop
 }
+
+interface FichaEnManoViewProps {
+  ficha: FichaEnMano;
+  isFichaPlayable: boolean;
+  isLocalPlayer: boolean;
+  fichaSeleccionada?: string;
+  onFichaClick: (idFicha: string) => void;
+  onFichaDragEnd?: (fichaId: string, event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void;
+  fichaSizeClass: string;
+  liftAnimationDuration?: number; // ms, duración de la animación de elevación
+}
+
+const FichaEnManoView: React.FC<FichaEnManoViewProps> = ({
+  ficha,
+  isFichaPlayable,
+  isLocalPlayer,
+  fichaSeleccionada,
+  onFichaClick,
+  onFichaDragEnd,
+  fichaSizeClass,
+  liftAnimationDuration = 200, // Coincidir con la duración de la animación 'playable'
+}) => {
+  const [canDrag, setCanDrag] = useState(false);
+
+  useEffect(() => {
+    let timerId: NodeJS.Timeout;
+    if (isLocalPlayer && isFichaPlayable) {
+      // Habilitar el arrastre después de que la animación de elevación 'playable' haya terminado.
+      timerId = setTimeout(() => {
+        setCanDrag(true);
+      }, liftAnimationDuration);
+    } else {
+      setCanDrag(false);
+    }
+    return () => clearTimeout(timerId);
+  }, [isLocalPlayer, isFichaPlayable, liftAnimationDuration]);
+
+  return (
+    <motion.div
+      key={ficha.id}
+      data-testid={`ficha-mano-${ficha.id}`}
+      whileHover={{ y: isFichaPlayable ? -25 : -5 }} // Elevación al hacer hover
+      whileTap={{ scale: 1.05 }} // Efecto al tapear/clickear
+      variants={{
+        initial: { opacity: 0, y: 50 },
+        normal: { opacity: 1, y: 0 },
+        playable: { opacity: 1, y: -20 }, // Variante para fichas jugables (elevadas)
+      }}
+      initial="initial"
+      animate={isFichaPlayable ? 'playable' : 'normal'}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      // No necesitamos onAnimationComplete aquí si usamos setTimeout basado en la duración de la animación 'playable'
+    >
+      <FichaDomino
+        id={ficha.id}
+        valorSuperior={ficha.valorSuperior}
+        valorInferior={ficha.valorInferior}
+        seleccionada={ficha.id === fichaSeleccionada}
+        onClick={() => onFichaClick(ficha.id)}
+        arrastrable={isLocalPlayer && isFichaPlayable && canDrag} // Arrastrable solo si es local, jugable Y canDrag es true
+        esEnMano={true}
+        isPlayable={isFichaPlayable} // Pasar para estilos visuales en FichaDomino si es necesario
+        sizeClass={fichaSizeClass}
+        onDragEndCallback={isLocalPlayer && isFichaPlayable && canDrag && onFichaDragEnd 
+          ? (event, info) => onFichaDragEnd(ficha.id, event, info) 
+          : undefined
+        }
+      />
+    </motion.div>
+  );
+};
 
 const ManoJugador: React.FC<ManoJugadorProps> = ({
   fichas,
@@ -71,34 +142,18 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
           <div className={`flex gap-1 ${layoutDirection === 'row' ? 'flex-row items-center' : 'flex-col items-center'}`}>
             {fichas.map((ficha) => {
               const isFichaPlayable = playableFichaIds.includes(ficha.id);
-              return (
-                <motion.div
-                  key={ficha.id}
-                  data-testid={`ficha-mano-${ficha.id}`} // <--- ASEGÚRATE DE QUE ESTO ESTÉ ASÍ
-                  whileHover={{ y: isFichaPlayable ? -25 : -5 }}
-                  whileTap={{ scale: 1.05 }}
-                  variants={{
-                    initial: { opacity: 0, y: 50 },
-                    normal: { opacity: 1, y: 0 },
-                    playable: { opacity: 1, y: -20 },
-                  }}
-                  initial="initial"
-                  animate={isFichaPlayable ? 'playable' : 'normal'}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                >
-                  <FichaDomino
-                    id={ficha.id}
-                    valorSuperior={ficha.valorSuperior}
-                    valorInferior={ficha.valorInferior}
-                    seleccionada={ficha.id === fichaSeleccionada} // El estado de selección viene de selectedFichaInfo.idFicha
-                    onClick={() => onFichaClick(ficha.id)} // Modificado: solo pasar ficha.id
-                    arrastrable={isLocalPlayer && isFichaPlayable} // CORRECCIÓN: Hacerla condicional
-                    esEnMano={true}
-                    isPlayable={isFichaPlayable}
-                    sizeClass={fichaSizeClass}
-                    onDragEndCallback={isLocalPlayer && onFichaDragEnd ? (event, info) => onFichaDragEnd(ficha.id, event, info) : undefined}
-                  />
-                </motion.div>
+              return ( // Usar el nuevo componente FichaEnManoView
+                <FichaEnManoView
+                  key={ficha.id} // La key principal debe estar en el elemento iterado más externo
+                  ficha={ficha}
+                  isFichaPlayable={isFichaPlayable}
+                  isLocalPlayer={isLocalPlayer}
+                  fichaSeleccionada={fichaSeleccionada}
+                  onFichaClick={onFichaClick}
+                  onFichaDragEnd={onFichaDragEnd}
+                  fichaSizeClass={fichaSizeClass}
+                  // liftAnimationDuration={200} // Opcional: si la duración de la animación 'playable' es diferente
+                />
               );
             })}
           </div>
