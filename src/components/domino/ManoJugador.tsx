@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, PanInfo } from 'framer-motion'; // Importar PanInfo
 import FichaDomino from './FichaDomino';
 
@@ -40,23 +40,40 @@ const FichaEnManoView: React.FC<FichaEnManoViewProps> = ({
   onFichaClick,
   onFichaDragEnd,
   fichaSizeClass,
-  liftAnimationDuration = 200, // Coincidir con la duración de la animación 'playable'
+  liftAnimationDuration = 500, // Coincidir con la duración de la animación 'playable'
 }) => {
   const [canDrag, setCanDrag] = useState(false);
+  const isCurrentlyPlayableRef = useRef(isFichaPlayable); // Para rastrear el cambio
 
   useEffect(() => {
-    let timerId: NodeJS.Timeout;
-    if (isLocalPlayer && isFichaPlayable) {
-      // Habilitar el arrastre después de que la animación de elevación 'playable' haya terminado.
-      timerId = setTimeout(() => {
-        setCanDrag(true);
-      }, liftAnimationDuration);
-    } else {
-      setCanDrag(false);
-    }
-    return () => clearTimeout(timerId);
-  }, [isLocalPlayer, isFichaPlayable, liftAnimationDuration]);
+    let timerId: NodeJS.Timeout | undefined;
 
+    if (isLocalPlayer && isFichaPlayable) {
+      // Si la ficha SE VOLVIÓ jugable o si es jugable y canDrag es falso (ej. después de un reset)
+      if (!isCurrentlyPlayableRef.current || !canDrag) {
+        console.log(`[FichaEnManoView ID: ${ficha.id}] Ficha se volvió/es jugable (${isFichaPlayable}). Iniciando timer (${liftAnimationDuration}ms) para canDrag.`);
+        // Asegurarse de que canDrag esté en false antes de iniciar el timer si se volvió jugable
+        setCanDrag(false); 
+        timerId = setTimeout(() => {
+          console.log(`[FichaEnManoView ID: ${ficha.id}] Timer completado. Estableciendo canDrag = true.`);
+          setCanDrag(true);
+        }, liftAnimationDuration);
+      }
+    } else {
+      // Si la ficha NO es jugable o NO es local
+      if (canDrag) { // Si antes se podía arrastrar, ahora no.
+        console.log(`[FichaEnManoView ID: ${ficha.id}] Ficha NO es jugable o NO es local. Estableciendo canDrag = false.`);
+        setCanDrag(false);
+      }
+    }
+
+    isCurrentlyPlayableRef.current = isFichaPlayable; // Actualizar la ref para la próxima ejecución
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [isLocalPlayer, isFichaPlayable, liftAnimationDuration, ficha.id]); // Quitado canDrag de las dependencias
+
+  // console.log(`[FichaEnManoView RENDER ID: ${ficha.id}] isPlayable: ${isFichaPlayable}, canDrag: ${canDrag}`);
   return (
     <motion.div
       key={ficha.id}
@@ -120,6 +137,7 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   ].filter(Boolean).join(' '); // Filtra cadenas vacías y une con espacios
 
   return (
+    
     <motion.div // Use isLocalPlayer in the main rendering logic
       className={`mano-jugador-base bg-domino-black bg-opacity-10 px-1 pb-1 pt-6 rounded-lg flex gap-1 z-10 ${className} ${conditionalClasses}`}
     >
@@ -142,7 +160,9 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
           <div className={`flex gap-1 ${layoutDirection === 'row' ? 'flex-row items-center' : 'flex-col items-center'}`}>
             {fichas.map((ficha) => {
               const isFichaPlayable = playableFichaIds.includes(ficha.id);
+              
               return ( // Usar el nuevo componente FichaEnManoView
+                
                 <FichaEnManoView
                   key={ficha.id} // La key principal debe estar en el elemento iterado más externo
                   ficha={ficha}

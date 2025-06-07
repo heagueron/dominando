@@ -408,7 +408,7 @@ export const useDominoRonda = ({
     event: MouseEvent | TouchEvent | PointerEvent,
     info: PanInfo
   ) => {
-    const currentEstado = estadoMesaClienteRef.current; // Usar ref
+    const currentEstado = estadoMesaClienteRef.current; 
     const currentRonda = currentEstado?.partidaActual?.rondaActual; // Usar ref
     const jugadorIdLocal = miIdJugadorSocketRef.current; // Usar ref
 
@@ -418,6 +418,16 @@ export const useDominoRonda = ({
         (autoPaseInfoCliente && autoPaseInfoCliente.jugadorId === jugadorIdLocal)) {
         console.log('[handleFichaDragEnd] Drag end ignorado: No es tu turno, timer expirado, fin de ronda visible, o auto-pase.');
         return;
+    }
+    
+    // Log inicial con offset y point
+    console.log(`[DEBUG_DRAG_END] FichaId: ${fichaId}, Offset: {x: ${info.offset.x.toFixed(2)}, y: ${info.offset.y.toFixed(2)}}, Point: {x: ${info.point.x.toFixed(2)}, y: ${info.point.y.toFixed(2)}}`);
+
+    // Si tienes un DRAG_THRESHOLD para info.offset, asegúrate que esté aquí y loguea si se pasa o no.
+    const DRAG_OFFSET_THRESHOLD = 10; // O el valor que estés usando
+    if (Math.abs(info.offset.x) < DRAG_OFFSET_THRESHOLD && Math.abs(info.offset.y) < DRAG_OFFSET_THRESHOLD) {
+      console.warn(`[DEBUG_DRAG_END] Offset por debajo del umbral (${DRAG_OFFSET_THRESHOLD}px). Retornando.`);
+      return;
     }
 
     // Lógica especial para la primera ficha (cuando no hay ancla)
@@ -442,27 +452,34 @@ export const useDominoRonda = ({
     // Umbral de distancia para considerar un drop válido cerca de un extremo
     const umbralDeDrop = DOMINO_HEIGHT_PX * mesaDims.scale * 2.5; // Ajustar según sea necesario
 
+    console.log(`[DEBUG_DRAG_END] umbralDeDrop: ${umbralDeDrop.toFixed(2)}, mesaDims.scale: ${mesaDims.scale.toFixed(2)}`);
+
     let distIzquierdo = Infinity;
+    let puntoConexionIzquierdoScreen: { x: number; y: number } | null = null;
     if (currentRonda.infoExtremos?.izquierda?.pos) {
-      const puntoConexionIzquierdo = getScreenCoordinatesOfConnectingEdge(
+      puntoConexionIzquierdoScreen = getScreenCoordinatesOfConnectingEdge(
         currentRonda.infoExtremos.izquierda.pos,
         currentRonda.infoExtremos.izquierda.rot,
       );
-      if (puntoConexionIzquierdo) {
-        distIzquierdo = Math.sqrt(Math.pow(dropX - puntoConexionIzquierdo.x, 2) + Math.pow(dropY - puntoConexionIzquierdo.y, 2));
+      if (puntoConexionIzquierdoScreen) {
+        distIzquierdo = Math.sqrt(Math.pow(dropX - puntoConexionIzquierdoScreen.x, 2) + Math.pow(dropY - puntoConexionIzquierdoScreen.y, 2));
       }
     }
+    console.log(`[DEBUG_DRAG_END] Izquierdo: puntoConexion=${puntoConexionIzquierdoScreen ? `{x: ${puntoConexionIzquierdoScreen.x.toFixed(2)}, y: ${puntoConexionIzquierdoScreen.y.toFixed(2)}}` : 'null'}, dist=${distIzquierdo.toFixed(2)}`);
 
     let distDerecho = Infinity;
+    let puntoConexionDerechoScreen: { x: number; y: number } | null = null;
     if (currentRonda.infoExtremos?.derecha?.pos) {
-      const puntoConexionDerecho = getScreenCoordinatesOfConnectingEdge(
+      puntoConexionDerechoScreen = getScreenCoordinatesOfConnectingEdge(
         currentRonda.infoExtremos.derecha.pos,
         currentRonda.infoExtremos.derecha.rot,
       );
-      if (puntoConexionDerecho) {
-        distDerecho = Math.sqrt(Math.pow(dropX - puntoConexionDerecho.x, 2) + Math.pow(dropY - puntoConexionDerecho.y, 2));
+      if (puntoConexionDerechoScreen) {
+        distDerecho = Math.sqrt(Math.pow(dropX - puntoConexionDerechoScreen.x, 2) + Math.pow(dropY - puntoConexionDerechoScreen.y, 2));
       }
     }
+    console.log(`[DEBUG_DRAG_END] Derecho: puntoConexion=${puntoConexionDerechoScreen ? `{x: ${puntoConexionDerechoScreen.x.toFixed(2)}, y: ${puntoConexionDerechoScreen.y.toFixed(2)}}` : 'null'}, dist=${distDerecho.toFixed(2)}`);
+
 
     // Determinar si el drop está lo suficientemente cerca de un extremo y cuál es el más cercano
     if (distIzquierdo < umbralDeDrop && distIzquierdo <= distDerecho) {
@@ -476,7 +493,7 @@ export const useDominoRonda = ({
        // Usar setTimeout para permitir que el estado de la ficha arrastrada se resetee visualmente
       setTimeout(() => handleJugarFichaServidor(extremoDetectado!, fichaId), 50);
     } else {
-        console.log('[handleFichaDragEnd] Ficha soltada, pero no cerca de un extremo válido.');
+        console.warn('[handleFichaDragEnd] Ficha soltada, pero no cerca de un extremo válido. (distIzquierdo >= umbralDeDrop || distDerecho >= umbralDeDrop || no es el más cercano)');
         // Si no se detectó un extremo válido, la ficha volverá a su posición original en la mano
         // gracias a la lógica de framer-motion y el hook de mano.
     }

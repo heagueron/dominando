@@ -325,7 +325,11 @@ export default function JuegoPage() {
   }, [setManosJugadoresStore, estadoMesaClienteRef]); // Añadir estadoMesaClienteRef ya que se usa en el callback
 
   const handleTuManoActualizada = useCallback((payload: TuManoPayloadCliente) => {
-    console.log(`[SOCKET] Evento servidor:tuManoActualizada recibido. Payload:`, payload);
+    console.log(
+      `[DEBUG_JUEGO_PAGE] Evento servidor:tuManoActualizada recibido. Jugador Local: ${miIdJugadorSocketRef.current}. Nueva mano:`,
+      payload.fichas.map(f => f.id),
+      `Turno actual (según rondaHook): ${esMiTurnoFromRondaHook ? 'MÍO' : 'OTRO'}`
+    );
     if (miIdJugadorSocketRef.current) {
       setManosJugadoresStore(prevManos => // Usar la acción del store
         prevManos.map(mano =>
@@ -458,6 +462,19 @@ export default function JuegoPage() {
     handleFinDePartida,
     handleErrorDePartida
   ]); // Dependencias correctas
+
+  // useEffect para loguear cambios en estados críticos que podrían afectar la jugabilidad
+  useEffect(() => {
+    console.log('[DEBUG_JUEGO_PAGE_ESTADO_CRITICO]', {
+      esMiTurno: esMiTurnoFromRondaHook,
+      rondaEnProgreso: rondaEnProgresoFromRondaHook,
+      isAutoPasoForMe: isAutoPasoForMeFromRondaHook,
+      playableFichaIds: playableFichaIdsFromStore,
+      idJugadorLocal: miIdJugadorSocketFromStore,
+      currentPlayerIdRonda: estadoMesaClienteFromStore?.partidaActual?.rondaActual?.currentPlayerId,
+      numFichasManoLocal: manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketFromStore)?.fichas.length,
+    });
+  }, [esMiTurnoFromRondaHook, rondaEnProgresoFromRondaHook, isAutoPasoForMeFromRondaHook, playableFichaIdsFromStore, miIdJugadorSocketFromStore, estadoMesaClienteFromStore, manosJugadoresFromStore]);
 
   // useEffect para manejar la visualización del mensaje de transición y limpieza de finRondaData
   useEffect(() => { // Este effect depende de estadoMesaClienteFromStore
