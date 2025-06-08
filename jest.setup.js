@@ -58,6 +58,15 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+// Mock para HTMLMediaElement (para evitar errores con new Audio().load())
+if (typeof window !== 'undefined') {
+  window.HTMLMediaElement.prototype.load = () => { /* noop */ };
+  window.HTMLMediaElement.prototype.play = async () => { /* noop */ };
+  window.HTMLMediaElement.prototype.pause = () => { /* noop */ };
+  window.HTMLMediaElement.prototype.addTextTrack = () => { /* noop */ };
+  // Puedes añadir más métodos si es necesario
+}
+
 // Mockear URLSearchParams y window.location.search
 const mockURLSearchParamsInstance = {
   get: jest.fn(),

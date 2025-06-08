@@ -792,7 +792,7 @@ export default function JuegoPage() {
                 fichas={manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas || []} // Usar manosJugadoresFromStore
                 fichaSeleccionada={selectedFichaInfo?.idFicha} 
                 onFichaClick={selectFicha} 
-                idJugadorMano={miIdJugadorSocketRef.current}
+               
                 layoutDirection="row"
                 isLocalPlayer={true}
                 playableFichaIds={playableFichaIdsFromStore} // Usar playableFichaIdsFromStore

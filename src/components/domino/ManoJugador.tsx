@@ -11,8 +11,7 @@ interface FichaEnMano {
 interface ManoJugadorProps {
   fichas: FichaEnMano[];
   fichaSeleccionada?: string;
-  onFichaClick: (idFicha: string) => void; // Modificado: ya no necesita idJugadorMano
-  idJugadorMano: string;
+  onFichaClick: (idFicha: string) => void; 
   playableFichaIds?: string[];
   className?: string;
   layoutDirection?: 'row' | 'col';
@@ -81,14 +80,13 @@ const FichaEnManoView: React.FC<FichaEnManoViewProps> = ({
         }
       />
     </motion.div>
-  );
+  ); 
 };
 
 const ManoJugador: React.FC<ManoJugadorProps> = ({
   fichas,
   fichaSeleccionada,
   onFichaClick,
-  idJugadorMano,
   playableFichaIds = [],
   numFichas,
   className = "",
