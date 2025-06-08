@@ -3,7 +3,7 @@ import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 // import userEvent from '@testing-library/user-event'; // No se usa userEvent en las pruebas actuales, se puede quitar si no se añade
 import JuegoPage from '../page';
 import { FichaDomino }  from '@/utils/dominoUtils'; // Asegúrate que JugadorPublico se usa o quítalo
-import { EstadoMesaPublicoCliente } from '../page';; // Asegúrate que JugadorPublico se usa o quítalo
+import { EstadoMesaPublicoCliente } from '@/types/domino';; // Asegúrate que JugadorPublico se usa o quítalo
 import { FichaEnMesaParaLogica } from '@/utils/dominoUtils'; // Importar el tipo correcto
 import { useDominoSocket, UseDominoSocketProps, UseDominoSocketReturn } from '@/hooks/useDominoSocket';
 import { Socket } from 'socket.io-client'; // Necesario para tipar el mockSocketObject

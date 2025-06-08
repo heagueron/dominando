@@ -42,36 +42,11 @@ const FichaEnManoView: React.FC<FichaEnManoViewProps> = ({
   fichaSizeClass,
   liftAnimationDuration = 500, // Coincidir con la duración de la animación 'playable'
 }) => {
-  const [canDrag, setCanDrag] = useState(false);
-  const isCurrentlyPlayableRef = useRef(isFichaPlayable); // Para rastrear el cambio
-
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | undefined;
-
-    if (isLocalPlayer && isFichaPlayable) {
-      // Si la ficha SE VOLVIÓ jugable o si es jugable y canDrag es falso (ej. después de un reset)
-      if (!isCurrentlyPlayableRef.current || !canDrag) {
-        console.log(`[FichaEnManoView ID: ${ficha.id}] Ficha se volvió/es jugable (${isFichaPlayable}). Iniciando timer (${liftAnimationDuration}ms) para canDrag.`);
-        // Asegurarse de que canDrag esté en false antes de iniciar el timer si se volvió jugable
-        setCanDrag(false); 
-        timerId = setTimeout(() => {
-          console.log(`[FichaEnManoView ID: ${ficha.id}] Timer completado. Estableciendo canDrag = true.`);
-          setCanDrag(true);
-        }, liftAnimationDuration);
-      }
-    } else {
-      // Si la ficha NO es jugable o NO es local
-      if (canDrag) { // Si antes se podía arrastrar, ahora no.
-        console.log(`[FichaEnManoView ID: ${ficha.id}] Ficha NO es jugable o NO es local. Estableciendo canDrag = false.`);
-        setCanDrag(false);
-      }
-    }
-
-    isCurrentlyPlayableRef.current = isFichaPlayable; // Actualizar la ref para la próxima ejecución
-    return () => {
-      if (timerId) clearTimeout(timerId);
-    };
-  }, [isLocalPlayer, isFichaPlayable, liftAnimationDuration, ficha.id]); // Quitado canDrag de las dependencias
+  // Simplificación: canDrag ahora es un valor derivado directamente.
+  // La animación de "elevación" es manejada por las variantes de Framer Motion.
+  // El DRAG_OFFSET_THRESHOLD en useDominoRonda se encargará de filtrar micro-drags
+  // que podrían ocurrir si el usuario interactúa durante la animación de elevación.
+  const canDrag = isLocalPlayer && isFichaPlayable;
 
   // console.log(`[FichaEnManoView RENDER ID: ${ficha.id}] isPlayable: ${isFichaPlayable}, canDrag: ${canDrag}`);
   return (
@@ -96,11 +71,11 @@ const FichaEnManoView: React.FC<FichaEnManoViewProps> = ({
         valorInferior={ficha.valorInferior}
         seleccionada={ficha.id === fichaSeleccionada}
         onClick={() => onFichaClick(ficha.id)}
-        arrastrable={isLocalPlayer && isFichaPlayable && canDrag} // Arrastrable solo si es local, jugable Y canDrag es true
+        arrastrable={canDrag} // Arrastrable si es local y jugable (canDrag ahora deriva de esto)
         esEnMano={true}
         isPlayable={isFichaPlayable} // Pasar para estilos visuales en FichaDomino si es necesario
         sizeClass={fichaSizeClass}
-        onDragEndCallback={isLocalPlayer && isFichaPlayable && canDrag && onFichaDragEnd 
+        onDragEndCallback={canDrag && onFichaDragEnd // Procesar drag end solo si canDrag (y por ende isFichaPlayable y isLocalPlayer) es true
           ? (event, info) => onFichaDragEnd(ficha.id, event, info) 
           : undefined
         }

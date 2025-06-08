@@ -551,16 +551,23 @@ export default function JuegoPage() {
   // Sincroniza el estado de las fichas jugables con el turno actual y estado de la ronda
   useEffect(() => {
     // Si no es mi turno, o la ronda no está en progreso, o se está mostrando el modal de fin de ronda,
-    // y todavía hay fichas marcadas como jugables, limpiarlas.
-    if ((!esMiTurnoFromRondaHook || !rondaEnProgresoFromRondaHook || finRondaInfoVisible) && playableFichaIdsFromStore.length > 0) {
-      setPlayableFichaIdsStore([]); // Usar la acción del store
+    // limpiar las fichas jugables.
+    const noEsMiTurnoOFinDeJuego = !esMiTurnoFromRondaHook || !rondaEnProgresoFromRondaHook || finRondaInfoVisible;
+
+    if (noEsMiTurnoOFinDeJuego) {
+      if (playableFichaIdsFromStore.length > 0) {
+        console.log(`[DEBUG_JUEGO_PAGE] Limpiando playableFichaIds. Condiciones: esMiTurno=${esMiTurnoFromRondaHook}, rondaEnProgreso=${rondaEnProgresoFromRondaHook}, finRondaVisible=${finRondaInfoVisible}`);
+        setPlayableFichaIdsStore([]); // Esta es la acción dentro del cuerpo del efecto
+      }
     }
+    // No es necesario un 'else' aquí, ya que 'setPlayableFichaIdsStore' se llama en 'handleTuTurno'
+    // cuando SÍ es el turno del jugador y recibe nuevas fichas jugables.
   }, [
-    esMiTurnoFromRondaHook, // Usar valor del hook de ronda
-    rondaEnProgresoFromRondaHook, // Usar valor del hook de ronda
+    esMiTurnoFromRondaHook,
+    rondaEnProgresoFromRondaHook,
     finRondaInfoVisible,
-    playableFichaIdsFromStore.length, // Depender de la longitud para re-evaluar si cambia
-    setPlayableFichaIdsStore // Acción del store es estable
+    playableFichaIdsFromStore, // Depender del array para re-evaluar si cambia
+    setPlayableFichaIdsStore    // La referencia a la función del store (estable)
   ]);
 
   // Actualizar `resultadoRonda` para el modal basado en `finRondaData` cuando `finRondaInfoVisible`
@@ -778,7 +785,10 @@ export default function JuegoPage() {
             <div className="w-full"></div> {/* Espacio para info izquierda (si existiera) */}
             <div className="flex justify-center">
               <ManoJugadorComponent
-                key={`mano-local-${manoVersion}-${manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas.length}-${selectedFichaInfo?.idFicha || 'no-sel'}-${playableFichaIdsFromStore.length}`}
+                // Clave simplificada: Re-montar solo si cambia el jugador o la versión de la mano (ej. nueva ronda)
+                // Los cambios en el número de fichas, selección, o fichas jugables
+                // deberían causar re-renders, no re-montajes, si las fichas internas están bien keyeadas.
+                key={`mano-local-${miIdJugadorSocketRef.current || 'no-id'}-${manoVersion}`}
                 fichas={manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas || []} // Usar manosJugadoresFromStore
                 fichaSeleccionada={selectedFichaInfo?.idFicha} 
                 onFichaClick={selectFicha} 
