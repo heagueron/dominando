@@ -1,4 +1,3 @@
-import { truncate } from "fs";
 import type { NextConfig } from "next";
 import withPWA from "next-pwa";
 
