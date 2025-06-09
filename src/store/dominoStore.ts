@@ -3,7 +3,25 @@ import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { EstadoMesaPublicoCliente, JugadorCliente } from '@/types/domino'; // Importamos JugadorCliente
 
-const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || 'http://localhost:3001';
+// Determinar la URL del servidor de sockets basada en el entorno
+const getSocketServerUrl = (): string => {
+  if (process.env.NODE_ENV === 'production') {
+    // En producción (Vercel), usa la URL de producción
+    if (!process.env.NEXT_PUBLIC_SOCKET_SERVER_URL_PROD) {
+      console.error("Error: NEXT_PUBLIC_SOCKET_SERVER_URL_PROD no está definida para producción. Usando fallback.");
+      // Considera un fallback más robusto o lanzar un error si es crítico
+      return 'https://your-production-server.com'; // CAMBIAR: URL de fallback o manejo de error
+    }
+    return process.env.NEXT_PUBLIC_SOCKET_SERVER_URL_PROD;
+  } else {
+    // En desarrollo, usa la URL de desarrollo
+    if (!process.env.NEXT_PUBLIC_SOCKET_SERVER_URL_DEV) {
+      console.warn("Advertencia: NEXT_PUBLIC_SOCKET_SERVER_URL_DEV no está definida para desarrollo. Usando localhost:3001 como fallback.");
+      return 'http://localhost:3001'; // Fallback a localhost si no está definida
+    }
+    return process.env.NEXT_PUBLIC_SOCKET_SERVER_URL_DEV;
+  }
+};
 
 // Definimos la interfaz para el estado de nuestro store
 export interface DominoStoreState { // <--- AÑADIR EXPORT
@@ -75,7 +93,8 @@ export const useDominoStore = create<DominoStoreState>((set, get) => ({
       existingSocket.disconnect();
     }
 
-    console.log(`[DOMINO_STORE] Inicializando socket para userId: ${userId}, nombreJugador: ${nombreJugador}`);
+    const SOCKET_SERVER_URL = getSocketServerUrl(); // Obtener la URL dinámicamente
+    console.log(`[DOMINO_STORE] Inicializando socket con URL: ${SOCKET_SERVER_URL} para userId: ${userId}, nombreJugador: ${nombreJugador}`);
     const newSocket = io(SOCKET_SERVER_URL, {
       auth: { userId, nombreJugador }, // Usar 'auth' para enviar datos al conectar
       transports: ['websocket'],
