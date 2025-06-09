@@ -42,7 +42,8 @@ export default function JuegoPage() {
   const setPlayableFichaIdsStore = useDominoStore((state) => state.setPlayableFichaIds);
 
   // Estados locales
-  const [_viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_viewportDims, setViewportDims] = useState({ width: 0, height: 0 }); 
   const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 1, translateX: 0, translateY: 0 });
   const [showRotateMessage, setShowRotateMessage] = useState(false);
   const [manoVersion, setManoVersion] = useState(0); // Para forzar re-render de la mano si es necesario

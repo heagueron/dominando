@@ -10,8 +10,9 @@ export interface UseDominoSocketReturn {
   socketError: string | null;
   emitEvent: <T>(eventName: string, payload: T) => void;
   // Las funciones connect/disconnect ahora se manejan a través de initializeSocket/disconnectSocket del store
-  registerEventHandlers: (handlers: Record<string, (...args: unknown[]) => void>) => void;
-  unregisterEventHandlers: (eventNames: string[]) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  registerEventHandlers: (handlers: Record<string, (...args: any[]) => void>) => void; 
+  unregisterEventHandlers: (eventNames: string[]) => void; // Mantener string[] para los nombres de eventos
   initializeSocketIfNeeded: (userId: string, nombreJugador: string) => void; // Nueva función para conveniencia
   disconnectSocketFromStore: () => void; // Nueva función para conveniencia
 }
@@ -33,7 +34,8 @@ export const useDominoSocket = (): UseDominoSocketReturn => {
   const clearSocketError = useDominoStore(state => state.clearSocketError);
 
   // Ref to store dynamically registered event handlers
-  const dynamicHandlersRef = useRef<Record<string, (...args: unknown[]) => void>>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dynamicHandlersRef = useRef<Record<string, (...args: any[]) => void>>({}); 
 
   // Limpiar los handlers de este hook cuando el componente que lo usa se desmonte
   useEffect(() => {
@@ -48,7 +50,8 @@ export const useDominoSocket = (): UseDominoSocketReturn => {
     };
   }, [socket]); // Re-ejecutar si la instancia del socket del store cambia
 
-  const registerEventHandlers = useCallback((handlers: Record<string, (...args: unknown[]) => void>) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const registerEventHandlers = useCallback((handlers: Record<string, (...args: any[]) => void>) => { 
     if (socket) {
       Object.entries(handlers).forEach(([event, handler]) => {
         // Remove previous handler for this event, if any, to prevent duplicates
