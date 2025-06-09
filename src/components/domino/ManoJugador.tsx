@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+//import React, { useState, useEffect, useRef } from 'react';
 import { motion, PanInfo } from 'framer-motion'; // Importar PanInfo
 import FichaDomino from './FichaDomino';
 
@@ -145,7 +145,8 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
                   onFichaClick={onFichaClick}
                   onFichaDragEnd={onFichaDragEnd}
                   fichaSizeClass={fichaSizeClass}
-                  // liftAnimationDuration={200} // Opcional: si la duración de la animación 'playable' es diferente
+                  //liftAnimationDuration={200} // Opcional: si la duración de la animación 'playable' es diferente
+                  liftAnimationDuration={500} // Opcional: si la duración de la animación 'playable' es diferente
                 />
               );
             })}

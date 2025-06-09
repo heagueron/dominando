@@ -9,19 +9,11 @@ import { usePlayerHandLogic } from '@/hooks/usePlayerHandLogic'; // UsePlayerHan
 import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador'; // Mantener esta importación
-import {
- //FichaDomino as FichaDominoType, // Renombrar para evitar conflicto con la interfaz local
- //FichaDomino,
- FichaEnMesaParaLogica,
- // determinarJugadaCliente, // Ya no se usa aquí
-} from '@/utils/dominoUtils';
+import { FichaEnMesaParaLogica } from '@/utils/dominoUtils';
 
 //import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
-import {
-  FILA_ANCLA_INICIAL,
-  COLUMNA_ANCLA_INICIAL,
-  // getDesignCanvasCoordinates, // Ya no se usa aquí
-} from '@/utils/posicionamientoUtils';
+import { FILA_ANCLA_INICIAL, COLUMNA_ANCLA_INICIAL } from '@/utils/posicionamientoUtils';
+
 // import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Comentado para prueba
 import PlayerInfoLayout from '@/components/juego/PlayerInfoLayout'; // Importar el nuevo componente
 import DominoModals from '@/components/juego/DominoModals'; // Importar el nuevo componente de modales (ya actualizado)
@@ -39,29 +31,23 @@ const TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE = 10000; // 10 segundos
 
 
 export default function JuegoPage() {
-  // Leer estadoMesaCliente del store de Zustand
+  // Leer estados y acciones del store de Zustand
   const estadoMesaCliente = useDominoStore((state) => state.estadoMesaCliente);
-  // Obtener la acción para actualizar estadoMesaCliente del store
   const setEstadoMesaClienteStore = useDominoStore((state) => state.setEstadoMesaCliente);
-
-  // Leer estados de jugador y mano del store de Zustand
   const miIdJugadorSocketFromStore = useDominoStore((state) => state.miIdJugadorSocket);
   const manosJugadoresFromStore = useDominoStore((state) => state.manosJugadores);
   const playableFichaIdsFromStore = useDominoStore((state) => state.playableFichaIds);
-
-  // Obtener acciones para actualizar jugador y mano del store
   const setMiIdJugadorSocketStore = useDominoStore((state) => state.setMiIdJugadorSocket);
   const setManosJugadoresStore = useDominoStore((state) => state.setManosJugadores);
   const setPlayableFichaIdsStore = useDominoStore((state) => state.setPlayableFichaIds);
 
+  // Estados locales
   const [viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
   const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 1, translateX: 0, translateY: 0 });
   const [showRotateMessage, setShowRotateMessage] = useState(false);
-  // const [resultadoRonda, setResultadoRonda] ... (se mueve más abajo, después del hook)
-  // const [autoPaseInfoCliente, setAutoPaseInfoCliente] = useState<EstadoRondaPublicoCliente['autoPaseInfo'] | null>(null); // Movido a useDominoRonda
-  // const [isMyTurnTimerJustExpired, setIsMyTurnTimerJustExpired] = useState(false); // Movido a useDominoRonda
   const [manoVersion, setManoVersion] = useState(0); // Para forzar re-render de la mano si es necesario
-  // Nuevos estados para manejar la visualización del fin de ronda
+  
+  // Estados para manejar la visualización del fin de ronda
   const [finRondaInfoVisible, setFinRondaInfoVisible] = useState(false);
   const [finRondaData, setFinRondaData] = useState<{
     resultadoPayload: FinDeRondaPayloadCliente; // Directamente el payload del servidor
@@ -80,13 +66,11 @@ export default function JuegoPage() {
   const finalUserIdRef = useRef<string | null>(null);
   const finalNombreJugadorRef = useRef<string | null>(null);
   const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
-  // const [playerAuthReady, setPlayerAuthReady] = useState(false); // Se reemplaza por lógica de autoConnectForSocket
 
   const audioFichaJugadaRef = useRef<HTMLAudioElement | null>(null);
-  // const prevIdUltimaFichaJugadaRef = useRef<string | null | undefined>(null); // Movido a useDominoRonda
 
-  const prevPropsForSocketRef = useRef<{ userId: string | null, nombre: string | null, autoConnect: boolean } | null>(null);
-  const initialAuthReportedRef = useRef(false);
+  //const prevPropsForSocketRef = useRef<{ userId: string | null, nombre: string | null, autoConnect: boolean } | null>(null);
+  //const initialAuthReportedRef = useRef(false);
   const miIdJugadorSocketRef = useRef<string | null>(null); // Inicializar como null, se llenará desde el store/evento
   const [resultadoRonda, setResultadoRonda] = useState<{
     ganadorId?: string;
@@ -114,7 +98,6 @@ export default function JuegoPage() {
     audioFichaJugadaRef.current.load(); // Pre-cargar para mejor rendimiento
     console.log('[AUDIO_EFFECT] Audio player for ficha_colocada initialized.');
   }, []);
-
 
   useEffect(() => {
     authoritativeMesaIdRef.current = mesaIdFromUrl;
@@ -155,11 +138,11 @@ export default function JuegoPage() {
       console.error("Error: Falta información del jugador (después de query y sessionStorage). Redirigiendo al lobby.");
       router.push('/lobby');
     }
-    // setPlayerAuthReady(true); // Ya no se usa este estado. La conexión se basa en finalUserIdRef y finalNombreJugadorRef
-  }, [router, mesaIdFromUrl]); // Añadidas dependencias
+  }, [router, mesaIdFromUrl]);
   
   // Obtener el socket y sus funciones del store a través del hook refactorizado
-  const { socket, isConnected, socketError, emitEvent, registerEventHandlers, unregisterEventHandlers, initializeSocketIfNeeded } = useDominoSocket();
+  //const { socket, isConnected, socketError, emitEvent, registerEventHandlers, unregisterEventHandlers, initializeSocketIfNeeded } = useDominoSocket();
+  const { socket, isConnected, emitEvent, registerEventHandlers, unregisterEventHandlers, initializeSocketIfNeeded } = useDominoSocket();
   const initialJoinAttemptedRef = useRef(false); // Ref para asegurar que solo intentamos unirnos una vez al montar/conectar
 
   useEffect(() => {
@@ -180,7 +163,7 @@ export default function JuegoPage() {
     const userId = finalUserIdRef.current;
     const nombreJugador = finalNombreJugadorRef.current;
     const mesaId = authoritativeMesaIdRef.current;
-    const tipoJuego = tipoJuegoSolicitadoRef.current;
+    //const tipoJuego = tipoJuegoSolicitadoRef.current;
 
     console.log('[JUEGO_PAGE_SOCKET_FLOW] Effect triggered.', { userId, nombreJugador, mesaId, isConnected, initialJoinAttempted: initialJoinAttemptedRef.current });
 
@@ -226,8 +209,7 @@ export default function JuegoPage() {
     isMyTurnTimerJustExpired,
     fichaAnimandose, // Este es el que se usará para la UI
     handleFichaDragEnd,
-    handleJugarFichaServidor,
-    // getScreenCoordinatesOfConnectingEdge, // No se usa directamente en page.tsx, sino dentro del hook
+    //handleJugarFichaServidor,
     esMiTurno: esMiTurnoFromRondaHook,
     rondaEnProgreso: rondaEnProgresoFromRondaHook, // Este valor viene del estadoMesaClienteFromStore
     isAutoPasoForMe: isAutoPasoForMeFromRondaHook,
@@ -356,7 +338,6 @@ export default function JuegoPage() {
     console.log('[SOCKET] Evento servidor:finDeRonda recibido:', payload);
 
     const currentEstadoMesa = estadoMesaClienteRef.current;
-    // const currentRonda = currentEstadoMesa?.partidaActual?.rondaActual; // No usar currentRonda para el snapshot, usar el payload
 
     let fichasEnMesaSnapshotParaFin: FichaEnMesaParaLogica[] = [];
     let posicionAnclaSnapshotParaFin: { fila: number; columna: number } = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
@@ -407,7 +388,6 @@ export default function JuegoPage() {
     clearSelection(); // Usar clearSelection directamente del hook usePlayerHandLogic
     setPlayableFichaIdsStore([]); // Usar la acción del store
     // Los estados de timer, auto-pase, isMyTurnTimerJustExpired, fichaAnimandose se limpian en useDominoRonda
-    // setResultadoRonda(null); // Se maneja en el useEffect de finRondaInfoVisible
 
     if (finRondaDisplayTimerRef.current) {
       clearTimeout(finRondaDisplayTimerRef.current);
@@ -422,8 +402,6 @@ export default function JuegoPage() {
 
   const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDePartida recibido:', payload);
-    // No es necesario setResultadoRonda(null) aquí, el useEffect de estadoMesaCliente lo manejará
-    // o el estado finRondaInfoVisible controlará la visibilidad del modal.
   }, []); // Dependencia correcta
 
   const handleErrorDePartida = useCallback((payload: { mensaje: string }) => {
@@ -685,6 +663,7 @@ export default function JuegoPage() {
 
 
   useEffect(() => {
+    console.log('[handleResize] Actualizando viewportDims.')
     const handleResize = () => setViewportDims({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener('resize', handleResize);
     handleResize();
@@ -743,13 +722,6 @@ export default function JuegoPage() {
       : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
   } , [rondaActualParaUI?.anclaFicha, finRondaInfoVisible, finRondaData]); // Añadida finRondaInfoVisible y finRondaData
 
-  // La función getDesignCanvasCoordinates ha sido movida a posicionamientoUtils.ts
-  // El useCallback que la envolvía ya no es necesario aquí si la función es importada directamente
-  // y se llama con los argumentos correctos.
-  // Si necesitas memoizar la *llamada* a getDesignCanvasCoordinates, puedes hacerlo con useMemo:
-  // const designCoordsForSpecificPurpose = useMemo(() => getDesignCanvasCoordinates(...), [...dependencies]);
-
-  // Las funciones handleJugarFichaServidor, getScreenCoordinatesOfConnectingEdge, handleFichaDragEnd ahora vienen de useDominoRonda
 
   if (!isConnected || !estadoMesaClienteFromStore) { // Usar isConnected del store y estadoMesaClienteFromStore
     return <div className="flex items-center justify-center min-h-screen">Cargando datos de la mesa...</div>;

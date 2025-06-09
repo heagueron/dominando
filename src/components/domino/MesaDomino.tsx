@@ -1,7 +1,7 @@
 // /home/heagueron/jmu/dominando/src/components/domino/MesaDomino.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect} from 'react';
 import { motion } from 'framer-motion';
 import FichaDomino from './FichaDomino';
 import { FichaDomino as TipoFichaDomino } from '@/utils/dominoUtils';
@@ -308,8 +308,9 @@ const MesaDominoComponent: React.FC<MesaDominoProps & { forwardedRef: React.Ref<
         //maxHeight: 'calc(100vh - 20px)', 
         maxWidth: '100%', // No exceder el ancho del <main>.
         maxHeight: '100%', // No exceder el alto del <main> (aunque height: '100%' ya lo intenta).
-        border: '8px solid #7e4a35',
+        border: '16px ridge #996633',
         overflow: 'hidden', // Importante para que el canvas interno no desborde el contenedor estilizado
+        borderRadius: '16px',
         //position: 'relative', 
       }}
     >

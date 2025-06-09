@@ -1,21 +1,21 @@
 // src/hooks/useDominoSocket.ts
 import { useEffect, useCallback, useRef } from 'react';
 import { Socket } from 'socket.io-client';
-import { shallow } from 'zustand/shallow'; // Importar shallow
+// import { shallow } from 'zustand/shallow'; // Importar shallow
 import { useDominoStore, DominoStoreState } from '@/store/dominoStore'; // Asegúrate que la ruta sea correcta y añade DominoStoreState
 
 // Definimos el tipo para la parte del estado que seleccionamos del store
 // Simplificamos este tipo para la comparación con shallow, excluyendo funciones complejas como emitEvent
-type SelectedSocketState = Pick<
-  DominoStoreState,
-  'socket' | 'isConnected' | 'socketError' | 'currentUserId' | 'currentNombreJugador'
->;
+//type SelectedSocketState = Pick<
+//  DominoStoreState,
+//  'socket' | 'isConnected' | 'socketError' | 'currentUserId' | 'currentNombreJugador'
+//>;
 
 // Definimos un tipo para las acciones que obtenemos por separado
-type SocketActions = Pick<
-  DominoStoreState,
-  'emitEvent' | 'initializeSocket' | 'disconnectSocket' | 'clearSocketError'
->
+//type SocketActions = Pick<
+//  DominoStoreState,
+//  'emitEvent' | 'initializeSocket' | 'disconnectSocket' | 'clearSocketError'
+//>
 
 export interface UseDominoSocketReturn {
   socket: Socket | null;
@@ -35,8 +35,8 @@ export const useDominoSocket = (): UseDominoSocketReturn => {
   const socket = useDominoStore(state => state.socket);
   const isConnected = useDominoStore(state => state.isConnected);
   const socketError = useDominoStore(state => state.socketError);
-  const currentUserId = useDominoStore(state => state.currentUserId);
-  const currentNombreJugador = useDominoStore(state => state.currentNombreJugador);
+  // const currentUserId = useDominoStore(state => state.currentUserId);
+  // const currentNombreJugador = useDominoStore(state => state.currentNombreJugador);
 
   // Obtenemos las acciones (funciones) por separado. Zustand garantiza que estas referencias son estables.
   // Esta parte ya estaba bien y no necesita una función de igualdad.

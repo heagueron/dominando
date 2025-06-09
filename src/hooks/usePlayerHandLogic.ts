@@ -1,5 +1,5 @@
 // /home/heagueron/jmu/dominando/src/hooks/usePlayerHandLogic.ts
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
 /**
  * Información sobre la ficha seleccionada por el jugador.

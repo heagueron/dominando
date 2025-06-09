@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PanInfo } from 'framer-motion';
 import { Socket } from 'socket.io-client';
 
@@ -7,22 +7,9 @@ import {
   EstadoRondaPublicoCliente,
   JugadorCliente,
 } from '@/types/domino'; // Asegúrate de que la ruta sea correcta
-import {
-  FichaDomino,
-  determinarJugadaCliente,
-  FichaEnMesaParaLogica,
-} from '@/utils/dominoUtils'; // Asegúrate de que la ruta sea correcta
-import {
-  DESIGN_TABLE_WIDTH_PX,
-  DESIGN_TABLE_HEIGHT_PX,
-  DOMINO_WIDTH_PX,
-  DOMINO_HEIGHT_PX,
-} from '@/utils/dominoConstants'; // Asegúrate de que la ruta sea correcta
-import {
-  FILA_ANCLA_INICIAL,
-  COLUMNA_ANCLA_INICIAL,
-  getDesignCanvasCoordinates,
-} from '@/utils/posicionamientoUtils'; // Asegúrate de que la ruta sea correcta
+import { determinarJugadaCliente } from '@/utils/dominoUtils'; // Asegúrate de que la ruta sea correcta
+import { DOMINO_HEIGHT_PX } from '@/utils/dominoConstants'; // Asegúrate de que la ruta sea correcta
+import { getDesignCanvasCoordinates } from '@/utils/posicionamientoUtils'; // Asegúrate de que la ruta sea correcta
 
 // Definir la duración del turno por defecto si no viene del servidor
 const DURACION_TURNO_SEGUNDOS_DEFAULT = 15;
@@ -63,7 +50,7 @@ export const useDominoRonda = ({
   miIdJugadorSocket,
   miIdJugadorSocketRef,
   manosJugadores,
-  playableFichaIds,
+  //playableFichaIds,
   setPlayableFichaIdsStore,
   socket,
   emitEvent,
@@ -262,7 +249,7 @@ export const useDominoRonda = ({
     let designEdgeX = designCoords.x;
     let designEdgeY = designCoords.y;
 
-    const esVertical = Math.abs(fichaRot % 180) === 0;
+    //const esVertical = Math.abs(fichaRot % 180) === 0;
     // Determinar si la posición de la ficha corresponde al extremo lógico izquierdo o derecho
     // Esto es crucial para saber hacia dónde "sobresale" el punto de conexión
     const esExtremoIzquierdoLogico = currentRonda.infoExtremos.izquierda.pos.fila === fichaPos.fila && currentRonda.infoExtremos.izquierda.pos.columna === fichaPos.columna;
