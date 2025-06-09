@@ -42,7 +42,7 @@ export default function JuegoPage() {
   const setPlayableFichaIdsStore = useDominoStore((state) => state.setPlayableFichaIds);
 
   // Estados locales
-  const [viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
+  const [_viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
   const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 1, translateX: 0, translateY: 0 });
   const [showRotateMessage, setShowRotateMessage] = useState(false);
   const [manoVersion, setManoVersion] = useState(0); // Para forzar re-render de la mano si es necesario
@@ -321,7 +321,8 @@ export default function JuegoPage() {
         )
       );
     } // Dependencia correcta
-  }, [setManosJugadoresStore]); 
+  //}, [setManosJugadoresStore]); 
+  }, [setManosJugadoresStore, esMiTurnoFromRondaHook]); 
   
   const handleTuTurno = useCallback((payload: TuTurnoPayloadCliente) => {
     //console.log('[SOCKET] Evento servidor:tuTurno recibido:', payload);
@@ -552,12 +553,21 @@ export default function JuegoPage() {
   useEffect(() => {
     console.log(`[EFFECT_RESULTADO_RONDA] finRondaInfoVisible: ${finRondaInfoVisible}, finRondaData exists: ${!!finRondaData}`);
     if (finRondaInfoVisible && finRondaData?.resultadoPayload) {
-      console.log('[EFFECT_RESULTADO_RONDA] Setting resultadoRonda from finRondaData.');
-      setResultadoRonda({
+      const newResultado = {
         ganadorId: finRondaData.resultadoPayload.ganadorRondaId,
         nombreGanador: finRondaData.resultadoPayload.nombreGanador,
         tipoFin: finRondaData.resultadoPayload.tipoFinRonda, // Asegúrate que tipoFinRonda exista en el payload
-      });
+      };
+      // Solo actualizar si el resultado es realmente diferente para evitar bucles
+      if (
+        !resultadoRonda ||
+        resultadoRonda.ganadorId !== newResultado.ganadorId ||
+        resultadoRonda.nombreGanador !== newResultado.nombreGanador ||
+        resultadoRonda.tipoFin !== newResultado.tipoFin
+      ) {
+        console.log('[EFFECT_RESULTADO_RONDA] Setting resultadoRonda from finRondaData.');
+        setResultadoRonda(newResultado);
+      }
     } else if (!finRondaInfoVisible) {
       // Only clear resultadoRonda if not showing the end-of-round info.
       // No necesitamos 'localResultadoRonda', comparamos directamente con el estado 'resultadoRonda'
@@ -566,7 +576,7 @@ export default function JuegoPage() {
         setResultadoRonda(null);
       }
     }
-  }, [finRondaInfoVisible, finRondaData]); // REMOVED resultadoRonda from dependencies
+  }, [finRondaInfoVisible, finRondaData, resultadoRonda]);
 
   // useEffect específico para actualizar manosJugadores (para la UI)
   useEffect(() => {
@@ -657,8 +667,9 @@ export default function JuegoPage() {
     });
 
   }, [ // Dependencias correctas
-    estadoMesaClienteFromStore, // Cambiado para depender del objeto completo para re-evaluar si cambia
-    setManosJugadoresStore // Acción del store es estable
+    estadoMesaClienteFromStore,
+    manosJugadoresFromStore, // Añadido como dependencia
+    setManosJugadoresStore 
   ]);
 
 

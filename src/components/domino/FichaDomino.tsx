@@ -18,7 +18,7 @@ interface FichaDominoProps {
 }
 
 const FichaDomino: React.FC<FichaDominoProps> = ({
-  id, // Ahora usaremos el id para la lógica de renderizado temporal
+  // id, // Ahora usaremos el id para la lógica de renderizado temporal
   valorSuperior,
   valorInferior,
   rotacion = 0,
