@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 // PrismaClient es adjuntado al objeto global en desarrollo para prevenir
 // múltiples instancias del cliente Prisma en desarrollo
 declare global {
+  // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 
