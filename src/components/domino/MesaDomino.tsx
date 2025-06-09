@@ -330,7 +330,14 @@ const MesaDominoComponent: React.FC<MesaDominoProps & { forwardedRef: React.Ref<
             const fichaOriginalHeight = (Math.abs(ficha.rotacion % 180) === 0) ? DOMINO_HEIGHT_PX : DOMINO_WIDTH_PX;
 
             const esLaFichaAnimandose = fichaAnimandose && ficha.id === fichaAnimandose.id;
-            let initialAnimProps: any = false; // Por defecto, sin animación de entrada
+            // Definir un tipo para las propiedades de animación inicial
+            type InitialAnimationProps = {
+              x: number;
+              y: number;
+              opacity: number;
+              scale: number;
+            } | false;
+            let initialAnimProps: InitialAnimationProps = false; // Por defecto, sin animación de entrada
             const targetLeft = ficha.x - fichaOriginalWidth / 2;
             const targetTop = ficha.y - fichaOriginalHeight / 2;
 

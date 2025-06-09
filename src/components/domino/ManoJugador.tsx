@@ -39,7 +39,7 @@ const FichaEnManoView: React.FC<FichaEnManoViewProps> = ({
   onFichaClick,
   onFichaDragEnd,
   fichaSizeClass,
-  liftAnimationDuration = 500, // Coincidir con la duración de la animación 'playable'
+  //liftAnimationDuration = 500, // Coincidir con la duración de la animación 'playable'
 }) => {
   // Simplificación: canDrag ahora es un valor derivado directamente.
   // La animación de "elevación" es manejada por las variantes de Framer Motion.

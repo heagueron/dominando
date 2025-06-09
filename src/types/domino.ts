@@ -23,6 +23,12 @@ export interface JugadorPublicoInfoCliente {
   listoParaSiguientePartida?: boolean;
 }
 
+export interface ExtremoDetalladoCliente {
+  pos: { fila: number; columna: number };
+  rot: number;
+  valor: number | null; // El valor numérico del extremo
+}
+
 export interface EstadoRondaPublicoCliente {
   rondaId: string;
   jugadoresRonda: JugadorPublicoInfoCliente[];
@@ -31,7 +37,10 @@ export interface EstadoRondaPublicoCliente {
   fichasIzquierda: FichaEnMesaParaLogica[];
   fichasDerecha: FichaEnMesaParaLogica[];
   extremos: { izquierda: number | null; derecha: number | null };
-  infoExtremos: any;
+  infoExtremos: {
+    izquierda: ExtremoDetalladoCliente | null;
+    derecha: ExtremoDetalladoCliente | null;
+  };
   estadoActual: 'enProgreso' | 'terminada';
   idJugadorQueRealizoUltimaAccion?: string;
   idUltimaFichaJugada?: string;

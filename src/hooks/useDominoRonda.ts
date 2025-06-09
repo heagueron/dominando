@@ -22,7 +22,7 @@ interface UseDominoRondaProps {
   playableFichaIds: string[]; // Fichas jugables (del store)
   setPlayableFichaIdsStore: (ids: string[]) => void; // Acción para actualizar fichas jugables
   socket: Socket | null;
-  emitEvent: (eventName: string, data: any) => void; // Referencia al div de la mesa
+  emitEvent: <T>(eventName: string, data: T) => void; 
   mesaRef: React.RefObject<HTMLDivElement | null>; // Referencia al div de la mesa, puede ser null
   mesaDims: { width: number; height: number; scale: number; translateX: number; translateY: number }; // Dimensiones y escala de la mesa
   clearFichaSelection: () => void; // Función para limpiar la selección de ficha (del hook de mano)
@@ -102,8 +102,8 @@ export const useDominoRonda = ({
       return;
     }
 
-    // Actualizar duración configurada si el servidor la envía
-    if (rondaActual.duracionTurnoActual) {
+    // Actualizar duración configurada si el servidor la envía y es diferente
+    if (rondaActual.duracionTurnoActual && rondaActual.duracionTurnoActual !== duracionTurnoActualConfigurada) {
       setDuracionTurnoActualConfigurada(rondaActual.duracionTurnoActual);
     }
 
@@ -150,16 +150,12 @@ export const useDominoRonda = ({
     };
 
   }, [
-    rondaActual?.currentPlayerId,
-    rondaActual?.estadoActual,
-    rondaActual?.duracionTurnoActual,
-    rondaActual?.timestampTurnoInicio,
-    rondaActual?.autoPaseInfo?.jugadorId, // Dependencia más granular
+    rondaActual, // Añadido: el objeto completo como dependencia
     finRondaInfoVisible,
     miIdJugadorSocketRef,
     limpiarIntervaloTimer, // Dependencia del useCallback
-    duracionTurnoActualConfigurada, // Añadida dependencia
-    estadoMesaClienteRef, // Añadida por su uso en el intervalo
+    duracionTurnoActualConfigurada, // Necesaria porque se usa en cálculos y se actualiza
+    estadoMesaClienteRef, // Necesaria por su uso en el intervalo
   ]);
 
   // Effect para manejar autoPaseInfoCliente

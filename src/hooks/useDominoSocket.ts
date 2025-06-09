@@ -1,29 +1,16 @@
 // src/hooks/useDominoSocket.ts
 import { useEffect, useCallback, useRef } from 'react';
 import { Socket } from 'socket.io-client';
-// import { shallow } from 'zustand/shallow'; // Importar shallow
-import { useDominoStore, DominoStoreState } from '@/store/dominoStore'; // Asegúrate que la ruta sea correcta y añade DominoStoreState
+import { useDominoStore } from '@/store/dominoStore';
 
-// Definimos el tipo para la parte del estado que seleccionamos del store
-// Simplificamos este tipo para la comparación con shallow, excluyendo funciones complejas como emitEvent
-//type SelectedSocketState = Pick<
-//  DominoStoreState,
-//  'socket' | 'isConnected' | 'socketError' | 'currentUserId' | 'currentNombreJugador'
-//>;
-
-// Definimos un tipo para las acciones que obtenemos por separado
-//type SocketActions = Pick<
-//  DominoStoreState,
-//  'emitEvent' | 'initializeSocket' | 'disconnectSocket' | 'clearSocketError'
-//>
 
 export interface UseDominoSocketReturn {
   socket: Socket | null;
   isConnected: boolean;
   socketError: string | null;
-  emitEvent: <T = any>(eventName: string, payload: T) => void;
+  emitEvent: <T>(eventName: string, payload: T) => void;
   // Las funciones connect/disconnect ahora se manejan a través de initializeSocket/disconnectSocket del store
-  registerEventHandlers: (handlers: Record<string, (...args: any[]) => void>) => void;
+  registerEventHandlers: (handlers: Record<string, (...args: unknown[]) => void>) => void;
   unregisterEventHandlers: (eventNames: string[]) => void;
   initializeSocketIfNeeded: (userId: string, nombreJugador: string) => void; // Nueva función para conveniencia
   disconnectSocketFromStore: () => void; // Nueva función para conveniencia
@@ -46,7 +33,7 @@ export const useDominoSocket = (): UseDominoSocketReturn => {
   const clearSocketError = useDominoStore(state => state.clearSocketError);
 
   // Ref to store dynamically registered event handlers
-  const dynamicHandlersRef = useRef<Record<string, (...args: any[]) => void>>({});
+  const dynamicHandlersRef = useRef<Record<string, (...args: unknown[]) => void>>({});
 
   // Limpiar los handlers de este hook cuando el componente que lo usa se desmonte
   useEffect(() => {
@@ -61,7 +48,7 @@ export const useDominoSocket = (): UseDominoSocketReturn => {
     };
   }, [socket]); // Re-ejecutar si la instancia del socket del store cambia
 
-  const registerEventHandlers = useCallback((handlers: Record<string, (...args: any[]) => void>) => {
+  const registerEventHandlers = useCallback((handlers: Record<string, (...args: unknown[]) => void>) => {
     if (socket) {
       Object.entries(handlers).forEach(([event, handler]) => {
         // Remove previous handler for this event, if any, to prevent duplicates

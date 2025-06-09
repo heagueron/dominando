@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
 // Importar tipos desde el nuevo archivo centralizado
 import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente } from '@/types/domino';
+import { FichaEnMesaParaLogica } from '@/utils/dominoUtils'; // Importar el tipo necesario
 
 interface PlayerInfoLayoutProps {
   manosJugadores: JugadorCliente[];
@@ -14,7 +15,7 @@ interface PlayerInfoLayoutProps {
   finRondaInfoVisible: boolean;
   finRondaData: {
     resultadoPayload: FinDeRondaPayloadCliente;
-    fichasEnMesaSnapshot: any[]; // Puedes refinar este tipo si es necesario
+    fichasEnMesaSnapshot: FichaEnMesaParaLogica[];
     posicionAnclaSnapshot: { fila: number; columna: number };
   } | null;
 }
