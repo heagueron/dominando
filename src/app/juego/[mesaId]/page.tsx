@@ -90,7 +90,11 @@ export default function JuegoPage() {
         await document.documentElement.requestFullscreen();
         // No necesitas setIsFullscreen(true) aquí, el evento 'fullscreenchange' lo hará.
       } catch (err) {
-        console.error(`Error al intentar entrar en pantalla completa`);
+        if (err instanceof Error) {
+          console.error(`Error al intentar entrar en pantalla completa: ${err.message} (${err.name})`);
+        } else {
+          console.error('Error al intentar entrar en pantalla completa:', err);
+        }
       }
     } else {
       if (document.exitFullscreen) {
@@ -98,7 +102,11 @@ export default function JuegoPage() {
           await document.exitFullscreen();
           // No necesitas setIsFullscreen(false) aquí, el evento 'fullscreenchange' lo hará.
         } catch (err) {
-          console.error(`Error al intentar salir de pantalla completa`);
+          if (err instanceof Error) {
+            console.error(`Error al intentar salir de pantalla completa: ${err.message} (${err.name})`);
+          } else {
+            console.error('Error al intentar salir de pantalla completa:', err);
+          }
         }
       }
     }
