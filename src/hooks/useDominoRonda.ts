@@ -325,12 +325,6 @@ export const useDominoRonda = ({
          return;
     }
 
-    // Limpiar estados locales relacionados con el turno/jugada
-    limpiarIntervaloTimer();
-    setTiempoTurnoRestante(null);
-    setPlayableFichaIdsStore([]); // Limpiar fichas jugables localmente de inmediato usando el store
-    clearFichaSelection(); // Limpiar selección local de ficha
-
     const idFichaAJugar = fichaIdParam; // fichaIdParam viene de handleFichaDragEnd
     if (!idFichaAJugar) {
         console.error('[handleJugarFichaServidor] No se proporcionó ID de ficha para jugar.');
@@ -362,6 +356,12 @@ export const useDominoRonda = ({
         // Si no hay ancla, cualquier ficha se puede jugar en cualquier extremo (normalmente solo 'derecha' se usa para la primera ficha)
         // No se necesita validación adicional aquí, el servidor validará si es la primera jugada.
     }
+
+    // Si todas las validaciones del cliente pasan, AHORA SÍ limpiar estados locales y emitir.
+    limpiarIntervaloTimer();
+    setTiempoTurnoRestante(null);
+    setPlayableFichaIdsStore([]); // Limpiar fichas jugables localmente de inmediato usando el store
+    clearFichaSelection(); // Limpiar selección local de ficha
 
     console.log(`[handleJugarFichaServidor] Emitiendo 'cliente:jugarFicha' - fichaId: ${idFichaAJugar}, extremo: ${extremoElegidoParam}, rondaId: ${currentRonda.rondaId}`);
     emitEvent('cliente:jugarFicha', {

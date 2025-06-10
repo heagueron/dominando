@@ -13,7 +13,7 @@ interface FichaDominoProps {
   esEnMano?: boolean;
   isPlayable?: boolean; // Indica si la ficha es jugable en el turno actual (solo relevante si esEnMano)
   scale?: number; // Nueva prop para escalar la ficha
-  sizeClass: string; // Added sizeClass property
+  sizeClass: string;
   onDragEndCallback?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void; // Nueva prop
 }
 
@@ -28,7 +28,7 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
   esEnMano = false, // Destructurado y usado en la lógica de clases
   isPlayable = true, // Por defecto, una ficha es jugable a menos que se especifique lo contrario
   scale = 1, // Default scale is 1 (original size)
-  
+  sizeClass,
   onDragEndCallback, // Nueva prop
 }) => {
   // TEMPORAL: Determinar si es una ficha "extendida" basándose en el prefijo del ID o el valor
@@ -119,20 +119,30 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
 
   const baseClasses = `
     ficha-domino relative cursor-pointer bg-white rounded
-    ${seleccionada ? 'ring-2 ring-yellow-400 bg-yellow-200' : ''} // Highlight selected ficha with ring and background color
-    
+    ${seleccionada ? 'ring-2 ring-yellow-400 bg-yellow-200' : ''}
+    ${esEnMano ? sizeClass : ''} // Aplicar sizeClass solo si está en mano
   `;
 
+  const dynamicStyles: React.CSSProperties = {
+    fontSize: `${16 * scale}px`, // Scale font size for em units (adjust 16px base if needed)
+    transformOrigin: 'center center',
+  };
+
+  if (!esEnMano) {
+    // Para las fichas en la mesa, las dimensiones vienen de las constantes.
+    // La prop 'scale' que FichaDomino recibe es 1 (por defecto) cuando está en la mesa,
+    // porque MesaDomino no le pasa una prop 'scale' explícita.
+    // La escala general de la mesa se aplica al contenedor de MesaDomino.
+    dynamicStyles.width = `${DOMINO_WIDTH_PX}px`;
+    dynamicStyles.height = `${DOMINO_HEIGHT_PX}px`;
+  }
+  // Si esEnMano, las dimensiones vienen de sizeClass (aplicada en className),
+  // y no se establecen explícitamente en dynamicStyles.width/height.
 
   return (
     <motion.div
       className={baseClasses}
-      style={{
-        fontSize: `${16 * scale}px`, // Scale font size for em units (adjust 16px base if needed)
-        width: `${DOMINO_WIDTH_PX * scale}px`,
-        height: `${DOMINO_HEIGHT_PX * scale}px`,
-        transformOrigin: 'center center',
-      }}
+      style={dynamicStyles}
       onClick={isPlayable ? onClick : undefined} // Solo permitir clic si la ficha es jugable
       drag={arrastrable && isPlayable} // Solo permitir drag si es arrastrable Y jugable
       dragConstraints={dragConstraintsValue}
