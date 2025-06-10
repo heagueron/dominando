@@ -10,6 +10,7 @@ import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la 
 import MesaDomino from '@/components/domino/MesaDomino';
 import ManoJugadorComponent from '@/components/domino/ManoJugador'; // Mantener esta importación
 import { FichaEnMesaParaLogica } from '@/utils/dominoUtils';
+import { FiMaximize, FiMinimize } from 'react-icons/fi';
 
 //import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
 import { FILA_ANCLA_INICIAL, COLUMNA_ANCLA_INICIAL } from '@/utils/posicionamientoUtils';
@@ -78,6 +79,50 @@ export default function JuegoPage() {
     nombreGanador?: string;
     tipoFin: 'domino' | 'trancado';
   } | null>(null);
+
+  // Estado para pantalla completa
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+   // Función para alternar el modo de pantalla completa
+   const toggleFullscreen = useCallback(async () => {
+    if (!document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+        // No necesitas setIsFullscreen(true) aquí, el evento 'fullscreenchange' lo hará.
+      } catch (err) {
+        console.error(`Error al intentar entrar en pantalla completa`);
+      }
+    } else {
+      if (document.exitFullscreen) {
+        try {
+          await document.exitFullscreen();
+          // No necesitas setIsFullscreen(false) aquí, el evento 'fullscreenchange' lo hará.
+        } catch (err) {
+          console.error(`Error al intentar salir de pantalla completa`);
+        }
+      }
+    }
+  }, []);
+
+  // Efecto para escuchar cambios en el estado de pantalla completa
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    // También es buena idea escuchar los eventos con prefijos por compatibilidad, aunque los navegadores modernos suelen usar el estándar.
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
 
   // Inicializar la ref con el valor actual del store.
   // Usar el hook para obtener el estado y mantener la ref sincronizada
@@ -742,6 +787,19 @@ export default function JuegoPage() {
 
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">
+      
+      {/* Botón para Pantalla Completa (ejemplo de posicionamiento) */}
+      <button
+        onClick={toggleFullscreen}
+        className="fixed top-2 right-2 z-50 p-2 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
+        aria-label={isFullscreen ? "Salir de pantalla completa" : "Entrar en pantalla completa"}
+      >
+        {/* Puedes usar iconos aquí */}
+        {/*isFullscreen ? 'Minimizar' : 'Maximizar'*/}
+        {/* Ejemplo con react-icons: */}
+        {isFullscreen ? <FiMinimize size={20} /> : <FiMaximize size={20} />}
+      </button>
+
       <main className="flex-grow relative flex justify-center items-center w-full h-screen overflow-hidden">
         <MesaDomino
           fichasEnMesa={finRondaInfoVisible && finRondaData ? finRondaData.fichasEnMesaSnapshot : combinedFichasParaMesa}
