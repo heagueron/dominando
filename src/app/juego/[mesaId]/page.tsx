@@ -497,7 +497,7 @@ export default function JuegoPage() {
   ]); // Dependencias correctas
 
   // useEffect para loguear cambios en estados críticos que podrían afectar la jugabilidad
-  useEffect(() => {
+ /* useEffect(() => {
     console.log('[DEBUG_JUEGO_PAGE_ESTADO_CRITICO]', {
       esMiTurno: esMiTurnoFromRondaHook,
       rondaEnProgreso: rondaEnProgresoFromRondaHook,
@@ -508,7 +508,7 @@ export default function JuegoPage() {
       numFichasManoLocal: manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketFromStore)?.fichas.length,
     });
   }, [esMiTurnoFromRondaHook, rondaEnProgresoFromRondaHook, isAutoPasoForMeFromRondaHook, playableFichaIdsFromStore, miIdJugadorSocketFromStore, estadoMesaClienteFromStore, manosJugadoresFromStore]);
-
+*/
   // useEffect para manejar la visualización del mensaje de transición y limpieza de finRondaData
   useEffect(() => { // Este effect depende de estadoMesaClienteFromStore
     if (!estadoMesaCliente) {

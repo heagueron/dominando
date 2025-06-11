@@ -404,7 +404,7 @@ export const useDominoRonda = ({
     }
     
     // Log inicial con offset y point
-    console.log(`[DEBUG_DRAG_END] FichaId: ${fichaId}, Offset: {x: ${info.offset.x.toFixed(2)}, y: ${info.offset.y.toFixed(2)}}, Point: {x: ${info.point.x.toFixed(2)}, y: ${info.point.y.toFixed(2)}}`);
+    // console.log(`[DEBUG_DRAG_END] FichaId: ${fichaId}, Offset: {x: ${info.offset.x.toFixed(2)}, y: ${info.offset.y.toFixed(2)}}, Point: {x: ${info.point.x.toFixed(2)}, y: ${info.point.y.toFixed(2)}}`);
 
     // Si tienes un DRAG_THRESHOLD para info.offset, asegúrate que esté aquí y loguea si se pasa o no.
     const DRAG_OFFSET_THRESHOLD = 10; // O el valor que estés usando
@@ -435,7 +435,7 @@ export const useDominoRonda = ({
     // Umbral de distancia para considerar un drop válido cerca de un extremo
     const umbralDeDrop = DOMINO_HEIGHT_PX * mesaDims.scale * 2.5; // Ajustar según sea necesario
 
-    console.log(`[DEBUG_DRAG_END] umbralDeDrop: ${umbralDeDrop.toFixed(2)}, mesaDims.scale: ${mesaDims.scale.toFixed(2)}`);
+    // console.log(`[DEBUG_DRAG_END] umbralDeDrop: ${umbralDeDrop.toFixed(2)}, mesaDims.scale: ${mesaDims.scale.toFixed(2)}`);
 
     let distIzquierdo = Infinity;
     let puntoConexionIzquierdoScreen: { x: number; y: number } | null = null;
@@ -448,7 +448,7 @@ export const useDominoRonda = ({
         distIzquierdo = Math.sqrt(Math.pow(dropX - puntoConexionIzquierdoScreen.x, 2) + Math.pow(dropY - puntoConexionIzquierdoScreen.y, 2));
       }
     }
-    console.log(`[DEBUG_DRAG_END] Izquierdo: puntoConexion=${puntoConexionIzquierdoScreen ? `{x: ${puntoConexionIzquierdoScreen.x.toFixed(2)}, y: ${puntoConexionIzquierdoScreen.y.toFixed(2)}}` : 'null'}, dist=${distIzquierdo.toFixed(2)}`);
+    // console.log(`[DEBUG_DRAG_END] Izquierdo: puntoConexion=${puntoConexionIzquierdoScreen ? `{x: ${puntoConexionIzquierdoScreen.x.toFixed(2)}, y: ${puntoConexionIzquierdoScreen.y.toFixed(2)}}` : 'null'}, dist=${distIzquierdo.toFixed(2)}`);
 
     let distDerecho = Infinity;
     let puntoConexionDerechoScreen: { x: number; y: number } | null = null;
@@ -461,7 +461,7 @@ export const useDominoRonda = ({
         distDerecho = Math.sqrt(Math.pow(dropX - puntoConexionDerechoScreen.x, 2) + Math.pow(dropY - puntoConexionDerechoScreen.y, 2));
       }
     }
-    console.log(`[DEBUG_DRAG_END] Derecho: puntoConexion=${puntoConexionDerechoScreen ? `{x: ${puntoConexionDerechoScreen.x.toFixed(2)}, y: ${puntoConexionDerechoScreen.y.toFixed(2)}}` : 'null'}, dist=${distDerecho.toFixed(2)}`);
+    // console.log(`[DEBUG_DRAG_END] Derecho: puntoConexion=${puntoConexionDerechoScreen ? `{x: ${puntoConexionDerechoScreen.x.toFixed(2)}, y: ${puntoConexionDerechoScreen.y.toFixed(2)}}` : 'null'}, dist=${distDerecho.toFixed(2)}`);
 
 
     // Determinar si el drop está lo suficientemente cerca de un extremo y cuál es el más cercano
@@ -472,7 +472,7 @@ export const useDominoRonda = ({
     }
 
     if (extremoDetectado) {
-      console.log(`[handleFichaDragEnd] Ficha soltada cerca del extremo "${extremoDetectado}". Intentando jugar.`);
+      // console.log(`[handleFichaDragEnd] Ficha soltada cerca del extremo "${extremoDetectado}". Intentando jugar.`);
        // Usar setTimeout para permitir que el estado de la ficha arrastrada se resetee visualmente
       setTimeout(() => handleJugarFichaServidor(extremoDetectado!, fichaId), 50);
     } else {
