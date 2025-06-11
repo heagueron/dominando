@@ -130,11 +130,12 @@ const FichaDomino: React.FC<FichaDominoProps> = ({
 
   if (!esEnMano) {
     // Para las fichas en la mesa, las dimensiones vienen de las constantes.
-    // La prop 'scale' que FichaDomino recibe es 1 (por defecto) cuando está en la mesa,
-    // porque MesaDomino no le pasa una prop 'scale' explícita.
+    // Si 'scale' es 1 (default, como para fichas en MesaDomino), se usa el tamaño base.
+    // Si 'scale' es otro valor (ej. 0.7 para fichas reveladas en ContenedorInfoJugador),
+    // se aplica ese escalado a las dimensiones base.
     // La escala general de la mesa se aplica al contenedor de MesaDomino.
-    dynamicStyles.width = `${DOMINO_WIDTH_PX}px`;
-    dynamicStyles.height = `${DOMINO_HEIGHT_PX}px`;
+    dynamicStyles.width = `${DOMINO_WIDTH_PX * scale}px`;
+    dynamicStyles.height = `${DOMINO_HEIGHT_PX * scale}px`;
   }
   // Si esEnMano, las dimensiones vienen de sizeClass (aplicada en className),
   // y no se establecen explícitamente en dynamicStyles.width/height.
