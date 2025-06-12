@@ -18,6 +18,8 @@ import { FILA_ANCLA_INICIAL, COLUMNA_ANCLA_INICIAL } from '@/utils/posicionamien
 // import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Comentado para prueba
 import PlayerInfoLayout from '@/components/juego/PlayerInfoLayout'; // Importar el nuevo componente
 import DominoModals from '@/components/juego/DominoModals'; // Importar el nuevo componente de modales (ya actualizado)
+import { useSession } from 'next-auth/react'; // ¡Importante!
+import Navbar from '@/components/layout/Navbar'; // Asumiendo que también usas Navbar aquí
 
 // Importar tipos desde el nuevo archivo centralizado
 //import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, JugadorPublicoInfoCliente, EstadoPartidaPublicoCliente } from '@/types/domino';
@@ -64,9 +66,13 @@ export default function JuegoPage() {
   const router = useRouter();
   const mesaIdFromUrl = params.mesaId as string;
   const authoritativeMesaIdRef = useRef<string>(mesaIdFromUrl);
-  
-  const finalUserIdRef = useRef<string | null>(null);
-  const finalNombreJugadorRef = useRef<string | null>(null);
+
+  const { data: session, status: sessionStatus } = useSession(); // Usar NextAuth
+
+  // Estados locales para userId y nombreJugador que se usarán para el socket
+  const [gameUserId, setGameUserId] = useState<string | null>(null);
+  const [gameNombreJugador, setGameNombreJugador] = useState<string | null>(null);
+  const [isUserDataReady, setIsUserDataReady] = useState(false);
   const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
 
   const audioFichaJugadaRef = useRef<HTMLAudioElement | null>(null);
@@ -157,42 +163,40 @@ export default function JuegoPage() {
     authoritativeMesaIdRef.current = mesaIdFromUrl;
   }, [mesaIdFromUrl]);
 
+  // Efecto para inicializar datos del jugador y socket
   useEffect(() => {
-    console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Entrando. mesaIdFromUrl:', mesaIdFromUrl);
-    if (!mesaIdFromUrl || typeof mesaIdFromUrl !== 'string' || mesaIdFromUrl.trim() === '') { 
-      console.error("[JUEGO_PAGE_EFFECT_SOCKET_INIT] No se encontró mesaId válido en la URL. Redirigiendo al lobby. mesaIdFromUrl:", mesaIdFromUrl);
+    console.log(`[JUEGO_PAGE_EFFECT_SOCKET_INIT] Entrando. mesaIdFromUrl: ${mesaIdFromUrl}, Session status: ${sessionStatus}`);
+
+    if (sessionStatus === 'loading') {
+      console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Sesión de NextAuth cargando...');
+      return; // Esperar a que la sesión cargue
+    }
+
+    if (!mesaIdFromUrl || typeof mesaIdFromUrl !== 'string' || mesaIdFromUrl.trim() === '') {
+      console.error('[JUEGO_PAGE_EFFECT_SOCKET_INIT] No hay mesaId válido en la URL. Redirigiendo al lobby.');
       router.push('/lobby');
       return;
     }
 
-    console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Intentando leer de sessionStorage.');
-    const userIdFromStorage = sessionStorage.getItem('jmu_userId');
-    const nombreJugadorFromStorage = sessionStorage.getItem('jmu_nombreJugador');  
+    if (sessionStatus === 'unauthenticated' || !session?.user) {
+      console.error('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Usuario no autenticado. Redirigiendo a signin.');
+      router.push(`/auth/signin?callbackUrl=/juego/${mesaIdFromUrl}`);
+      return;
+    }
+
+    // Usuario autenticado y mesaId presente
+    const currentUserId = session.user.id;
+    const currentNombreJugador = session.user.name || session.user.email || `Jugador ${currentUserId.slice(-4)}`;
+
+    console.log(`[JUEGO_PAGE_EFFECT_SOCKET_INIT] Usuario autenticado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}`);
+    setGameUserId(currentUserId);
+    setGameNombreJugador(currentNombreJugador);
+    setIsUserDataReady(true); // Marcar que los datos del usuario están listos
+
+    // Leer tipoJuegoSolicitado de sessionStorage (si aún es necesario)
     tipoJuegoSolicitadoRef.current = sessionStorage.getItem('jmu_tipoJuegoSolicitado') as TipoJuegoSolicitado | null;
-
-    const queryParams = new URLSearchParams(window.location.search);
-    const uidFromQuery = queryParams.get('uid');
-    const nombreFromQuery = queryParams.get('nombre');
-
-    if (uidFromQuery && nombreFromQuery) {
-      console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Leído de Query Params - userId:', uidFromQuery, 'nombreJugador:', nombreFromQuery);
-      finalUserIdRef.current = uidFromQuery;
-      finalNombreJugadorRef.current = nombreFromQuery;
-      sessionStorage.setItem('jmu_userId', finalUserIdRef.current);
-      sessionStorage.setItem('jmu_nombreJugador', finalNombreJugadorRef.current);
-      console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Guardado en sessionStorage desde Query Params.');
-    } else {
-      console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] No se encontraron datos en Query Params, intentando sessionStorage.');
-      finalUserIdRef.current = userIdFromStorage;
-      finalNombreJugadorRef.current = nombreJugadorFromStorage;
-    }
-    console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Valores finales para conexión - userId:', finalUserIdRef.current, 'nombreJugador:', finalNombreJugadorRef.current);
-
-    if (!finalUserIdRef.current || !finalNombreJugadorRef.current) {
-      console.error("Error: Falta información del jugador (después de query y sessionStorage). Redirigiendo al lobby.");
-      router.push('/lobby');
-    }
-  }, [router, mesaIdFromUrl]);
+    
+  }, [mesaIdFromUrl, session, sessionStatus, router]);
   
   // Obtener el socket y sus funciones del store a través del hook refactorizado
   //const { socket, isConnected, socketError, emitEvent, registerEventHandlers, unregisterEventHandlers, initializeSocketIfNeeded } = useDominoSocket();
@@ -203,55 +207,57 @@ export default function JuegoPage() {
     const defaultTitle = "Juego - Dominando";
     const currentMesaIdForTitle = authoritativeMesaIdRef.current;
 
-    if (isConnected && finalNombreJugadorRef.current) { // Usar isConnected del store
-      const shortName = formatPlayerNameForTitle(finalNombreJugadorRef.current);
+    if (isConnected && gameNombreJugador) { // Usar gameNombreJugador del estado
+      const shortName = formatPlayerNameForTitle(gameNombreJugador);
       const mesaSuffix = currentMesaIdForTitle ? ` ${currentMesaIdForTitle.slice(-3)}` : "";
       document.title = shortName ? `${shortName} - Juego${mesaSuffix}` : `Juego${mesaSuffix} - Dominando`;
     } else {
       document.title = defaultTitle;
     }
-  }, [isConnected, estadoMesaClienteFromStore, finalNombreJugadorRef, authoritativeMesaIdRef]); // Añadir isConnected
+  }, [isConnected, estadoMesaClienteFromStore, gameNombreJugador, authoritativeMesaIdRef]); // Usar gameNombreJugador
 
   // Effect para inicializar el socket y unirse a la mesa cuando la info esté lista y el socket esté conectado
   useEffect(() => {
-    const userId = finalUserIdRef.current;
-    const nombreJugador = finalNombreJugadorRef.current;
+    // Usar gameUserId y gameNombreJugador del estado
+    // const userId = finalUserIdRef.current;
+    // const nombreJugador = finalNombreJugadorRef.current;
     const mesaId = authoritativeMesaIdRef.current;
     //const tipoJuego = tipoJuegoSolicitadoRef.current;
 
-    console.log('[JUEGO_PAGE_SOCKET_FLOW] Effect triggered.', { userId, nombreJugador, mesaId, isConnected, initialJoinAttempted: initialJoinAttemptedRef.current });
+    console.log('[JUEGO_PAGE_SOCKET_FLOW] Effect triggered.', { userId: gameUserId, nombreJugador: gameNombreJugador, mesaId, isConnected, initialJoinAttempted: initialJoinAttemptedRef.current });
 
     // 1. Asegurarse de que el socket esté inicializado y conectado con la info correcta
-    if (userId && nombreJugador && mesaId && !isConnected) {
+    // Solo intentar inicializar si tenemos los datos del usuario Y el socket no está conectado
+    if (isUserDataReady && gameUserId && gameNombreJugador && mesaId && !isConnected) {
        console.log('[JUEGO_PAGE_SOCKET_FLOW] Info disponible, socket no conectado. Llamando initializeSocketIfNeeded.');
-       initializeSocketIfNeeded(userId, nombreJugador);
+       initializeSocketIfNeeded(gameUserId, gameNombreJugador);
        // La lógica de unión a la mesa se ejecutará una vez que isConnected se vuelva true
     }
 
     // 2. Emitir 'cliente:unirseAMesa' una vez que el socket esté conectado Y tengamos la info necesaria
     // Usamos una ref para asegurar que solo intentamos unirnos una vez por carga de página/conexión exitosa
-    if (isConnected && userId && nombreJugador && mesaId && !initialJoinAttemptedRef.current) {
+    if (isConnected && isUserDataReady && gameUserId && gameNombreJugador && mesaId && !initialJoinAttemptedRef.current) {
       console.log('[JUEGO_PAGE_SOCKET_FLOW] Socket conectado e info disponible. Intentando unirse a la mesa:', mesaId);
       initialJoinAttemptedRef.current = true; // Marcar intento
       console.log('[JUEGO_PAGE_HOOK] Socket conectado. Emitiendo cliente:unirseAMesa.');
-      const currentNombreJugador = finalNombreJugadorRef.current;
+      // const currentNombreJugador = gameNombreJugador; // El servidor ya lo tiene del initializeSocketIfNeeded
       const currentTipoJuego = tipoJuegoSolicitadoRef.current;
       const currentMesaId = authoritativeMesaIdRef.current; 
 
-      if (currentNombreJugador && currentMesaId) {
+      if (gameNombreJugador && currentMesaId) { // Usar gameNombreJugador del estado
         emitEvent('cliente:unirseAMesa', { // Usar emitEvent del hook
           juegoSolicitado: currentTipoJuego,
-          nombreJugador: currentNombreJugador,
+          // nombreJugador: currentNombreJugador, // El servidor ya debería tenerlo
           mesaId: currentMesaId
         });
       } else {
-        console.error('[JUEGO_PAGE_HOOK] onConnect: No se pudo emitir cliente:unirseAMesa. Falta nombreJugador o mesaId.', {
-          nombre: currentNombreJugador,
+        console.error('[JUEGO_PAGE_HOOK] onConnect: No se pudo emitir cliente:unirseAMesa. Falta gameNombreJugador o mesaId.', {
+          nombre: gameNombreJugador, // Usar gameNombreJugador para el log
           mesaId: currentMesaId,
         });
       }
     }
-  }, [isConnected, initializeSocketIfNeeded, emitEvent]); // Dependencias: estado de conexión, funciones del hook/store
+  }, [isConnected, initializeSocketIfNeeded, emitEvent, gameUserId, gameNombreJugador, isUserDataReady, authoritativeMesaIdRef]);
 
   const rondaActualParaUI = estadoMesaClienteFromStore?.partidaActual?.rondaActual;
 
@@ -788,10 +794,22 @@ export default function JuegoPage() {
   } , [rondaActualParaUI?.anclaFicha, finRondaInfoVisible, finRondaData]); // Añadida finRondaInfoVisible y finRondaData
 
 
-  if (!isConnected || !estadoMesaClienteFromStore) { // Usar isConnected del store y estadoMesaClienteFromStore
-    return <div className="flex items-center justify-center min-h-screen">Cargando datos de la mesa...</div>;
+  // Lógica de carga mientras se obtiene la sesión o los datos del usuario
+  // O si el socket no está conectado o no hay estado de mesa aún.
+  if (sessionStatus === 'loading' || !isUserDataReady || !isConnected || !estadoMesaClienteFromStore) {
+    return (
+      <div className="min-h-screen flex flex-col bg-table-wood">
+        <Navbar /> {/* Asumiendo un Navbar */}
+        <main className="flex-grow flex items-center justify-center">
+          <p className="text-white text-xl">
+            {sessionStatus === 'loading' || !isUserDataReady ? 'Cargando datos del jugador...' : 
+             !isConnected ? 'Conectando al servidor del juego...' : 
+             !estadoMesaClienteFromStore ? 'Cargando datos de la mesa...' : 'Cargando...'}
+          </p>
+        </main>
+      </div>
+    );
   }
-
 
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">

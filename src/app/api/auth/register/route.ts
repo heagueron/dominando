@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Verificar si el email ya está en uso
-    const existingUserByEmail = await prisma.usuario.findUnique({
+    const existingUserByEmail = await prisma.user.findUnique({
       where: { email },
     });
 
@@ -43,9 +43,9 @@ export async function POST(request: Request) {
     // Esto asegura que ambas operaciones (crear usuario y crear estadísticas)
     // se completen exitosamente o ninguna lo haga.
     const newUser = await prisma.$transaction(async (tx) => {
-      const createdUser = await tx.usuario.create({
+      const createdUser = await tx.user.create({
         data: {
-          nombre: username, // Usamos 'username' del formulario para el campo 'nombre'
+          name: username, // Usamos 'username' del formulario para el campo 'nombre'
           email,
           passwordHash, // Guardamos el hash, no la contraseña en texto plano
           // emailVerified se puede manejar más tarde si implementas verificación de email
@@ -53,9 +53,9 @@ export async function POST(request: Request) {
       });
 
       // Crear estadísticas iniciales para el usuario
-      await tx.estadistica.create({
+      await tx.statistic.create({
         data: {
-          usuarioId: createdUser.id,
+          userId: createdUser.id,
           // Los valores por defecto definidos en el schema.prisma se aplicarán
         },
       });

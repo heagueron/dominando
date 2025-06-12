@@ -4,7 +4,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDominoSocket } from '@/hooks/useDominoSocket';
-
+import { useSession, signOut } from 'next-auth/react';
+import Navbar from '@/components/layout/Navbar'; // Asumiendo que tienes un Navbar similar al de registro/login
 
 // Tipos para los payloads de Socket.IO (simplificados para el lobby)
 interface TeUnisteAMesaPayloadLobby { // Renombrado y actualizado
@@ -18,37 +19,41 @@ export type TipoJuegoSolicitado = 'rondaUnica' | 'partidaCompleta';
 
 export default function LobbyPage() {
   const router = useRouter();
+  const { data: session, status: sessionStatus } = useSession();
+
   const [userId, setUserId] = useState<string | null>(null);
   const [nombreJugador, setNombreJugador] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<TipoJuegoSolicitado | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null); // Renombrado para evitar conflicto con error del hook
-  const [authInitialized, setAuthInitialized] = useState(false); // Nuevo estado
+  const [userDataInitialized, setUserDataInitialized] = useState(false); // Para saber cuándo tenemos datos del usuario
   const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
   const isNavigatingRef = useRef<boolean>(false); // Ref to track if navigation is in progress
 
-  // Effect for userId and nombreJugador initialization
+  // Effect for handling NextAuth session and initializing user data
   useEffect(() => {
-    // Este efecto debe ejecutarse solo una vez para configurar el usuario.
-    console.log('[LOBBY_USER_INIT] Inicializando usuario...');
-      const idFromStorage = sessionStorage.getItem('jmu_userId');
-      console.log('[LOBBY_USER_INIT] sessionStorage.getItem("jmu_userId") devolvió:', idFromStorage);
+    console.log('[LOBBY_AUTH_EFFECT] Session status:', sessionStatus);
+    if (sessionStatus === 'loading') {
+      return; // No hagas nada mientras carga la sesión
+    }
+
+    if (sessionStatus === 'unauthenticated' || !session) {
+      console.log('[LOBBY_AUTH_EFFECT] Usuario no autenticado, redirigiendo a signin.');
+      router.push('/auth/signin?callbackUrl=/lobby');
+      return;
+    }
+
+    // Usuario autenticado
+    if (session && session.user) {
+      const currentUserId = session.user.id;
+      // Usar el nombre de la sesión, o el email como fallback, o un nombre genérico
+      const currentNombreJugador = session.user.name || session.user.email || `Jugador ${currentUserId.slice(-4)}`;
       
-      let currentUserId = idFromStorage;
-      if (!currentUserId) {
-        currentUserId = `client_${Math.random().toString(36).substring(2, 9)}`;
-        console.log('[LOBBY_USER_INIT] Generado nuevo userId:', currentUserId);
-        sessionStorage.setItem('jmu_userId', currentUserId);
-      }
-      
-      const currentNombreJugador = sessionStorage.getItem('jmu_nombreJugador') || `Jugador ${currentUserId.slice(-4)}`;
-      sessionStorage.setItem('jmu_nombreJugador', currentNombreJugador); // Asegurar que también se establezca si solo userId estaba presente
-      
-      console.log(`[LOBBY_USER_INIT] Estableciendo estado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}`);
+      console.log(`[LOBBY_AUTH_EFFECT] Usuario autenticado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}, isAdmin: ${session.user.is_admin}`);
       setUserId(currentUserId);
       setNombreJugador(currentNombreJugador);
-    setAuthInitialized(true); // Marcar que la inicialización ha terminado
-    console.log(`[LOBBY_USER_INIT] Auth inicializada. userId=${currentUserId}, nombreJugador=${currentNombreJugador}`);
-  }, []); // Array de dependencias vacío para ejecutar solo una vez al montar
+      setUserDataInitialized(true); // Marcar que los datos del usuario están listos
+    }
+  }, [session, sessionStatus, router]);
 
   const formatPlayerNameForTitle = (name: string | null): string => {
     if (!name) return "";
@@ -85,11 +90,11 @@ export default function LobbyPage() {
 
   // Inicializar el socket una vez que tengamos userId y nombreJugador
   useEffect(() => {
-    if (authInitialized && userId && nombreJugador) {
-      console.log('[LOBBY_PAGE] Auth inicializada, llamando a initializeSocketIfNeeded.');
+    if (userDataInitialized && userId && nombreJugador) {
+      console.log('[LOBBY_SOCKET_INIT] Datos de usuario listos, llamando a initializeSocketIfNeeded.');
       initializeSocketIfNeeded(userId, nombreJugador);
     }
-  }, [authInitialized, userId, nombreJugador, initializeSocketIfNeeded]);
+  }, [userDataInitialized, userId, nombreJugador, initializeSocketIfNeeded]);
 
 
   // Effect for game-specific socket event listeners
@@ -99,16 +104,15 @@ export default function LobbyPage() {
     const handleTeUnisteAMesaCallback = (payload: TeUnisteAMesaPayloadLobby) => {
       console.log('[LOBBY_SOCKET] Evento servidor:teUnisteAMesa recibido:', payload);
       isNavigatingRef.current = true; // Set flag before navigating
-      // Usar userId y nombreJugador del closure del useEffect, que son los valores correctos para este render.
-      console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - userId (closure):', userId, 'nombreJugador (closure):', nombreJugador);
-      // Opcionalmente, podrías leer de sessionStorage aquí si hay dudas sobre la frescura del estado en el closure,
-      // pero el estado de React debería ser suficiente si las dependencias del useEffect son correctas.
+      
+      // userId y nombreJugador del estado de React deberían estar actualizados por el efecto de autenticación.
+      console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - userId (estado):', userId, 'nombreJugador (estado):', nombreJugador);
       tipoJuegoSolicitadoRef.current = null; // Reset ref
       setIsLoading(null);
       setLobbyError(null);
-      // Usar userId y nombreJugador del closure del useEffect, que son los valores correctos para este render.
+
       if (userId && nombreJugador) { 
-        router.push(`/juego/${payload.mesaId}?uid=${encodeURIComponent(userId)}&nombre=${encodeURIComponent(nombreJugador)}`);
+        router.push(`/juego/${payload.mesaId}`); // El servidor ya conoce al usuario por su socket.id
       } else {
         console.error("[LOBBY_SOCKET] No se pudo navegar: userId o nombreJugador del estado de React son nulos.");
         setLobbyError("Error al preparar la navegación. Intenta de nuevo.");
@@ -132,16 +136,11 @@ export default function LobbyPage() {
     return () => {
       unregisterEventHandlers(Object.keys(eventHandlers));
     };
-  // Las dependencias userId y nombreJugador son correctas aquí porque
-  // handleTeUnisteAMesaCallback (definido dentro de este efecto) los usa en su closure.
-  // Si estos callbacks se movieran fuera y se memoizaran con useCallback,
-  // entonces este useEffect podría no necesitar userId/nombreJugador directamente si los callbacks son estables.
-  // registerEventHandlers y unregisterEventHandlers se asume que son estables desde el hook.
   }, [socket, router, userId, nombreJugador, registerEventHandlers, unregisterEventHandlers]);
 
   const handleJoinGame = useCallback((tipoJuego: TipoJuegoSolicitado) => {
-    // Asegurarse que auth esté completa y el socket esté listo (aunque el hook podría no devolver socket si auth no está lista)
-    if (!authInitialized || !nombreJugador || !userId ) {
+    // Asegurarse que los datos del usuario estén listos y tengamos la información necesaria
+    if (!userDataInitialized || !nombreJugador || !userId ) {
       setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
       return;
     }
@@ -152,13 +151,14 @@ export default function LobbyPage() {
     isNavigatingRef.current = false; // Reset navigation flag at the start of a join attempt
     tipoJuegoSolicitadoRef.current = tipoJuego; // Set the ref
 
-    // Guardar el tipo de juego solicitado en sessionStorage INMEDIATAMENTE
+    // Guardar el tipo de juego solicitado en sessionStorage (si aún lo necesitas para la página de juego)
     console.log(`[LOBBY_SOCKET] Guardando jmu_tipoJuegoSolicitado en sessionStorage: ${tipoJuego} (desde handleJoinGame)`);
     sessionStorage.setItem('jmu_tipoJuegoSolicitado', tipoJuego);
 
     if (isConnected) {
       console.log('[LOBBY_SOCKET] Socket already connected. Emitting cliente:unirseAMesa.');
-      emitEvent('cliente:unirseAMesa', { juegoSolicitado: tipoJuego, nombreJugador });
+      // El servidor ya debería conocer el nombre del jugador a través de la inicialización del socket
+      emitEvent('cliente:unirseAMesa', { juegoSolicitado: tipoJuego /* userId y nombreJugador ya están asociados al socket en el servidor */ });
     } else {
       console.log('[LOBBY_SOCKET] Socket not connected. Intentando inicializar/conectar y luego unirse.');
       // Asegurarse de que el socket se inicialice si aún no lo está
@@ -173,39 +173,83 @@ export default function LobbyPage() {
         setLobbyError("Falta información del usuario para conectar.");
       }
     }
-  }, [authInitialized, nombreJugador, userId, isConnected, emitEvent, initializeSocketIfNeeded]);
+  }, [userDataInitialized, nombreJugador, userId, isConnected, emitEvent, initializeSocketIfNeeded]);
 
   useEffect(() => { if (socketError) setLobbyError(socketError); }, [socketError]);
 
-  if (!authInitialized) { // Mostrar carga hasta que la inicialización del usuario termine
-    return <div className="flex items-center justify-center min-h-screen">Cargando configuración del jugador...</div>;
+  if (sessionStatus === 'loading' || !userDataInitialized) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-grow flex items-center justify-center">
+          <p>Cargando lobby y datos del jugador...</p>
+          {/* O un componente de Spinner más elaborado */}
+        </main>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-100">
-      <header className="p-4 mb-8">
-        <h1 className="text-5xl font-bold text-center text-gray-800">Lobby de Dominando</h1>
-        <p className="text-xl text-gray-600 text-center mt-2">Elige tu modo de juego, {nombreJugador}</p>
-      </header>
-      <main className="flex flex-col items-center gap-6">
-        <button
-          onClick={() => handleJoinGame('rondaUnica')}
-          disabled={!!isLoading}
-          className="px-8 py-4 text-xl font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out disabled:bg-gray-400"
-        >
-          {isLoading === 'rondaUnica' ? 'Uniéndote...' : 'Partida de Ronda Única'}
-        </button>
-        <button
-          onClick={() => handleJoinGame('partidaCompleta')}
-          disabled={!!isLoading}
-          className="px-8 py-4 text-xl font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition duration-150 ease-in-out disabled:bg-gray-400"
-        >
-          {isLoading === 'partidaCompleta' ? 'Uniéndote...' : 'Partida Completa (Próximamente)'}
-        </button>
-        {lobbyError && <p className="text-red-500 mt-4">{lobbyError}</p>}
+    <div className="min-h-screen bg-gray-100 text-gray-800 flex flex-col">
+      <Navbar />
+      <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center">
+        <div className="w-full max-w-2xl bg-white shadow-xl rounded-lg p-6 mb-8 text-center">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">
+            ¡Bienvenido al Lobby, {nombreJugador}!
+          </h1>
+          <p className="text-gray-600 mb-1">Elige tu modo de juego para comenzar la diversión.</p>
+          {session?.user?.is_admin && (
+            <p className="text-sm text-blue-600 mt-1">(Rol: Administrador)</p>
+          )}
+          <button
+            onClick={() => signOut({ callbackUrl: '/' })}
+            className="mt-4 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 text-sm"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+          {/* Card para Ronda Única */}
+          <div className="bg-white shadow-lg rounded-lg p-6 flex flex-col items-center justify-between hover:shadow-xl transition-shadow duration-300">
+            <h2 className="text-2xl font-semibold mb-3 text-blue-600">Ronda Única</h2>
+            <p className="text-gray-600 text-sm mb-4 text-center">
+              Una partida rápida para demostrar quién es el mejor en una sola ronda. ¡Directo a la acción!
+            </p>
+            <button
+              onClick={() => handleJoinGame('rondaUnica')}
+              disabled={!!isLoading}
+              className="w-full px-6 py-3 text-lg font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition duration-150 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isLoading === 'rondaUnica' ? 'Uniéndote...' : 'Jugar Ronda Única'}
+            </button>
+          </div>
+
+          {/* Card para Partida Completa */}
+          <div className="bg-white shadow-lg rounded-lg p-6 flex flex-col items-center justify-between hover:shadow-xl transition-shadow duration-300">
+            <h2 className="text-2xl font-semibold mb-3 text-green-600">Partida Completa</h2>
+            <p className="text-gray-600 text-sm mb-4 text-center">
+              La experiencia clásica. Juega hasta alcanzar la puntuación objetivo. Estrategia y resistencia.
+            </p>
+            <button
+              onClick={() => handleJoinGame('partidaCompleta')}
+              disabled={!!isLoading || true} // Deshabilitado temporalmente hasta que esté lista
+              className="w-full px-6 py-3 text-lg font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition duration-150 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isLoading === 'partidaCompleta' ? 'Uniéndote...' : 'Jugar Partida Completa'}
+              {true && <span className="block text-xs mt-1">(Próximamente)</span>}
+            </button>
+          </div>
+        </div>
+
+        {lobbyError && (
+          <p className="text-red-500 mt-6 text-center bg-red-100 border border-red-400 rounded p-3 w-full max-w-md">
+            {lobbyError}
+          </p>
+        )}
       </main>
-      <footer className="absolute bottom-0 flex items-center justify-center w-full h-24 border-t bg-gray-100">
-        <p className="text-gray-500">
+      <footer className="w-full py-6 text-center text-gray-500 border-t border-gray-200 mt-12">
+        <p className="text-sm">
           © {new Date().getFullYear()} Dominando
         </p>
       </footer>
