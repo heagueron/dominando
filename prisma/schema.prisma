@@ -10,26 +10,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Usuario {
+model User {
   id            String    @id @default(cuid())
-  nombre        String?
+  name          String?
+  username      String?   @unique
   email         String    @unique
   emailVerified DateTime?
-  imagen        String?
-  cuentas       Cuenta[]
-  sesiones      Sesion[]
-  partidas      Partida[]
-  estadisticas  Estadistica?
+  passwordHash  String?   
+  image         String?
+  balance_VES   Decimal   @default(0) // Cambiado a Decimal para consistencia con transacciones
+  balance_USDT  Decimal   @default(0.0) // Cambiado a Decimal
+  accounts      Account[] // Corregido: Cuenta -> Account
+  sessions      Session[] // Corregido: Sesion -> Session
+  matches       Match[]
+  statistics    Statistic?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  is_admin      Boolean   @default(false) // Nuevo campo para rol de administrador
+
+  adminCreatedTransactions Transaction[] @relation("AdminCreatedTransactions")
+  transactions             Transaction[] // Transacciones pertenecientes a este usuario
 }
 
-model Cuenta {
+model Account {
   id                String  @id @default(cuid())
-  usuarioId         String
-  tipo              String
-  proveedor         String
-  proveedorCuentaId String
+  userId            String
+  type              String  // e.g., "oauth", "credentials"
+  provider          String  // e.g., "google", "credentials"
+  providerAccountId String  // ID del usuario en el proveedor OAuth
   refresh_token     String? @db.Text
   access_token      String? @db.Text
   expires_at        Int?
@@ -37,18 +45,20 @@ model Cuenta {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
+  
+  
 
-  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([proveedor, proveedorCuentaId])
+  @@unique([provider, providerAccountId])
 }
 
-model Sesion {
+model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
-  usuarioId    String
+  userId       String
   expires      DateTime
-  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -59,24 +69,64 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Partida {
+enum MatchState {
+  WAITING
+  PLAYING
+  FINISHED
+}
+
+model Match {
   id          String   @id @default(cuid())
-  creadorId   String
-  creador     Usuario  @relation(fields: [creadorId], references: [id])
-  jugadores   String[] // IDs de los jugadores
-  estado      String   @default("esperando") // esperando, jugando, finalizada
-  puntuacion  Json?    // Puntuación de cada jugador
-  movimientos Json[]   // Registro de movimientos
+  creatorId   String
+  creator     User     @relation(fields: [creatorId], references: [id]) // Corregido: Usuario -> User
+  players     String[] // Players IDs
+  state       MatchState  @default(WAITING)
+  score       Json?    // Every player's score
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
-model Estadistica {
-  id             String @id @default(cuid())
-  usuarioId      String @unique
-  usuario        Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  partidasJugadas Int    @default(0)
-  partidasGanadas Int    @default(0)
-  puntosTotales   Int    @default(0)
-  nivelHabilidad  Float  @default(1000.0) // Sistema ELO o similar
+
+model Statistic{
+  id              String @id @default(cuid())
+  userId          String @unique
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playedMatches   Int    @default(0)
+  wins            Int    @default(0)
+  totalPoints     Int    @default(0)
+  skillLevel      Int    @default(1000)
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  GAME_FEE 
+  PRIZE_PAYOUT
+}
+
+enum Currency {
+  VES
+  USDT
+}
+
+
+
+model Transaction {
+  id                String  @id @default(cuid())
+  userId            String
+  creatorId         String  // creator id (an admin user)
+  creatorUser       User    @relation("AdminCreatedTransactions", fields: [creatorId], references: [id])
+  type              TransactionType @default(DEPOSIT)
+  currency          Currency @default(VES)
+  amount            Decimal
+  comment           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([currency])
+
 }
