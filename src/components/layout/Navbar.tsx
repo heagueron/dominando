@@ -1,11 +1,13 @@
-// /home/heagueron/jmu/dominando/src/components/layout/Navbar.tsx
+// Navbar.tsx
 'use client';
 
 import Link from 'next/link';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FiMenu, FiX } from 'react-icons/fi'; // Iconos para el menú hamburguesa
+import { FiMenu, FiX, FiLogOut } from 'react-icons/fi'; // Iconos para el menú hamburguesa y acciones
 import { usePathname } from 'next/navigation'; // Para saber en qué página estamos
+import { useSession, signOut } from 'next-auth/react'; // Importar useSession y signOut
+import UserAvatar from '@/components/jugador/UserAvatar'; // Importar el componente UserAvatar
 
 interface NavLink {
   href: string;
@@ -15,17 +17,23 @@ interface NavLink {
   hideOnPaths?: string[]; // Opcional: para ocultar en ciertas páginas
 }
 
-interface NavbarProps {
-  // Podríamos añadir props para personalizar los enlaces si fuera necesario,
-  // pero por ahora definiremos los enlaces comunes aquí.
-}
+// interface NavbarProps {
+//   // Si en el futuro necesitas props, puedes descomentar esto.
+// }
 
-export default function Navbar(props: NavbarProps) {
+// export default function Navbar(props: NavbarProps) { // props ya no se usa
+export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { status } = useSession(); // Solo 'status' es usado directamente aquí
 
-  const navLinks: NavLink[] = [
+  // Enlaces comunes, siempre visibles (a menos que tengan su propio hideOnPaths)
+  const commonLinks: NavLink[] = [
     { href: '/como-jugar', label: 'Cómo Jugar' },
+  ];
+
+  // Enlaces para usuarios no autenticados
+  const unauthenticatedNavLinks: NavLink[] = [
     {
       href: '/auth/signin',
       label: 'Iniciar Sesión',
@@ -77,6 +85,28 @@ export default function Navbar(props: NavbarProps) {
     );
   };
 
+  const renderLogoutButton = (isMobile: boolean = false) => {
+    let className = `text-sm font-medium transition-colors duration-150 rounded-lg cursor-pointer`;
+    if (isMobile) {
+      className += ' flex items-center space-x-2 block px-3 py-3 bg-red-500 text-white hover:bg-red-700 w-full text-left';
+    } else {
+      className += ' bg-red-500 hover:bg-red-700 text-white font-semibold py-2 px-4 transform hover:scale-105 flex items-center space-x-2';
+    }
+    return (
+      <div className="flex items-center space-x-2">
+        {!isMobile && <UserAvatar size={32} className="hidden sm:block" />} {/* Mostrar avatar en desktop */}
+        <button
+          key="logout"
+          onClick={() => signOut({ callbackUrl: '/' })}
+          className={className}
+        >
+          <FiLogOut className={isMobile ? "mr-2" : "mr-1"} />
+          <span>Salir</span>
+        </button>
+      </div>
+    );
+  };
+
 
   return (
     <nav className="w-full py-5 px-6 md:px-10">
@@ -87,7 +117,10 @@ export default function Navbar(props: NavbarProps) {
 
         {/* Desktop Menu */}
         <div className="hidden md:flex space-x-3 md:space-x-5 items-center">
-          {navLinks.map(link => renderLink(link))}
+          {commonLinks.map(link => renderLink(link))}
+          {status === 'authenticated' && renderLogoutButton()}
+          {status === 'unauthenticated' && unauthenticatedNavLinks.map(link => renderLink(link))}
+          {/* Mientras status === 'loading', los enlaces de autenticación no se muestran, lo cual es aceptable */}
         </div>
 
         {/* Mobile Menu Button */}
@@ -112,7 +145,9 @@ export default function Navbar(props: NavbarProps) {
           className="md:hidden mt-4 bg-white shadow-lg rounded-lg p-4 border border-gray-200"
         >
           <div className="flex flex-col space-y-3">
-            {navLinks.map(link => renderLink(link, true))}
+            {commonLinks.map(link => renderLink(link, true))}
+            {status === 'authenticated' && renderLogoutButton(true)}
+            {status === 'unauthenticated' && unauthenticatedNavLinks.map(link => renderLink(link, true))}
           </div>
         </motion.div>
       )}

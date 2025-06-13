@@ -3,6 +3,7 @@
 import FichaDomino from '@/components/domino/FichaDomino'; // <--- IMPORTAR DominoFicha
 import { FichaDomino as TipoFichaDomino } from '@/utils/dominoUtils';
 import SpeechBubble, { BubbleDirection } from '@/components/jugador/SpeechBubble'; // Importar SpeechBubble
+import UserAvatar from '@/components/jugador/UserAvatar'; // Importar UserAvatar
 import React from 'react';
 
 interface ContenedorInfoJugadorProps {
@@ -23,14 +24,6 @@ interface ContenedorInfoJugadorProps {
   className?: string;
 }
 
-const AvatarPlaceholder: React.FC<{ className?: string }> = ({ className }) => (
-  <div className={`bg-gray-300 rounded-full flex items-center justify-center overflow-hidden ${className}`}>
-    <svg className="w-3/4 h-3/4 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-    </svg>
-  </div>
-);
-
 const BarraProgresoTurno: React.FC<{ tiempoRestante: number; duracionTotalTurno: number }> = ({
   tiempoRestante,
   duracionTotalTurno,
@@ -50,6 +43,7 @@ const BarraProgresoTurno: React.FC<{ tiempoRestante: number; duracionTotalTurno:
 
 const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
   nombreJugador = "Jugador",
+  avatarUrl, // Usaremos esta prop
   esTurnoActual,
   tiempoRestante,
   duracionTotalTurno,
@@ -109,7 +103,12 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
         <div className={`flex ${posicion === 'arriba' ? 'items-start' : 'items-center'} gap-2 p-2 bg-black bg-opacity-20 rounded-lg shadow-md`}>
           <div className="flex-shrink-0">
             <div className="relative">
-              <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16" />
+              <UserAvatar 
+                src={avatarUrl} 
+                name={nombreJugador} 
+                size={posicion === 'arriba' || posicion === 'abajo' ? (window.innerWidth < 1024 ? 48 : 64) : (window.innerWidth < 1024 ? 48 : 56)} // Tamaños dinámicos
+                className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16" // Clases para mantener el layout si es necesario
+              />
               {/* El SpeechBubble se renderizará fuera de este flujo, posicionado absolutamente */}
               {typeof numFichas === 'number' && !mostrarFichasFinales && (
                 <FichaCountEar count={numFichas} side="left" />
@@ -135,7 +134,12 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
       return (
         <div className={`flex flex-col items-center gap-1 p-2 bg-black bg-opacity-20 rounded-lg shadow-md`}>
           <div className="relative flex-shrink-0">
-            <AvatarPlaceholder className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" />
+            <UserAvatar 
+              src={avatarUrl} 
+              name={nombreJugador} 
+              size={window.innerWidth < 1024 ? 48 : 56} // Tamaños dinámicos
+              className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" // Clases para mantener el layout si es necesario
+            />
             {/* El SpeechBubble se renderizará fuera de este flujo, posicionado absolutamente */}
             {posicion === 'derecha' && typeof numFichas === 'number' && !mostrarFichasFinales && (
               <FichaCountEar count={numFichas} side="left" />
