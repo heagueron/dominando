@@ -1,10 +1,11 @@
-// /home/heagueron/jmu/dominando/src/app/auth/register/page.tsx
+// page.tsx
 'use client';
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; // Para la redirección después del registro
+import { signIn } from 'next-auth/react'; // Importar signIn
 import Navbar from '@/components/layout/Navbar'; // Importar el nuevo Navbar
 
 export default function RegisterPage() {
@@ -48,10 +49,33 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Error al registrar la cuenta.');
       }
 
-      // Si el registro es exitoso, redirigir al login con un mensaje
-      console.log('Registro exitoso:', data.user);
-      router.push('/auth/signin?message=Registro exitoso. Por favor, inicia sesión.'); // Redirigir al login con un mensaje
+      // Si el registro es exitoso, proceder a enviar el correo de verificación
+      console.log('Registro exitoso en BD:', data.user);
+    
+      // Enviar el correo de verificación (magic link)
+      // El usuario NO inicia sesión aquí, solo se envía el correo.
+      // NextAuth mostrará una página por defecto tipo "Revisa tu correo".
+      const signInResponse = await signIn('email', {
+        email: formData.email,
+        redirect: false, // No redirigir, NextAuth maneja la UI de "revisa tu correo"
+        // Esta es la URL a la que se redirigirá DESPUÉS de hacer clic en el magic link
+        callbackUrl: `${window.location.origin}/auth/signin?message=Correo verificado. Ahora puedes iniciar sesión con tu contraseña.`,
+      });
 
+      if (signInResponse?.error) {
+        // Si el registro en BD fue exitoso pero el envío del email falló,
+        // es un caso un poco complicado. Podrías informar al usuario
+        // que su cuenta fue creada pero que intente verificar más tarde o contacte soporte.
+        // Por ahora, mostramos un error genérico.
+        setError(`Cuenta creada, pero ocurrió un error al enviar el correo de verificación: ${signInResponse.error}. Intenta iniciar sesión y verifica tu correo desde allí si es posible.`);
+        // O podrías redirigir a signin con un mensaje especial
+        // router.push('/auth/signin?message=Cuenta creada. Error al enviar verificación, intenta de nuevo o contacta soporte.');
+      } else {
+        // Redirigir a una página que diga "Revisa tu correo para el enlace de verificación"
+        // o directamente a la página de "Revisa tu correo" que NextAuth podría mostrar.
+        // Por ahora, podemos redirigir a signin con un mensaje más específico.
+        router.push('/auth/signin?message=Registro casi completo. Revisa tu correo para verificar tu cuenta.');
+      }
     } catch (err: any) {
       setError(err.message || 'Ocurrió un error inesperado durante el registro.');
     } finally {

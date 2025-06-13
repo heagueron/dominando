@@ -50,3 +50,6 @@ next-env.d.ts
 
 # temp directory
 /temp
+
+# Prisma seed script (contains plain text passwords for development)
+prisma/seed.ts
