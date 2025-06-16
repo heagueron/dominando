@@ -29,7 +29,7 @@ import { formatPlayerNameForTitle } from '@/utils/stringUtils'; // Importar la f
 import { useDominoStore } from '@/store/dominoStore'; // Importar el store de Zustand
 import { useDominoRonda } from '@/hooks/useDominoRonda'; // Importar el nuevo hook de ronda
 
-// const DURACION_TURNO_SEGUNDOS = 15; // Ya no se usa aquí, el hook tiene su default
+// const DURACION_TURNO_SEGUNDOS = 15; // Ya no se usa aquí, el hook useDominoRonda tiene su default
 const TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE = 10000; // 10 segundos
 
 
@@ -204,13 +204,13 @@ export default function JuegoPage() {
   const initialJoinAttemptedRef = useRef(false); // Ref para asegurar que solo intentamos unirnos una vez al montar/conectar
 
   useEffect(() => {
-    const defaultTitle = "Juego - Dominando";
+    const defaultTitle = "Juego - FullDomino";
     const currentMesaIdForTitle = authoritativeMesaIdRef.current;
 
     if (isConnected && gameNombreJugador) { // Usar gameNombreJugador del estado
       const shortName = formatPlayerNameForTitle(gameNombreJugador);
       const mesaSuffix = currentMesaIdForTitle ? ` ${currentMesaIdForTitle.slice(-3)}` : "";
-      document.title = shortName ? `${shortName} - Juego${mesaSuffix}` : `Juego${mesaSuffix} - Dominando`;
+      document.title = shortName ? `${shortName} - Juego${mesaSuffix}` : `Juego${mesaSuffix} - FullDomino`;
     } else {
       document.title = defaultTitle;
     }

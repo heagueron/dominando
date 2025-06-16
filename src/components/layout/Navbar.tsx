@@ -112,7 +112,7 @@ export default function Navbar() {
     <nav className="w-full py-5 px-6 md:px-10">
       <div className="container mx-auto flex justify-between items-center">
         <Link href="/" className="text-3xl font-bold text-gray-900">
-          Dominando
+          FullDomino
         </Link>
 
         {/* Desktop Menu */}

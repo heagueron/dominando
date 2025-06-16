@@ -12,7 +12,7 @@ import { DOMINO_HEIGHT_PX } from '@/utils/dominoConstants'; // Asegúrate de que
 import { getDesignCanvasCoordinates } from '@/utils/posicionamientoUtils'; // Asegúrate de que la ruta sea correcta
 
 // Definir la duración del turno por defecto si no viene del servidor
-const DURACION_TURNO_SEGUNDOS_DEFAULT = 15;
+const DURACION_TURNO_SEGUNDOS_DEFAULT = 7; //Normal: 15 tanto aqui como en el servidor node.js
 
 interface UseDominoRondaProps {
   estadoMesaCliente: EstadoMesaPublicoCliente | null;

@@ -81,7 +81,7 @@ export default function LobbyPage() {
 
   // Effect to update document title with player name
   useEffect(() => {
-    const defaultTitle = "Lobby - Dominando"; // Título base o el que tenías antes
+    const defaultTitle = "Lobby - FullDomino"; // Título base o el que tenías antes
     if (nombreJugador) {
       const shortName = formatPlayerNameForTitle(nombreJugador);
       document.title = shortName ? `${shortName} - Lobby` : defaultTitle;
@@ -89,7 +89,7 @@ export default function LobbyPage() {
       document.title = defaultTitle;
     }
     // Opcional: Restaurar el título original cuando el componente se desmonte
-    // return () => { document.title = "Dominando"; }; // O el título global de tu app
+    // return () => { document.title = "FullDomino"; }; // O el título global de tu app
   }, [nombreJugador]);
 
   // Usar el hook refactorizado
@@ -221,7 +221,7 @@ export default function LobbyPage() {
             variants={fadeInUp}
             className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 text-gray-800" // Ajustado color
           >
-            Dominando
+            FullDomino
           </motion.h1>
           <motion.p
             variants={fadeInUp}
@@ -348,7 +348,7 @@ export default function LobbyPage() {
       {/* Footer similar al de register/login */}
       <footer className="w-full py-8 text-center text-gray-500 bg-gray-50 border-t border-gray-200 mt-12">
         <p className="text-sm">
-          © {new Date().getFullYear()} Dominando
+          © {new Date().getFullYear()} FullDomino
         </p>
       </footer>
     </div>

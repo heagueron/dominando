@@ -29,7 +29,7 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="flex-grow flex flex-col justify-center items-center text-center px-4">
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-gray-900 mb-4">
-          Dominando
+          FullDomino
         </h1>
         <p className="text-xl sm:text-2xl text-gray-700 mb-6">
           Únete a la diversión del dominó entre amigos
@@ -48,7 +48,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="w-full py-10 text-center text-gray-500 bg-gray-50"> {/* Un fondo sutil para el footer */}
         <div className="container mx-auto px-4">
-          <p className="text-xl font-semibold text-gray-800 mb-2">Dominando</p>
+          <p className="text-xl font-semibold text-gray-800 mb-2">FullDomino</p>
           <p className="mb-4 text-sm">
             La mejor plataforma de dominó multijugador en línea
           </p>
@@ -63,7 +63,7 @@ export default function HomePage() {
               Contacto
             </Link>
           </div>
-          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Dominando. Todos los derechos reservados.</p>
+          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} FullDomino. Todos los derechos reservados.</p>
         </div>
       </footer>
     </div>

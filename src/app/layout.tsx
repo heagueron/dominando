@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dominando - Juego de Dominó en Línea",
+  title: "FullDomino - Juego de Dominó en Línea",
   description: "Juega dominó en línea con amigos en esta aplicación web progresiva",
   manifest: "/manifest.json",
 };

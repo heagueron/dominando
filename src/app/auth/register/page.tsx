@@ -109,7 +109,7 @@ export default function RegisterPage() {
                 Crear Cuenta
               </h2>
               <p className="text-gray-600 text-sm">
-                Únete a la comunidad de Dominando
+                Únete a la comunidad de FullDomino
               </p>
             </div>
 
@@ -164,7 +164,7 @@ export default function RegisterPage() {
       {/* Footer Adaptado */}
       <footer className="w-full py-10 text-center text-gray-500 bg-gray-50">
         <div className="container mx-auto px-4">
-          <p className="text-xl font-semibold text-gray-800 mb-2">Dominando</p>
+          <p className="text-xl font-semibold text-gray-800 mb-2">FullDomino</p>
           <p className="mb-4 text-sm">
             La mejor plataforma de dominó multijugador en línea
           </p>
@@ -179,7 +179,7 @@ export default function RegisterPage() {
               Contacto
             </Link>
           </div>
-          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Dominando. Todos los derechos reservados.</p>
+          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} FullDomino. Todos los derechos reservados.</p>
         </div>
       </footer>
     </div>
