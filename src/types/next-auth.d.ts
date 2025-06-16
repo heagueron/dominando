@@ -28,7 +28,7 @@ declare module "next-auth/jwt" {
    * Extendiendo el tipo JWT de NextAuth
    */
   interface JWT extends DefaultJWT {
-    // sub (subject - user id) ya está en DefaultJWT
+    // sub (subject - user id) ya está en Defagit JWT
     // name, email, picture también están en DefaultJWT
     // Añadimos los campos personalizados que queremos en el token
     id: string; // El id que asignamos en el callback jwt
