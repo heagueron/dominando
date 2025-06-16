@@ -72,12 +72,14 @@ export default function RegisterPage() {
         // router.push('/auth/signin?message=Cuenta creada. Error al enviar verificación, intenta de nuevo o contacta soporte.');
       } else {
         // Redirigir a una página que diga "Revisa tu correo para el enlace de verificación"
-        // o directamente a la página de "Revisa tu correo" que NextAuth podría mostrar.
-        // Por ahora, podemos redirigir a signin con un mensaje más específico.
         router.push('/auth/signin?message=Registro casi completo. Revisa tu correo para verificar tu cuenta.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Ocurrió un error inesperado durante el registro.');
+    } catch (err: unknown) { // Tipar err como unknown
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error inesperado durante el registro.');
+      }
     } finally {
       setIsLoading(false);
     }

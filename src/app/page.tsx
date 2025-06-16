@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react'; // Necesario para el botón "Jugar Ahora"
 import Navbar from '@/components/layout/Navbar'; // Importar el nuevo Navbar
-
+ 
 export default function HomePage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession(); // Solo necesitamos 'status' aquí
 
   const handleJugarAhoraClick = () => {
     if (status === 'authenticated') {

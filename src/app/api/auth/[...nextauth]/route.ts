@@ -69,7 +69,8 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.EMAIL_FROM,
       // maxAge: 24 * 60 * 60, // Cuánto tiempo es válido el token del magic link (en segundos)
-      async sendVerificationRequest({ identifier: email, url, provider, theme }) {
+      // 'theme' no se usa, así que lo omitimos de la desestructuración
+      async sendVerificationRequest({ identifier: email, url, provider }) {
         const { host } = new URL(url); // Extrae el host de la URL del magic link
         
         // Crear un transportador de nodemailer usando la configuración del provider
@@ -103,7 +104,8 @@ export const authOptions: NextAuthOptions = {
     // newUser: null, // O una ruta si quieres una página especial para nuevos usuarios post-OAuth
   },
   callbacks: {
-    async jwt({ token, user, account, profile }) {
+    // 'account' y 'profile' no se usan actualmente, así que los omitimos de la desestructuración.
+    async jwt({ token, user }) {
       // El objeto 'user' solo está presente en el primer inicio de sesión.
       // En las siguientes llamadas, solo 'token' está disponible.
       if (user) {

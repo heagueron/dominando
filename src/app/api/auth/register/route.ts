@@ -64,7 +64,8 @@ export async function POST(request: Request) {
     });
 
     // No devolver el passwordHash al cliente
-    const { passwordHash: _, ...userWithoutPassword } = newUser;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash: _, ...userWithoutPassword } = newUser; 
 
     return NextResponse.json({ message: 'Usuario registrado exitosamente.', user: userWithoutPassword }, { status: 201 });
   } catch (error) {

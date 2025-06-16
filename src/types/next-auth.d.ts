@@ -1,6 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import NextAuth, { DefaultSession, DefaultUser } from "next-auth";
-import { JWT, DefaultJWT } from "next-auth/jwt";
+// No necesitamos importar JWT y DefaultJWT aquí, ya están disponibles en el declare module "next-auth/jwt"
 
 declare module "next-auth" {
   /**
