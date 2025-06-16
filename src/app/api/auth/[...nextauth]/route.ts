@@ -10,7 +10,8 @@ import nodemailer from 'nodemailer'; // Asegúrate de tener nodemailer instalado
 
 const prisma = new PrismaClient();
 
-export const authOptions: NextAuthOptions = {
+// authOptions no debe ser exportado desde el archivo de ruta.
+const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
