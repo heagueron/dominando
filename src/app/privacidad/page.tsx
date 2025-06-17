@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
           <p>
             Bienvenido a FullDomino. Nos tomamos muy en serio tu privacidad. Esta Política de Privacidad
             describe cómo recopilamos, usamos, divulgamos y protegemos tu información personal cuando
-            utilizas nuestro sitio web y nuestros servicios (colectivamente, "Servicios").
+            utilizas nuestro sitio web y nuestros servicios (colectivamente, &apos;Servicios&apos;).
           </p>
 
           <h2>1. Información que Recopilamos</h2>
@@ -86,7 +86,7 @@ export default function PrivacyPolicyPage() {
 
           <h2>7. Cambios a Esta Política de Privacidad</h2>
           <p>
-            Podemos actualizar nuestra Política de Privacidad de vez en cuando. Te notificaremos cualquier cambio publicando la nueva Política de Privacidad en esta página y actualizando la fecha de "Última actualización".
+            Podemos actualizar nuestra Política de Privacidad de vez en cuando. Te notificaremos cualquier cambio publicando la nueva Política de Privacidad en esta página y actualizando la fecha de &apos;Última actualización&apos;.
           </p>
 
           <h2>8. Contáctanos</h2>
