@@ -1,9 +1,24 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSession, signIn } from 'next-auth/react';
 
 import Footer from '@/components/layout/Footer'; 
 
 export default function ComoJugarPage() {
+  const router = useRouter();
+  const { status } = useSession();
+
+   const handleJugarAhoraClick = () => {
+    if (status === 'authenticated') {
+      router.push('/lobby');
+    } else {
+      signIn(undefined, { callbackUrl: '/lobby' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-table-wood">
       <header className="bg-domino-black text-domino-white p-4">
@@ -65,12 +80,12 @@ export default function ComoJugarPage() {
           </section>
 
           <div className="mt-8 text-center">
-            <Link 
-              href="/juego" 
-              className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+            <button
+              onClick={handleJugarAhoraClick}
+              className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-10 rounded-lg text-lg transition-all duration-150 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg"
             >
-              ¡Jugar Ahora!
-            </Link>
+              {'Jugar Ahora'}
+            </button>
           </div>
         </div>
       </main>
