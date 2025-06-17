@@ -57,9 +57,10 @@ export default function RegisterPage() {
       // NextAuth mostrará una página por defecto tipo "Revisa tu correo".
       const signInResponse = await signIn('email', {
         email: formData.email,
-        redirect: false, // No redirigir, NextAuth maneja la UI de "revisa tu correo"
+        redirect: false, // No redirigir desde aquí, NextAuth maneja la UI de "revisa tu correo"
         // Esta es la URL a la que se redirigirá DESPUÉS de hacer clic en el magic link
-        callbackUrl: `${window.location.origin}/auth/signin?message=Correo verificado. Ahora puedes iniciar sesión con tu contraseña.`,
+        // Codificar el mensaje para que sea seguro en la URL
+        callbackUrl: `${window.location.origin}/auth/signin?message=${encodeURIComponent('Correo verificado. Ahora puedes iniciar sesión con tu contraseña.')}`,
       });
 
       if (signInResponse?.error) {
