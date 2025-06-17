@@ -1,6 +1,7 @@
 // /home/heagueron/jmu/dominando/src/app/privacidad/page.tsx
 import Navbar from '@/components/layout/Navbar';
-import Link from 'next/link'; // Para el enlace de regreso o contacto
+import Link from 'next/link'; 
+import Footer from '@/components/layout/Footer'; 
 
 export default function PrivacyPolicyPage() {
   return (
@@ -102,11 +103,7 @@ export default function PrivacyPolicyPage() {
           </Link>
         </div>
       </main>
-      <footer className="w-full py-8 text-center text-gray-500 bg-gray-50 border-t border-gray-200 mt-12">
-        <p className="text-sm">
-          &copy; {new Date().getFullYear()} FullDomino. Todos los derechos reservados.
-        </p>
-      </footer>
+      <Footer />
     </div>
   );
 }

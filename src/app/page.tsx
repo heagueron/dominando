@@ -1,23 +1,19 @@
 // page.tsx
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react'; // Necesario para el botón "Jugar Ahora"
-import Navbar from '@/components/layout/Navbar'; // Importar el nuevo Navbar
+import Navbar from '@/components/layout/Navbar'; 
+import Footer from '@/components/layout/Footer';
  
 export default function HomePage() {
   const router = useRouter();
-  const { status } = useSession(); // Solo necesitamos 'status' aquí
+  const { status } = useSession();
 
   const handleJugarAhoraClick = () => {
     if (status === 'authenticated') {
       router.push('/lobby');
     } else {
-      // Redirige a la página de inicio de sesión de NextAuth,
-      // y si el login es exitoso, redirige al lobby.
-      // Si tienes una página de login personalizada en NextAuth (ej. /auth/signin),
-      // NextAuth la usará.
       signIn(undefined, { callbackUrl: '/lobby' });
     }
   };
@@ -45,27 +41,7 @@ export default function HomePage() {
         </button>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full py-10 text-center text-gray-500 bg-gray-50"> {/* Un fondo sutil para el footer */}
-        <div className="container mx-auto px-4">
-          <p className="text-xl font-semibold text-gray-800 mb-2">FullDomino</p>
-          <p className="mb-4 text-sm">
-            La mejor plataforma de dominó multijugador en línea
-          </p>
-          <div className="space-x-6 mb-4 text-sm">
-            <Link href="/terminos" className="hover:text-yellow-600 transition-colors">
-              Términos
-            </Link>
-            <Link href="/privacidad" className="hover:text-yellow-600 transition-colors">
-              Privacidad
-            </Link>
-            <Link href="/contacto" className="hover:text-yellow-600 transition-colors">
-              Contacto
-            </Link>
-          </div>
-          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} FullDomino. Todos los derechos reservados.</p>
-        </div>
-      </footer>
+      <Footer /> {/* Usar el componente Footer */}
     </div>
   );
 }

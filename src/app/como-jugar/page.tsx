@@ -1,6 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 
+import Footer from '@/components/layout/Footer'; 
+
 export default function ComoJugarPage() {
   return (
     <div className="min-h-screen bg-table-wood">
@@ -72,6 +74,7 @@ export default function ComoJugarPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

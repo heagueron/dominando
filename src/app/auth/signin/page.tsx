@@ -1,13 +1,14 @@
 // page.tsx
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react'; // Importar Suspense
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, getProviders, ClientSafeProvider } from 'next-auth/react';
 import Navbar from '@/components/layout/Navbar';
 import { FcGoogle } from 'react-icons/fc'; // Icono de Google
+import Footer from '@/components/layout/Footer'; 
 
 // Componente interno para manejar los mensajes de los searchParams
 function AuthMessages() {
@@ -200,18 +201,7 @@ export default function SignInPage() {
         </motion.div>
       </main>
 
-      <footer className="w-full py-10 text-center text-gray-500 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <p className="text-xl font-semibold text-gray-800 mb-2">FullDomino</p>
-          <p className="mb-4 text-sm">La mejor plataforma de dominó multijugador en línea</p>
-          <div className="space-x-6 mb-4 text-sm">
-            <Link href="/terminos" className="hover:text-yellow-600 transition-colors">Términos</Link>
-            <Link href="/privacidad" className="hover:text-yellow-600 transition-colors">Privacidad</Link>
-            <Link href="/contacto" className="hover:text-yellow-600 transition-colors">Contacto</Link>
-          </div>
-          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} FullDomino. Todos los derechos reservados.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

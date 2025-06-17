@@ -5,8 +5,9 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; // Para la redirección después del registro
-import { signIn } from 'next-auth/react'; // Importar signIn
-import Navbar from '@/components/layout/Navbar'; // Importar el nuevo Navbar
+import { signIn } from 'next-auth/react'; 
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer'; 
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -164,27 +165,7 @@ export default function RegisterPage() {
         </motion.div>
       </main>
 
-      {/* Footer Adaptado */}
-      <footer className="w-full py-10 text-center text-gray-500 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <p className="text-xl font-semibold text-gray-800 mb-2">FullDomino</p>
-          <p className="mb-4 text-sm">
-            La mejor plataforma de dominó multijugador en línea
-          </p>
-          <div className="space-x-6 mb-4 text-sm">
-            <Link href="/terminos" className="hover:text-yellow-600 transition-colors">
-              Términos
-            </Link>
-            <Link href="/privacidad" className="hover:text-yellow-600 transition-colors">
-              Privacidad
-            </Link>
-            <Link href="/contacto" className="hover:text-yellow-600 transition-colors">
-              Contacto
-            </Link>
-          </div>
-          <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} FullDomino. Todos los derechos reservados.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
