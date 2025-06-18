@@ -9,6 +9,7 @@ export interface JugadorCliente {
   numFichas?: number;
   estaConectado?: boolean;
   ordenTurno?: number;
+  seatIndex?: number; // Añadido para la posición en la mesa
 }
 
 export type TipoJuegoSolicitado = 'rondaUnica' | 'partidaCompleta';
@@ -21,6 +22,9 @@ export interface JugadorPublicoInfoCliente {
   ordenTurnoEnRondaActual?: number;
   puntosPartidaActual?: number;
   listoParaSiguientePartida?: boolean;
+  listoParaMano?: boolean; // Añadido para consistencia con el servidor
+  image?: string; // Añadido para la URL del avatar del jugador
+  seatIndex?: number; // Añadido para la posición en la mesa
 }
 
 export interface ExtremoDetalladoCliente {

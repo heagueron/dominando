@@ -38,6 +38,7 @@ export default function LobbyPage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [nombreJugador, setNombreJugador] = useState<string | null>(null);
+  const [userImageUrl, setUserImageUrl] = useState<string | null>(null); // Estado para la imagen
   const [isLoading, setIsLoading] = useState<TipoJuegoSolicitado | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null); // Renombrado para evitar conflicto con error del hook
   const [userDataInitialized, setUserDataInitialized] = useState(false); // Para saber cuándo tenemos datos del usuario
@@ -62,10 +63,12 @@ export default function LobbyPage() {
       const currentUserId = session.user.id;
       // Usar el nombre de la sesión, o el email como fallback, o un nombre genérico
       const currentNombreJugador = session.user.name || session.user.email || `Jugador ${currentUserId.slice(-4)}`;
+      const currentImageUrl = session.user.image || null; // Obtener la imagen
       
-      console.log(`[LOBBY_AUTH_EFFECT] Usuario autenticado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}, isAdmin: ${session.user.is_admin}`);
+      console.log(`[LOBBY_AUTH_EFFECT] Usuario autenticado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}, imageUrl=${currentImageUrl}, isAdmin: ${session.user.is_admin}`);
       setUserId(currentUserId);
       setNombreJugador(currentNombreJugador);
+      setUserImageUrl(currentImageUrl); // Guardar la imagen
       setUserDataInitialized(true); // Marcar que los datos del usuario están listos
     }
   }, [session, sessionStatus, router]);
@@ -105,11 +108,11 @@ export default function LobbyPage() {
 
   // Inicializar el socket una vez que tengamos userId y nombreJugador
   useEffect(() => {
-    if (userDataInitialized && userId && nombreJugador) {
+    if (userDataInitialized && userId && nombreJugador && userImageUrl !== undefined) { // Añadir userImageUrl a la condición
       console.log('[LOBBY_SOCKET_INIT] Datos de usuario listos, llamando a initializeSocketIfNeeded.');
-      initializeSocketIfNeeded(userId, nombreJugador);
+      initializeSocketIfNeeded(userId, nombreJugador, userImageUrl); // Pasar la imagen
     }
-  }, [userDataInitialized, userId, nombreJugador, initializeSocketIfNeeded]);
+  }, [userDataInitialized, userId, nombreJugador, userImageUrl, initializeSocketIfNeeded]);
 
 
   // Effect for game-specific socket event listeners
@@ -155,7 +158,7 @@ export default function LobbyPage() {
 
   const handleJoinGame = useCallback((tipoJuego: TipoJuegoSolicitado) => {
     // Asegurarse que los datos del usuario estén listos y tengamos la información necesaria
-    if (!userDataInitialized || !nombreJugador || !userId ) {
+    if (!userDataInitialized || !nombreJugador || !userId || userImageUrl === undefined) { // Añadir userImageUrl
       setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
       return;
     }
@@ -177,8 +180,8 @@ export default function LobbyPage() {
     } else {
       console.log('[LOBBY_SOCKET] Socket not connected. Intentando inicializar/conectar y luego unirse.');
       // Asegurarse de que el socket se inicialice si aún no lo está
-      if (userId && nombreJugador) {
-        initializeSocketIfNeeded(userId, nombreJugador);
+      if (userId && nombreJugador && userImageUrl !== undefined) { // Añadir userImageUrl
+        initializeSocketIfNeeded(userId, nombreJugador, userImageUrl); // Pasar la imagen
         // Aquí podrías añadir una lógica para esperar a que isConnected sea true antes de emitir,
         // o confiar en que el usuario reintente si la conexión tarda.
         // Por simplicidad, asumimos que la conexión será rápida o el usuario reintentará.
@@ -188,7 +191,7 @@ export default function LobbyPage() {
         setLobbyError("Falta información del usuario para conectar.");
       }
     }
-  }, [userDataInitialized, nombreJugador, userId, isConnected, emitEvent, initializeSocketIfNeeded]);
+  }, [userDataInitialized, nombreJugador, userId, userImageUrl, isConnected, emitEvent, initializeSocketIfNeeded]);
 
   useEffect(() => { if (socketError) setLobbyError(socketError); }, [socketError]);
 

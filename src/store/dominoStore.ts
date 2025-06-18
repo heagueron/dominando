@@ -44,8 +44,9 @@ export interface DominoStoreState { // <--- AÑADIR EXPORT
   socketError: string | null;
   currentUserId: string | null; // Para saber con qué userId se conectó el socket
   currentNombreJugador: string | null; // Para saber con qué nombreJugador se conectó el socket
+  currentUserImageUrl: string | null; // NUEVO: Opcional para guardar la imagen del usuario actual
 
-  initializeSocket: (userId: string, nombreJugador: string) => void;
+  initializeSocket: (userId: string, nombreJugador: string, imageUrl?: string | null) => void; // Modificada
   disconnectSocket: () => void;
   emitEvent: <T>(eventName: string, payload: T) => void;
   // Opcional: limpiar errores del socket
@@ -77,26 +78,32 @@ export const useDominoStore = create<DominoStoreState>((set, get) => ({
   socketError: null,
   currentUserId: null,
   currentNombreJugador: null,
+  currentUserImageUrl: null, // NUEVO
 
-  initializeSocket: (userId, nombreJugador) => {
-    const { socket: existingSocket, isConnected: alreadyConnected, currentUserId: existingUserId } = get();
-
+  initializeSocket: (userId, nombreJugador, imageUrl) => { // Modificada
+    const { socket: existingSocket, isConnected: alreadyConnected, currentUserId: existingUserId, currentUserImageUrl: existingImageUrl } = get();
+    
     // Si ya hay un socket conectado con el mismo userId, no hacer nada.
     if (existingSocket && alreadyConnected && existingUserId === userId) {
       console.log('[DOMINO_STORE] Socket ya inicializado y conectado para este usuario.');
       return;
     }
 
-    // Si hay un socket existente (incluso si está desconectado o con otro userId), desconectarlo primero.
+    // Si hay un socket existente (incluso si está desconectado o con otro userId o imageUrl), desconectarlo primero.
     if (existingSocket) {
-      console.log('[DOMINO_STORE] Desconectando socket existente antes de crear uno nuevo.');
-      existingSocket.disconnect();
+      // Solo desconectar si los datos de autenticación han cambiado o si no está conectado
+      if (!alreadyConnected || existingUserId !== userId || existingImageUrl !== imageUrl) {
+        console.log('[DOMINO_STORE] Desconectando socket existente antes de crear uno nuevo debido a cambio de auth o estado de conexión.');
+        existingSocket.disconnect();
+        // Limpiar el socket del estado para forzar la creación de uno nuevo
+        set({ socket: null, isConnected: false, currentUserId: null, currentNombreJugador: null, currentUserImageUrl: null });
+      }
     }
 
     const SOCKET_SERVER_URL = getSocketServerUrl(); // Obtener la URL dinámicamente
-    console.log(`[DOMINO_STORE] Inicializando socket con URL: ${SOCKET_SERVER_URL} para userId: ${userId}, nombreJugador: ${nombreJugador}`);
+    console.log(`[DOMINO_STORE] Inicializando socket con URL: ${SOCKET_SERVER_URL} para userId: ${userId}, nombreJugador: ${nombreJugador}, imageUrl: ${imageUrl}`);
     const newSocket = io(SOCKET_SERVER_URL, {
-      auth: { userId, nombreJugador }, // Usar 'auth' para enviar datos al conectar
+      auth: { userId, nombreJugador, imageUrl: imageUrl || undefined }, // Enviar imageUrl si existe
       transports: ['websocket'],
       // autoConnect: true, // Dejar que se conecte automáticamente al crear la instancia
     });
@@ -104,7 +111,13 @@ export const useDominoStore = create<DominoStoreState>((set, get) => ({
     newSocket.on('connect', () => {
       console.log('[DOMINO_STORE_SOCKET] Conectado al servidor. Socket ID:', newSocket.id);
       set({ socket: newSocket, isConnected: true, socketError: null, currentUserId: userId, currentNombreJugador: nombreJugador });
+      set({ currentUserImageUrl: imageUrl || null }); // Guardar la imagen
     });
+
+    // Es importante guardar el socket en el estado inmediatamente,
+    // no solo en el evento 'connect', para que esté disponible para otras acciones.
+    // Sin embargo, el estado de 'isConnected' y 'currentUserId' se actualiza en 'connect'.
+    set({ socket: newSocket });
 
     newSocket.on('disconnect', (reason) => {
       console.log('[DOMINO_STORE_SOCKET] Desconectado del servidor. Razón:', reason);
@@ -115,12 +128,8 @@ export const useDominoStore = create<DominoStoreState>((set, get) => ({
 
     newSocket.on('connect_error', (err) => {
       console.error('[DOMINO_STORE_SOCKET] Error de conexión:', err.message, err);
-      set({ isConnected: false, socketError: `Error de conexión: ${err.message}`, socket: null, currentUserId: null, currentNombreJugador: null });
+      set({ isConnected: false, socketError: `Error de conexión: ${err.message}`, socket: null, currentUserId: null, currentNombreJugador: null, currentUserImageUrl: null });
     });
-    
-    // Guardar la instancia del socket en el store inmediatamente para poder llamarle .connect() si autoConnect fuera false
-    // o para tenerla disponible. Si autoConnect es true (por defecto en io()), el evento 'connect' se encargará.
-    // set({ socket: newSocket, currentUserId: userId, currentNombreJugador: nombreJugador }); // Se actualiza en 'connect'
   },
 
   disconnectSocket: () => {
@@ -128,7 +137,7 @@ export const useDominoStore = create<DominoStoreState>((set, get) => ({
     console.log('[DOMINO_STORE] Solicitud de desconexión del socket.');
     // El estado se actualizará a través del evento 'disconnect' del socket.
     // Podríamos forzar el estado aquí si es necesario:
-    // set({ socket: null, isConnected: false, currentUserId: null, currentNombreJugador: null });
+    set({ socket: null, isConnected: false, currentUserId: null, currentNombreJugador: null, currentUserImageUrl: null });
   },
 
   emitEvent: <T>(eventName: string, payload: T) => {

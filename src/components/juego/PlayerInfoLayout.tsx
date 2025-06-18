@@ -1,3 +1,4 @@
+// PlayerInfoLayout.tsx
 import React, { useMemo } from 'react';
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
 // Importar tipos desde el nuevo archivo centralizado
@@ -32,150 +33,147 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
   finRondaData,
 }) => {
 
-  // Lógica para determinar la posición visual de cada jugador
-  const { mano1, mano2, mano3, mano4 } = useMemo(() => {
-    let mano1: JugadorCliente | undefined, mano2: JugadorCliente | undefined, mano3: JugadorCliente | undefined, mano4: JugadorCliente | undefined;
+  const posicionesVisuales = useMemo(() => {
+    const posiciones: { [key: string]: JugadorCliente | undefined } = {
+      abajo: undefined,
+      izquierda: undefined,
+      arriba: undefined,
+      derecha: undefined,
+    };
 
-    if (miIdJugadorSocket && estadoMesaCliente) {
-      const localPlayerId = miIdJugadorSocket;
-      const localPlayer = manosJugadores.find(j => j.idJugador === localPlayerId);
-
-      if (localPlayer) {
-        mano1 = localPlayer;
-
-        const numJugadoresEnRonda = estadoMesaCliente.partidaActual?.rondaActual?.jugadoresRonda.length || 0;
-
-        if (typeof localPlayer.ordenTurno === 'number' && numJugadoresEnRonda >= 2 && numJugadoresEnRonda <= 4) {
-          const ordenLocal = localPlayer.ordenTurno;
-
-          const targetOrdenMano2 = (ordenLocal + 1) % numJugadoresEnRonda;
-          const targetOrdenMano3 = (ordenLocal + 2) % numJugadoresEnRonda;
-          const targetOrdenMano4 = (ordenLocal + 3) % numJugadoresEnRonda;
-
-          mano2 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano2);
-
-          if (numJugadoresEnRonda > 2) {
-            mano3 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano3);
-          }
-          if (numJugadoresEnRonda > 3) {
-            mano4 = manosJugadores.find(j => j.idJugador !== localPlayerId && j.ordenTurno === targetOrdenMano4);
-          }
-
-        } else {
-          // Fallback visual si no hay orden de turno o número de jugadores inesperado
-          const otrosJugadores = manosJugadores.filter(j => j.idJugador !== localPlayerId);
-          if (otrosJugadores.length >= 1) mano2 = otrosJugadores[0];
-          if (otrosJugadores.length >= 2) mano3 = otrosJugadores[1];
-          if (otrosJugadores.length >= 3) mano4 = otrosJugadores[2];
-        }
-      }
+    if (!miIdJugadorSocket || !estadoMesaCliente || !manosJugadores || !estadoMesaCliente.partidaActual) {
+      return posiciones;
     }
 
-    return { mano1, mano2, mano3, mano4 };
-  }, [manosJugadores, miIdJugadorSocket, estadoMesaCliente]); // Dependencias para recalcular si cambian
+    // Filtrar solo los jugadores que tienen un seatIndex definido (participan en la partida actual)
+    // y que están en la lista de manosJugadores (que es el estado local del cliente para la UI)
+    const jugadoresEnPartidaConMano = manosJugadores.filter(j => 
+      typeof j.seatIndex === 'number' && 
+      estadoMesaCliente.partidaActual?.jugadoresParticipantesIds.includes(j.idJugador)
+    );
+    const numTotalJugadoresEnPartida = jugadoresEnPartidaConMano.length;
+
+    const miJugadorInfo = jugadoresEnPartidaConMano.find(j => j.idJugador === miIdJugadorSocket);
+    const miSeatIndex = miJugadorInfo?.seatIndex;
+
+    if (miJugadorInfo && typeof miSeatIndex === 'number' && numTotalJugadoresEnPartida > 0) {
+      posiciones.abajo = miJugadorInfo;
+
+      const otrosJugadores = jugadoresEnPartidaConMano.filter(j => j.idJugador !== miIdJugadorSocket);
+
+      // Ordenar los otros jugadores por su seatIndex para una asignación predecible,
+      // aunque la lógica de abajo los colocará correctamente por su seatIndex relativo.
+      otrosJugadores.sort((a, b) => (a.seatIndex ?? Infinity) - (b.seatIndex ?? Infinity));
+
+      otrosJugadores.forEach(jugador => {
+        if (typeof jugador.seatIndex === 'number') {
+          // La diferencia de asientos determina la posición relativa
+          const diff = (jugador.seatIndex - miSeatIndex + numTotalJugadoresEnPartida) % numTotalJugadoresEnPartida;
+          
+          if (numTotalJugadoresEnPartida === 2) {
+            if (diff === 1) posiciones.arriba = jugador;
+          } else if (numTotalJugadoresEnPartida === 3) {
+            // Para 3 jugadores: Asumimos: 0 (yo), 1 (izquierda), 2 (derecha)
+            // Si miSeatIndex es 0: jugador con seatIndex 1 va a la izquierda (diff 1)
+            //                       jugador con seatIndex 2 va a la derecha (diff 2)
+            // Si miSeatIndex es 1: jugador con seatIndex 2 va a la izquierda (diff 1)
+            //                       jugador con seatIndex 0 va a la derecha (diff 2)
+            // Si miSeatIndex es 2: jugador con seatIndex 0 va a la izquierda (diff 1)
+            //                       jugador con seatIndex 1 va a la derecha (diff 2)
+            if (diff === 1) posiciones.izquierda = jugador; 
+            else if (diff === 2) posiciones.derecha = jugador; 
+          } else if (numTotalJugadoresEnPartida === 4) {
+            if (diff === 1) posiciones.izquierda = jugador;
+            else if (diff === 2) posiciones.arriba = jugador;
+            else if (diff === 3) posiciones.derecha = jugador;
+          }
+        }
+      });
+    }
+    return posiciones;
+  }, [manosJugadores, miIdJugadorSocket, estadoMesaCliente]);
 
   if (!estadoMesaCliente) {
     return null; // No renderizar si no hay estado de mesa
   }
 
+  // Mapeo de posiciones lógicas a clases de Tailwind y props para ContenedorInfoJugador
+  const layoutConfig: Record<string, { 
+    containerClasses: string; 
+    contentWrapperClasses?: string; 
+    contenedorInfoClassName: string;
+    infoPos: 'abajo' | 'arriba' | 'izquierda' | 'derecha';
+  }> = {
+    abajo: { 
+      containerClasses: "fixed bottom-0 left-0 right-0 z-20 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1",
+      contentWrapperClasses: "flex justify-center",
+      contenedorInfoClassName: "max-w-[180px] sm:max-w-[220px] md:max-w-xs",
+      infoPos: 'abajo' 
+    },
+    izquierda: { 
+      containerClasses: "fixed left-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center",
+      contenedorInfoClassName: "mb-2 w-28 md:w-36",
+      infoPos: 'izquierda'
+    },
+    arriba: { 
+      containerClasses: "fixed top-2 left-0 right-0 z-20 grid grid-cols-3 items-start gap-2 px-2 pt-1",
+      contentWrapperClasses: "flex justify-center col-start-2",
+      contenedorInfoClassName: "max-w-xs",
+      infoPos: 'arriba'
+    },
+    derecha: { 
+      containerClasses: "fixed right-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center",
+      contenedorInfoClassName: "mb-2 w-28 md:w-36",
+      infoPos: 'derecha'
+    },
+  };
+
   return (
     <>
-      {/* Jugador Local (Abajo) - Mano 1 */}
-      {mano1 && mano1.idJugador === miIdJugadorSocket && (
-        <div className="fixed bottom-0 left-0 right-0 z-20 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1">
-          <div className="flex justify-center">
-            <ContenedorInfoJugador
-              idJugadorProp={mano1.idJugador}
-              nombreJugador={mano1.nombre}
-              esTurnoActual={!!(rondaActualParaUI && mano1.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
-              tiempoRestante={tiempoTurnoRestante}
-              duracionTotalTurno={duracionTurnoActualConfigurada}
-              posicion="abajo"
-              autoPaseInfo={autoPaseInfoCliente}
-              className="max-w-[180px] sm:max-w-[220px] md:max-w-xs"
-              // Fichas restantes no se muestran para el jugador local aquí
-            />
-          </div>
-          {/* El espacio para la mano del jugador local se renderiza en JuegoPage */}
-          <div className="flex justify-center">
-             {/* Placeholder para la mano del jugador local */}
-          </div>
-          <div className="w-full"></div>
-        </div>
-      )}
+      {Object.entries(posicionesVisuales).map(([posKey, jugador]) => {
+        if (!jugador) return null;
 
-      {/* Oponente 1 (Derecha) - Mano 2 */}
-      {mano2 && estadoMesaCliente && (
-        <div className="fixed right-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-          <ContenedorInfoJugador
-            idJugadorProp={mano2.idJugador}
-            nombreJugador={mano2.nombre}
-            esTurnoActual={!!(rondaActualParaUI && mano2.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
-            tiempoRestante={tiempoTurnoRestante}
-            duracionTotalTurno={duracionTurnoActualConfigurada}
-            posicion="derecha"
-            autoPaseInfo={autoPaseInfoCliente}
-            numFichas={mano2.numFichas}
-            fichasRestantesAlFinalizar={
-              finRondaInfoVisible && finRondaData?.resultadoPayload?.manosFinales
-                ? finRondaData.resultadoPayload.manosFinales.find(m => m.jugadorId === mano2?.idJugador)?.fichas
-                : undefined
-            }
-            mostrarFichasFinales={finRondaInfoVisible}
-            className="mb-2 w-28 md:w-36"
-          />
-        </div>
-      )}
+        const config = layoutConfig[posKey];
+        if (!config) return null; // Si por alguna razón la posición no está en layoutConfig
 
-      {/* Oponente 2 (Arriba) - Mano 3 */}
-      {mano3 && estadoMesaCliente && (
-         <div className="fixed top-2 left-0 right-0 z-20 grid grid-cols-3 items-start gap-2 px-2 pt-1">
-          <div className="w-full"></div>
-          <div className="flex justify-center">
-            <ContenedorInfoJugador
-              idJugadorProp={mano3.idJugador}
-              nombreJugador={mano3.nombre}
-              esTurnoActual={!!(rondaActualParaUI && mano3.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
-              tiempoRestante={tiempoTurnoRestante}
-              duracionTotalTurno={duracionTurnoActualConfigurada}
-              posicion="arriba"
-              autoPaseInfo={autoPaseInfoCliente}
-              numFichas={mano3.numFichas}
-              fichasRestantesAlFinalizar={
-                finRondaInfoVisible && finRondaData?.resultadoPayload?.manosFinales
-                  ? finRondaData.resultadoPayload.manosFinales.find(m => m.jugadorId === mano3?.idJugador)?.fichas
-                  : undefined
-              }
-              mostrarFichasFinales={finRondaInfoVisible}
-              className="max-w-xs"
-            />
+        const esJugadorLocalAbajo = posKey === 'abajo' && jugador.idJugador === miIdJugadorSocket;
+        const jugadorInfoDelServidor = estadoMesaCliente?.jugadores.find(j => j.id === jugador.idJugador);
+
+        return (
+          <div key={jugador.idJugador + '-' + posKey} className={config.containerClasses}>
+            {(posKey === 'abajo' || posKey === 'arriba') && <div className="w-full"></div>} {/* Espaciadores para grid de 3 columnas */}
+            
+            <div className={config.contentWrapperClasses || ""}>
+              <ContenedorInfoJugador
+                idJugadorProp={jugador.idJugador}
+                nombreJugador={jugador.nombre}
+                avatarUrl={jugadorInfoDelServidor?.image || undefined}
+                esTurnoActual={!!(rondaActualParaUI && jugador.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
+                tiempoRestante={tiempoTurnoRestante}
+                duracionTotalTurno={duracionTurnoActualConfigurada}
+                posicion={config.infoPos}
+                autoPaseInfo={autoPaseInfoCliente}
+                numFichas={esJugadorLocalAbajo ? undefined : jugador.numFichas}
+                fichasRestantesAlFinalizar={
+                  finRondaInfoVisible && finRondaData?.resultadoPayload?.manosFinales && !esJugadorLocalAbajo
+                    ? finRondaData.resultadoPayload.manosFinales.find(m => m.jugadorId === jugador.idJugador)?.fichas
+                    : undefined
+                }
+                mostrarFichasFinales={finRondaInfoVisible && !esJugadorLocalAbajo}
+                className={config.contenedorInfoClassName}
+              />
+            </div>
+            
+            {/* Para el jugador local (abajo), el espacio de la mano se maneja en JuegoPage, aquí solo un div para el grid si es necesario */}
+            {posKey === 'abajo' && esJugadorLocalAbajo && (
+              <div className="flex justify-center">
+                {/* Este div es parte del grid de 3 columnas para la posición 'abajo'. La mano real se renderiza en JuegoPage.tsx */}
+              </div>
+            )}
+            {(posKey === 'abajo' || posKey === 'arriba') && <div className="w-full"></div>} {/* Espaciadores para grid de 3 columnas */}
           </div>
-          <div className="w-full"></div>
-        </div>
-      )}
-
-      {/* Oponente 3 (Izquierda) - Mano 4 */}
-      {mano4 && estadoMesaCliente && (
-        <div className="fixed left-0 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-          <ContenedorInfoJugador
-            idJugadorProp={mano4.idJugador}
-            nombreJugador={mano4.nombre}
-            esTurnoActual={!!(rondaActualParaUI && mano4.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
-            tiempoRestante={tiempoTurnoRestante}
-            duracionTotalTurno={duracionTurnoActualConfigurada}
-            posicion="izquierda"
-            autoPaseInfo={autoPaseInfoCliente}
-            numFichas={mano4.numFichas}
-            fichasRestantesAlFinalizar={
-              finRondaInfoVisible && finRondaData?.resultadoPayload?.manosFinales
-                ? finRondaData.resultadoPayload.manosFinales.find(m => m.jugadorId === mano4?.idJugador)?.fichas
-                : undefined
-            }
-            mostrarFichasFinales={finRondaInfoVisible}
-            className="mb-2 w-28 md:w-36"
-          />
-        </div>
-      )}
+        );
+      })}
     </>
   );
 };

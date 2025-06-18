@@ -13,7 +13,7 @@ export interface UseDominoSocketReturn {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   registerEventHandlers: (handlers: Record<string, (...args: any[]) => void>) => void; 
   unregisterEventHandlers: (eventNames: string[]) => void; // Mantener string[] para los nombres de eventos
-  initializeSocketIfNeeded: (userId: string, nombreJugador: string) => void; // Nueva función para conveniencia
+  initializeSocketIfNeeded: (userId: string, nombreJugador: string, imageUrl?: string | null) => void; // Añadir imageUrl
   disconnectSocketFromStore: () => void; // Nueva función para conveniencia
 }
 
@@ -79,9 +79,9 @@ export const useDominoSocket = (): UseDominoSocketReturn => {
     }
   }, [socket]);
 
-  const initializeSocketIfNeeded = useCallback((uid: string, nombre: string) => {
+  const initializeSocketIfNeeded = useCallback((uid: string, nombre: string, imageUrl?: string | null) => {
     // Llama a initializeSocket del store.
-    initializeSocket(uid, nombre);
+    initializeSocket(uid, nombre, imageUrl); // Pasar imageUrl al store
     // Opcional: Limpiar errores previos al intentar inicializar/conectar
     clearSocketError();
   }, [initializeSocket, clearSocketError]); // Añadir clearSocketError a las dependencias

@@ -72,6 +72,7 @@ export default function JuegoPage() {
   // Estados locales para userId y nombreJugador que se usarán para el socket
   const [gameUserId, setGameUserId] = useState<string | null>(null);
   const [gameNombreJugador, setGameNombreJugador] = useState<string | null>(null);
+  const [gameUserImageUrl, setGameUserImageUrl] = useState<string | null>(null); // Estado para la imagen
   const [isUserDataReady, setIsUserDataReady] = useState(false);
   const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
 
@@ -187,10 +188,12 @@ export default function JuegoPage() {
     // Usuario autenticado y mesaId presente
     const currentUserId = session.user.id;
     const currentNombreJugador = session.user.name || session.user.email || `Jugador ${currentUserId.slice(-4)}`;
+    const currentImageUrl = session.user.image || null; // Obtener la imagen de la sesión
 
-    console.log(`[JUEGO_PAGE_EFFECT_SOCKET_INIT] Usuario autenticado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}`);
+    console.log(`[JUEGO_PAGE_EFFECT_SOCKET_INIT] Usuario autenticado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}, imageUrl=${currentImageUrl}`);
     setGameUserId(currentUserId);
     setGameNombreJugador(currentNombreJugador);
+    setGameUserImageUrl(currentImageUrl); // Guardar la imagen
     setIsUserDataReady(true); // Marcar que los datos del usuario están listos
 
     // Leer tipoJuegoSolicitado de sessionStorage (si aún es necesario)
@@ -228,9 +231,9 @@ export default function JuegoPage() {
 
     // 1. Asegurarse de que el socket esté inicializado y conectado con la info correcta
     // Solo intentar inicializar si tenemos los datos del usuario Y el socket no está conectado
-    if (isUserDataReady && gameUserId && gameNombreJugador && mesaId && !isConnected) {
+    if (isUserDataReady && gameUserId && gameNombreJugador && gameUserImageUrl !== undefined && mesaId && !isConnected) { // Añadir gameUserImageUrl a la condición
        console.log('[JUEGO_PAGE_SOCKET_FLOW] Info disponible, socket no conectado. Llamando initializeSocketIfNeeded.');
-       initializeSocketIfNeeded(gameUserId, gameNombreJugador);
+       initializeSocketIfNeeded(gameUserId, gameNombreJugador, gameUserImageUrl); // Pasar la imagen
        // La lógica de unión a la mesa se ejecutará una vez que isConnected se vuelva true
     }
 
@@ -257,7 +260,7 @@ export default function JuegoPage() {
         });
       }
     }
-  }, [isConnected, initializeSocketIfNeeded, emitEvent, gameUserId, gameNombreJugador, isUserDataReady, authoritativeMesaIdRef]);
+  }, [isConnected, initializeSocketIfNeeded, emitEvent, gameUserId, gameNombreJugador, gameUserImageUrl, isUserDataReady, authoritativeMesaIdRef]);
 
   const rondaActualParaUI = estadoMesaClienteFromStore?.partidaActual?.rondaActual;
 
@@ -674,6 +677,7 @@ export default function JuegoPage() {
               estaConectado: serverPlayerInfo.estaConectado, 
               ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual, 
               numFichas: existingPlayer.fichas.length, 
+              seatIndex: serverPlayerInfo.seatIndex, // Sincronizar seatIndex
             };
           } else {
             // console.log(`[MANOS_SYNC_EFFECT_DEBUG] Local player ${jugadorIdLocal} NOT in prevManos. Initializing.`);
@@ -684,6 +688,7 @@ export default function JuegoPage() {
               numFichas: 0,
               estaConectado: serverPlayerInfo.estaConectado,
               ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual,
+              seatIndex: serverPlayerInfo.seatIndex, // Sincronizar seatIndex
             };
           };
         } else {
@@ -694,13 +699,15 @@ export default function JuegoPage() {
             numFichas: rondaPlayerInfo?.numFichas ?? serverPlayerInfo.numFichas ?? 0,
             estaConectado: serverPlayerInfo.estaConectado,
             ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual,
+            seatIndex: serverPlayerInfo.seatIndex, // Sincronizar seatIndex
           };
         };
 
         if (!existingPlayer ||
             existingPlayer.nombre !== updatedPlayer.nombre || // Comparar nombre
             existingPlayer.estaConectado !== updatedPlayer.estaConectado ||
-            existingPlayer.ordenTurno !== updatedPlayer.ordenTurno
+            existingPlayer.ordenTurno !== updatedPlayer.ordenTurno ||
+            existingPlayer.seatIndex !== updatedPlayer.seatIndex // Comparar seatIndex
         ) {
           hasChanged = true;
         }
