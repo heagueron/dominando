@@ -9,6 +9,7 @@ export interface JugadorCliente {
   numFichas?: number;
   estaConectado?: boolean;
   ordenTurno?: number;
+  image?: string; // Añadido para la URL del avatar del jugador
   seatIndex?: number; // Añadido para la posición en la mesa
 }
 

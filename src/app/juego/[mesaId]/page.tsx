@@ -1,37 +1,29 @@
 // page.tsx
 'use client';
 
-// import { PanInfo } from 'framer-motion'; // Ya no se usa aquí
 import { motion } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { usePlayerHandLogic } from '@/hooks/usePlayerHandLogic'; // UsePlayerHandLogicReturn ya no se usa aquí
-import { useDominoSocket } from '@/hooks/useDominoSocket'; // Asegúrate que la ruta sea correcta
+import { usePlayerHandLogic } from '@/hooks/usePlayerHandLogic';
+import { useDominoSocket } from '@/hooks/useDominoSocket';
 import MesaDomino from '@/components/domino/MesaDomino';
-import ManoJugadorComponent from '@/components/domino/ManoJugador'; // Mantener esta importación
+import ManoJugadorComponent from '@/components/domino/ManoJugador';
 import { FichaEnMesaParaLogica } from '@/utils/dominoUtils';
 import { FiMaximize, FiMinimize } from 'react-icons/fi';
 
-//import { DESIGN_TABLE_WIDTH_PX, DESIGN_TABLE_HEIGHT_PX, DOMINO_WIDTH_PX, DOMINO_HEIGHT_PX } from '@/utils/dominoConstants';
 import { FILA_ANCLA_INICIAL, COLUMNA_ANCLA_INICIAL } from '@/utils/posicionamientoUtils';
 
-// import DebugInfoOverlay from '@/components/debug/DebugInfoOverlay'; // Comentado para prueba
-import PlayerInfoLayout from '@/components/juego/PlayerInfoLayout'; // Importar el nuevo componente
-import DominoModals from '@/components/juego/DominoModals'; // Importar el nuevo componente de modales (ya actualizado)
-import { useSession } from 'next-auth/react'; // ¡Importante!
-import Navbar from '@/components/layout/Navbar'; // Asumiendo que también usas Navbar aquí
+import PlayerInfoLayout from '@/components/juego/PlayerInfoLayout';
+import DominoModals from '@/components/juego/DominoModals';
+import { useSession } from 'next-auth/react';
+import Navbar from '@/components/layout/Navbar';
 
-// Importar tipos desde el nuevo archivo centralizado
-//import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, JugadorPublicoInfoCliente, EstadoPartidaPublicoCliente } from '@/types/domino';
-import { JugadorCliente, EstadoMesaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado} from '@/types/domino';
-// EstadoRondaPublicoCliente ya no se usa directamente aquí para tipar estados locales
-import { formatPlayerNameForTitle } from '@/utils/stringUtils'; // Importar la función movida
-import { useDominoStore } from '@/store/dominoStore'; // Importar el store de Zustand
-import { useDominoRonda } from '@/hooks/useDominoRonda'; // Importar el nuevo hook de ronda
+import { JugadorCliente, EstadoMesaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, EstadoRondaPublicoCliente } from '@/types/domino';
+import { formatPlayerNameForTitle } from '@/utils/stringUtils';
+import { useDominoStore } from '@/store/dominoStore';
+import { useDominoRonda } from '@/hooks/useDominoRonda';
 
-// const DURACION_TURNO_SEGUNDOS = 15; // Ya no se usa aquí, el hook useDominoRonda tiene su default
-const TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE = 10000; // 10 segundos
-
+const TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE = 10000;
 
 export default function JuegoPage() {
   // Leer estados y acciones del store de Zustand
@@ -46,11 +38,11 @@ export default function JuegoPage() {
 
   // Estados locales
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_viewportDims, setViewportDims] = useState({ width: 0, height: 0 }); 
+  const [_viewportDims, setViewportDims] = useState({ width: 0, height: 0 });
   const [mesaDims, setMesaDims] = useState({ width: 0, height: 0, scale: 1, translateX: 0, translateY: 0 });
-  const [showRotateMessage, setShowRotateMessage] = useState(false);
+  const [showRotateMessage, setShowRotateMessage] = useState(false); // Restaurado
   const [manoVersion, setManoVersion] = useState(0); // Para forzar re-render de la mano si es necesario
-  
+
   // Estados para manejar la visualización del fin de ronda
   const [finRondaInfoVisible, setFinRondaInfoVisible] = useState(false);
   const [finRondaData, setFinRondaData] = useState<{
@@ -78,8 +70,6 @@ export default function JuegoPage() {
 
   const audioFichaJugadaRef = useRef<HTMLAudioElement | null>(null);
 
-  //const prevPropsForSocketRef = useRef<{ userId: string | null, nombre: string | null, autoConnect: boolean } | null>(null);
-  //const initialAuthReportedRef = useRef(false);
   const miIdJugadorSocketRef = useRef<string | null>(null); // Inicializar como null, se llenará desde el store/evento
   const [resultadoRonda, setResultadoRonda] = useState<{
     ganadorId?: string;
@@ -90,12 +80,11 @@ export default function JuegoPage() {
   // Estado para pantalla completa
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-   // Función para alternar el modo de pantalla completa
-   const toggleFullscreen = useCallback(async () => {
+  // Función para alternar el modo de pantalla completa
+  const toggleFullscreen = useCallback(async () => {
     if (!document.fullscreenElement) {
       try {
         await document.documentElement.requestFullscreen();
-        // No necesitas setIsFullscreen(true) aquí, el evento 'fullscreenchange' lo hará.
       } catch (err) {
         if (err instanceof Error) {
           console.error(`Error al intentar entrar en pantalla completa: ${err.message} (${err.name})`);
@@ -107,7 +96,6 @@ export default function JuegoPage() {
       if (document.exitFullscreen) {
         try {
           await document.exitFullscreen();
-          // No necesitas setIsFullscreen(false) aquí, el evento 'fullscreenchange' lo hará.
         } catch (err) {
           if (err instanceof Error) {
             console.error(`Error al intentar salir de pantalla completa: ${err.message} (${err.name})`);
@@ -119,44 +107,58 @@ export default function JuegoPage() {
     }
   }, []);
 
-  // Efecto para escuchar cambios en el estado de pantalla completa
+  // Efecto para escuchar cambios en el estado de pantalla completa y resize/orientation
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };
 
+    const updateLayoutStates = () => {
+      setViewportDims({ width: window.innerWidth, height: window.innerHeight });
+      const isPortrait = window.matchMedia("(orientation: portrait)").matches;
+      const isMobileThreshold = window.innerWidth < 768; // Umbral para considerar "móvil"
+      setShowRotateMessage(isPortrait && isMobileThreshold);
+    };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    // También es buena idea escuchar los eventos con prefijos por compatibilidad, aunque los navegadores modernos suelen usar el estándar.
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    window.addEventListener('resize', updateLayoutStates);
+    
+    // Para cambios de orientación que no siempre disparan 'resize' en algunos dispositivos
+    if (window.screen && window.screen.orientation) {
+        window.screen.orientation.addEventListener('change', updateLayoutStates);
+    }
+
+    updateLayoutStates(); // Llamada inicial
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+      window.removeEventListener('resize', updateLayoutStates);
+      if (window.screen && window.screen.orientation) {
+        window.screen.orientation.removeEventListener('change', updateLayoutStates);
+      }
     };
   }, []);
 
   // Inicializar la ref con el valor actual del store.
-  // Usar el hook para obtener el estado y mantener la ref sincronizada
-  const estadoMesaClienteFromStore = useDominoStore((state) => state.estadoMesaCliente);
-  const estadoMesaClienteRef = useRef(estadoMesaClienteFromStore);
+  const estadoMesaClienteRef = useRef(estadoMesaCliente);
   useEffect(() => {
-    estadoMesaClienteRef.current = estadoMesaClienteFromStore;
-  }, [estadoMesaClienteFromStore]);
-  
-  // Sincronizar la ref miIdJugadorSocketRef con el valor del store si es necesario,
-  // aunque se establece principalmente en handleTeUnisteAMesa.
+    estadoMesaClienteRef.current = estadoMesaCliente;
+  }, [estadoMesaCliente]);
+
+  // Sincronizar la ref miIdJugadorSocketRef con el valor del store
   useEffect(() => {
     miIdJugadorSocketRef.current = miIdJugadorSocketFromStore;
   }, [miIdJugadorSocketFromStore]);
 
   useEffect(() => {
-    // Inicializar el reproductor de audio una vez
-    audioFichaJugadaRef.current = new Audio('/sounds/ficha_jugada.mp3'); 
-    audioFichaJugadaRef.current.load(); // Pre-cargar para mejor rendimiento
+    audioFichaJugadaRef.current = new Audio('/sounds/ficha_jugada.mp3');
+    audioFichaJugadaRef.current.load();
     console.log('[AUDIO_EFFECT] Audio player for ficha_colocada initialized.');
   }, []);
 
@@ -164,23 +166,23 @@ export default function JuegoPage() {
     authoritativeMesaIdRef.current = mesaIdFromUrl;
   }, [mesaIdFromUrl]);
 
-  // Efecto para inicializar datos del jugador y socket
+  // Efecto para inicializar datos del jugador
   useEffect(() => {
-    console.log(`[JUEGO_PAGE_EFFECT_SOCKET_INIT] Entrando. mesaIdFromUrl: ${mesaIdFromUrl}, Session status: ${sessionStatus}`);
+    console.log(`[JUEGO_PAGE_EFFECT_USER_INIT] Entrando. Session status: ${sessionStatus}`);
 
     if (sessionStatus === 'loading') {
-      console.log('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Sesión de NextAuth cargando...');
-      return; // Esperar a que la sesión cargue
+      console.log('[JUEGO_PAGE_EFFECT_USER_INIT] Sesión de NextAuth cargando...');
+      return;
     }
 
     if (!mesaIdFromUrl || typeof mesaIdFromUrl !== 'string' || mesaIdFromUrl.trim() === '') {
-      console.error('[JUEGO_PAGE_EFFECT_SOCKET_INIT] No hay mesaId válido en la URL. Redirigiendo al lobby.');
+      console.error('[JUEGO_PAGE_EFFECT_USER_INIT] No hay mesaId válido en la URL. Redirigiendo al lobby.');
       router.push('/lobby');
       return;
     }
 
     if (sessionStatus === 'unauthenticated' || !session?.user) {
-      console.error('[JUEGO_PAGE_EFFECT_SOCKET_INIT] Usuario no autenticado. Redirigiendo a signin.');
+      console.error('[JUEGO_PAGE_EFFECT_USER_INIT] Usuario no autenticado. Redirigiendo a signin.');
       router.push(`/auth/signin?callbackUrl=/juego/${mesaIdFromUrl}`);
       return;
     }
@@ -188,93 +190,67 @@ export default function JuegoPage() {
     // Usuario autenticado y mesaId presente
     const currentUserId = session.user.id;
     const currentNombreJugador = session.user.name || session.user.email || `Jugador ${currentUserId.slice(-4)}`;
-    const currentImageUrl = session.user.image || null; // Obtener la imagen de la sesión
+    const currentImageUrl = session.user.image || null;
 
-    console.log(`[JUEGO_PAGE_EFFECT_SOCKET_INIT] Usuario autenticado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}, imageUrl=${currentImageUrl}`);
+    console.log(`[JUEGO_PAGE_EFFECT_USER_INIT] Usuario autenticado: userId=${currentUserId}, nombreJugador=${currentNombreJugador}, imageUrl=${currentImageUrl}`);
     setGameUserId(currentUserId);
     setGameNombreJugador(currentNombreJugador);
-    setGameUserImageUrl(currentImageUrl); // Guardar la imagen
-    setIsUserDataReady(true); // Marcar que los datos del usuario están listos
+    setGameUserImageUrl(currentImageUrl);
+    setIsUserDataReady(true);
 
-    // Leer tipoJuegoSolicitado de sessionStorage (si aún es necesario)
     tipoJuegoSolicitadoRef.current = sessionStorage.getItem('jmu_tipoJuegoSolicitado') as TipoJuegoSolicitado | null;
-    
+
   }, [mesaIdFromUrl, session, sessionStatus, router]);
-  
-  // Obtener el socket y sus funciones del store a través del hook refactorizado
-  //const { socket, isConnected, socketError, emitEvent, registerEventHandlers, unregisterEventHandlers, initializeSocketIfNeeded } = useDominoSocket();
+
+  // Obtener el socket y sus funciones del store
   const { socket, isConnected, emitEvent, registerEventHandlers, unregisterEventHandlers, initializeSocketIfNeeded } = useDominoSocket();
-  const initialJoinAttemptedRef = useRef(false); // Ref para asegurar que solo intentamos unirnos una vez al montar/conectar
+  const initialJoinAttemptedRef = useRef(false);
 
   useEffect(() => {
     const defaultTitle = "Juego - FullDomino";
     const currentMesaIdForTitle = authoritativeMesaIdRef.current;
 
-    if (isConnected && gameNombreJugador) { // Usar gameNombreJugador del estado
+    if (isConnected && gameNombreJugador) {
       const shortName = formatPlayerNameForTitle(gameNombreJugador);
       const mesaSuffix = currentMesaIdForTitle ? ` ${currentMesaIdForTitle.slice(-3)}` : "";
       document.title = shortName ? `${shortName} - Juego${mesaSuffix}` : `Juego${mesaSuffix} - FullDomino`;
     } else {
       document.title = defaultTitle;
     }
-  }, [isConnected, estadoMesaClienteFromStore, gameNombreJugador, authoritativeMesaIdRef]); // Usar gameNombreJugador
+  }, [isConnected, estadoMesaCliente, gameNombreJugador, authoritativeMesaIdRef]);
 
-  // Effect para inicializar el socket y unirse a la mesa cuando la info esté lista y el socket esté conectado
+  // Effect para inicializar el socket y unirse a la mesa
   useEffect(() => {
-    // Usar gameUserId y gameNombreJugador del estado
-    // const userId = finalUserIdRef.current;
-    // const nombreJugador = finalNombreJugadorRef.current;
     const mesaId = authoritativeMesaIdRef.current;
-    //const tipoJuego = tipoJuegoSolicitadoRef.current;
+    console.log('[JUEGO_PAGE_SOCKET_FLOW] Effect triggered.', { userId: gameUserId, nombreJugador: gameNombreJugador, mesaId, isConnected, initialJoinAttempted: initialJoinAttemptedRef.current, isUserDataReady });
 
-    console.log('[JUEGO_PAGE_SOCKET_FLOW] Effect triggered.', { userId: gameUserId, nombreJugador: gameNombreJugador, mesaId, isConnected, initialJoinAttempted: initialJoinAttemptedRef.current });
-
-    // 1. Asegurarse de que el socket esté inicializado y conectado con la info correcta
-    // Solo intentar inicializar si tenemos los datos del usuario Y el socket no está conectado
-    if (isUserDataReady && gameUserId && gameNombreJugador && gameUserImageUrl !== undefined && mesaId && !isConnected) { // Añadir gameUserImageUrl a la condición
-       console.log('[JUEGO_PAGE_SOCKET_FLOW] Info disponible, socket no conectado. Llamando initializeSocketIfNeeded.');
-       initializeSocketIfNeeded(gameUserId, gameNombreJugador, gameUserImageUrl); // Pasar la imagen
-       // La lógica de unión a la mesa se ejecutará una vez que isConnected se vuelva true
-    }
-
-    // 2. Emitir 'cliente:unirseAMesa' una vez que el socket esté conectado Y tengamos la info necesaria
-    // Usamos una ref para asegurar que solo intentamos unirnos una vez por carga de página/conexión exitosa
-    if (isConnected && isUserDataReady && gameUserId && gameNombreJugador && mesaId && !initialJoinAttemptedRef.current) {
-      console.log('[JUEGO_PAGE_SOCKET_FLOW] Socket conectado e info disponible. Intentando unirse a la mesa:', mesaId);
-      initialJoinAttemptedRef.current = true; // Marcar intento
-      console.log('[JUEGO_PAGE_HOOK] Socket conectado. Emitiendo cliente:unirseAMesa.');
-      // const currentNombreJugador = gameNombreJugador; // El servidor ya lo tiene del initializeSocketIfNeeded
-      const currentTipoJuego = tipoJuegoSolicitadoRef.current;
-      const currentMesaId = authoritativeMesaIdRef.current; 
-
-      if (gameNombreJugador && currentMesaId) { // Usar gameNombreJugador del estado
-        emitEvent('cliente:unirseAMesa', { // Usar emitEvent del hook
+    if (isUserDataReady && gameUserId && gameNombreJugador && gameUserImageUrl !== undefined && mesaId) {
+      if (!isConnected) {
+        console.log('[JUEGO_PAGE_SOCKET_FLOW] Info disponible, socket no conectado. Llamando initializeSocketIfNeeded.');
+        initializeSocketIfNeeded(gameUserId, gameNombreJugador, gameUserImageUrl);
+      } else if (!initialJoinAttemptedRef.current) { // Solo intentar unirse si está conectado y no se ha intentado antes
+        console.log('[JUEGO_PAGE_SOCKET_FLOW] Socket conectado e info disponible. Intentando unirse a la mesa:', mesaId);
+        initialJoinAttemptedRef.current = true;
+        const currentTipoJuego = tipoJuegoSolicitadoRef.current;
+        emitEvent('cliente:unirseAMesa', {
           juegoSolicitado: currentTipoJuego,
-          // nombreJugador: currentNombreJugador, // El servidor ya debería tenerlo
-          mesaId: currentMesaId
-        });
-      } else {
-        console.error('[JUEGO_PAGE_HOOK] onConnect: No se pudo emitir cliente:unirseAMesa. Falta gameNombreJugador o mesaId.', {
-          nombre: gameNombreJugador, // Usar gameNombreJugador para el log
-          mesaId: currentMesaId,
+          mesaId: mesaId
         });
       }
     }
   }, [isConnected, initializeSocketIfNeeded, emitEvent, gameUserId, gameNombreJugador, gameUserImageUrl, isUserDataReady, authoritativeMesaIdRef]);
 
-  const rondaActualParaUI = estadoMesaClienteFromStore?.partidaActual?.rondaActual;
+  const rondaActualParaUI: EstadoRondaPublicoCliente | undefined = estadoMesaCliente?.partidaActual?.rondaActual;
 
-  // Usar el nuevo hook useDominoRonda PRIMERO, ya que usePlayerHandLogic depende de sus valores
   const {
     tiempoTurnoRestante,
     duracionTurnoActualConfigurada,
     autoPaseInfoCliente,
     isMyTurnTimerJustExpired,
-    fichaAnimandose, // Este es el que se usará para la UI
+    fichaAnimandose,
     handleFichaDragEnd,
-    //handleJugarFichaServidor,
     esMiTurno: esMiTurnoFromRondaHook,
-    rondaEnProgreso: rondaEnProgresoFromRondaHook, // Este valor viene del estadoMesaClienteFromStore
+    rondaEnProgreso: rondaEnProgresoFromRondaHook,
     isAutoPasoForMe: isAutoPasoForMeFromRondaHook,
   } = useDominoRonda({
     estadoMesaCliente,
@@ -287,41 +263,38 @@ export default function JuegoPage() {
     emitEvent,
     mesaRef,
     mesaDims,
-    clearFichaSelection: () => clearSelection(), // clearSelection viene de usePlayerHandLogic, se pasará después
+    clearFichaSelection: () => clearSelection(),
     finRondaInfoVisible,
     audioFichaJugadaRef,
     estadoMesaClienteRef,
   });
 
-  // AHORA llamar a usePlayerHandLogic, ya que los valores de useDominoRonda están disponibles
   const { selectedFichaInfo, selectFicha, clearSelection } = usePlayerHandLogic({
     idJugadorMano: miIdJugadorSocketFromStore,
     isMyTurn: esMiTurnoFromRondaHook,
     isRoundActive: rondaEnProgresoFromRondaHook,
     isMyTurnTimerJustExpired: isMyTurnTimerJustExpired,
-    isAutoPasoForMe: isAutoPasoForMeFromRondaHook, // Este valor viene del estadoMesaClienteFromStore
+    isAutoPasoForMe: isAutoPasoForMeFromRondaHook,
     currentPlayableFichaIds: playableFichaIdsFromStore,
   });
 
-  const stableEmitEvent = useCallback(emitEvent, [emitEvent]); 
+  const stableEmitEvent = useCallback(emitEvent, [emitEvent]);
 
   const handleTeUnisteAMesa = useCallback((payload: TeUnisteAMesaPayloadCliente) => {
       console.log('[SOCKET] Evento servidor:teUnisteAMesa recibido:', payload);
       if (payload.mesaId !== authoritativeMesaIdRef.current) {
         console.warn(`[SOCKET] El mesaId del servidor (${payload.mesaId}) no coincide con el de la URL/ref actual (${authoritativeMesaIdRef.current}). Se usará el del servidor (${payload.mesaId}).`);
         authoritativeMesaIdRef.current = payload.mesaId;
-      } else {
-        authoritativeMesaIdRef.current = payload.mesaId;
       }
       miIdJugadorSocketRef.current = payload.tuJugadorIdEnPartida;
-      setMiIdJugadorSocketStore(payload.tuJugadorIdEnPartida); // Usar la acción del store
-      setEstadoMesaClienteStore(payload.estadoMesa); // Usar la acción del store (esto disparará el effect de estadoMesaClienteFromStore)
+      setMiIdJugadorSocketStore(payload.tuJugadorIdEnPartida);
+      setEstadoMesaClienteStore(payload.estadoMesa);
 
     if (socket?.connected && payload.tuJugadorIdEnPartida && authoritativeMesaIdRef.current) {
       console.log(`[SOCKET] Cliente ${payload.tuJugadorIdEnPartida} procesó 'teUnisteAMesa'. Emitiendo 'cliente:listoParaMano' para mesa ${authoritativeMesaIdRef.current}`);
-      stableEmitEvent('cliente:listoParaMano', { 
+      stableEmitEvent('cliente:listoParaMano', {
         mesaId: authoritativeMesaIdRef.current,
-        jugadorId: payload.tuJugadorIdEnPartida 
+        jugadorId: payload.tuJugadorIdEnPartida
       });
     } else {
       console.warn('[SOCKET] No se pudo emitir cliente:listoParaMano. Socket no conectado o falta información crítica.', {
@@ -330,19 +303,18 @@ export default function JuegoPage() {
         mesaId: authoritativeMesaIdRef.current
       });
     }
-  }, [setMiIdJugadorSocketStore, setEstadoMesaClienteStore, stableEmitEvent, socket]); // Dependencias correctas
+  }, [setMiIdJugadorSocketStore, setEstadoMesaClienteStore, stableEmitEvent, socket]);
 
   const handleEstadoMesaActualizado = useCallback((payload: { estadoMesa: EstadoMesaPublicoCliente }) => {
-    //console.log('[SOCKET] Evento servidor:estadoMesaActualizado recibido para mesaId:', payload.estadoMesa.mesaId);
-    setEstadoMesaClienteStore(payload.estadoMesa); // Usar la acción del store
-  }, [setEstadoMesaClienteStore]); // Dependencia correcta
+    setEstadoMesaClienteStore(payload.estadoMesa);
+  }, [setEstadoMesaClienteStore]);
 
   const handleTuMano = useCallback((payload: TuManoPayloadCliente) => {
     console.log(`[SOCKET] Evento servidor:tuMano recibido. Payload:`, payload);
     if (miIdJugadorSocketRef.current) {
       const jugadorIdLocal = miIdJugadorSocketRef.current;
-      const currentEstadoMesa = estadoMesaClienteRef.current; 
-      setManosJugadoresStore((prevManos: JugadorCliente[]) => { // Usar la acción del store y tipar prevManos
+      const currentEstadoMesa = estadoMesaClienteRef.current;
+      setManosJugadoresStore((prevManos: JugadorCliente[]) => {
         const manoExistenteIdx = prevManos.findIndex(m => m.idJugador === jugadorIdLocal);
         if (manoExistenteIdx !== -1) {
           const nuevasManos = [...prevManos];
@@ -356,18 +328,20 @@ export default function JuegoPage() {
           const jugadorInfoGeneral = currentEstadoMesa?.jugadores.find(j => j.id === jugadorIdLocal);
           console.log(`[servidor:tuMano] Jugador local ${jugadorIdLocal} no encontrado en prevManos o sin fichas. Añadiendo/Actualizando con mano nueva.`);
           const nuevoJugador: JugadorCliente = {
-            idJugador: jugadorIdLocal!, 
+            idJugador: jugadorIdLocal!,
             nombre: jugadorInfoGeneral?.nombre || 'Yo',
             fichas: payload.fichas,
             numFichas: payload.fichas.length,
             estaConectado: jugadorInfoGeneral?.estaConectado ?? true,
-            ordenTurno: jugadorInfoGeneral?.ordenTurnoEnRondaActual
+            ordenTurno: jugadorInfoGeneral?.ordenTurnoEnRondaActual,
+            seatIndex: jugadorInfoGeneral?.seatIndex,
+            image: jugadorInfoGeneral?.image,
           };
           return [...prevManos, nuevoJugador];
         }
       });
     }
-  }, [setManosJugadoresStore, estadoMesaClienteRef]); // Añadir estadoMesaClienteRef ya que se usa en el callback
+  }, [setManosJugadoresStore, estadoMesaClienteRef]);
 
   const handleTuManoActualizada = useCallback((payload: TuManoPayloadCliente) => {
     console.log(
@@ -376,40 +350,34 @@ export default function JuegoPage() {
       `Turno actual (según rondaHook): ${esMiTurnoFromRondaHook ? 'MÍO' : 'OTRO'}`
     );
     if (miIdJugadorSocketRef.current) {
-      setManosJugadoresStore(prevManos => // Usar la acción del store
+      setManosJugadoresStore(prevManos =>
         prevManos.map(mano =>
           mano.idJugador === miIdJugadorSocketRef.current
             ? { ...mano, fichas: payload.fichas, numFichas: payload.fichas.length }
             : mano
         )
       );
-    } // Dependencia correcta
-  //}, [setManosJugadoresStore]); 
-  }, [setManosJugadoresStore, esMiTurnoFromRondaHook]); 
-  
+    }
+  }, [setManosJugadoresStore, esMiTurnoFromRondaHook]);
+
   const handleTuTurno = useCallback((payload: TuTurnoPayloadCliente) => {
-    //console.log('[SOCKET] Evento servidor:tuTurno recibido:', payload);
     if (payload.currentPlayerId === miIdJugadorSocketRef.current) {
       setPlayableFichaIdsStore(payload.playableFichaIds);
-      // La lógica de duracionTurnoTotal y isMyTurnTimerJustExpired se maneja en useDominoRonda
       setManoVersion(prev => prev + 1);
     } else {
       setPlayableFichaIdsStore([]);
     }
-  }, [setPlayableFichaIdsStore, setManoVersion]); // Dependencias correctas
+  }, [setPlayableFichaIdsStore, setManoVersion]);
 
   const handleFinDeRonda = useCallback((payload: FinDeRondaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDeRonda recibido:', payload);
-
     const currentEstadoMesa = estadoMesaClienteRef.current;
-
     let fichasEnMesaSnapshotParaFin: FichaEnMesaParaLogica[] = [];
     let posicionAnclaSnapshotParaFin: { fila: number; columna: number } = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
 
-    // Usar las fichas que el servidor envió en el payload de finDeRonda, ya que son las "finales"
-    const anclaDelPayload = payload.anclaFicha as FichaEnMesaParaLogica | null | undefined;
-    const izquierdaDelPayload = payload.fichasIzquierda as FichaEnMesaParaLogica[] | undefined;
-    const derechaDelPayload = payload.fichasDerecha as FichaEnMesaParaLogica[] | undefined;
+    const anclaDelPayload = payload.anclaFicha;
+    const izquierdaDelPayload = payload.fichasIzquierda;
+    const derechaDelPayload = payload.fichasDerecha;
 
     if (anclaDelPayload || (izquierdaDelPayload && izquierdaDelPayload.length > 0) || (derechaDelPayload && derechaDelPayload.length > 0)) {
         fichasEnMesaSnapshotParaFin = [
@@ -420,14 +388,10 @@ export default function JuegoPage() {
         if (anclaDelPayload) {
             posicionAnclaSnapshotParaFin = anclaDelPayload.posicionCuadricula;
         } else if (fichasEnMesaSnapshotParaFin.length > 0) {
-            // Si no hay ancla pero hay otras fichas, tomar la posición de la primera como referencia
             posicionAnclaSnapshotParaFin = fichasEnMesaSnapshotParaFin[0].posicionCuadricula;
         }
-        console.log('[handleFinDeRonda] Snapshot del tablero tomado del payload de finDeRonda.');
     } else if (currentEstadoMesa?.partidaActual?.rondaActual) {
-        // Fallback MUY improbable al estado actual del cliente si el payload no trajo el tablero
         const currentRondaFallback = currentEstadoMesa.partidaActual.rondaActual;
-        console.warn("[handleFinDeRonda] Payload de finDeRonda no incluyó estado del tablero, usando snapshot del cliente (fallback).");
         fichasEnMesaSnapshotParaFin = [
             ...(currentRondaFallback.fichasIzquierda || []).slice().reverse(),
             ...(currentRondaFallback.anclaFicha ? [currentRondaFallback.anclaFicha] : []),
@@ -436,45 +400,34 @@ export default function JuegoPage() {
         if (currentRondaFallback.anclaFicha) {
             posicionAnclaSnapshotParaFin = currentRondaFallback.anclaFicha.posicionCuadricula;
         }
-    } else {
-        console.warn("[handleFinDeRonda] No hay ronda actual en estadoMesaCliente ni tablero en payload. El snapshot del tablero estará vacío.");
     }
 
-    console.log('[handleFinDeRonda] Setting finRondaData con payload y snapshot. Activando visibilidad.');
     setFinRondaData({
-      resultadoPayload: payload, // Usar el payload directamente
+      resultadoPayload: payload,
       fichasEnMesaSnapshot: fichasEnMesaSnapshotParaFin,
       posicionAnclaSnapshot: posicionAnclaSnapshotParaFin,
     });
     setFinRondaInfoVisible(true);
+    clearSelection();
+    setPlayableFichaIdsStore([]);
 
-    // Limpiar estados de juego activo
-    clearSelection(); // Usar clearSelection directamente del hook usePlayerHandLogic
-    setPlayableFichaIdsStore([]); // Usar la acción del store
-    // Los estados de timer, auto-pase, isMyTurnTimerJustExpired, fichaAnimandose se limpian en useDominoRonda
-
-    if (finRondaDisplayTimerRef.current) {
-      clearTimeout(finRondaDisplayTimerRef.current);
-    }
+    if (finRondaDisplayTimerRef.current) clearTimeout(finRondaDisplayTimerRef.current);
     finRondaDisplayTimerRef.current = setTimeout(() => {
-      console.log('[handleFinDeRonda] Timer de fin de ronda completado. Ocultando información.');
       setFinRondaInfoVisible(false);
     }, TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE);
-
-    setManoVersion(prev => prev + 1); // Para refrescar la mano local si es necesario (ej. si se vació)
-  }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef]); // Dependencias correctas
+    setManoVersion(prev => prev + 1);
+  }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef]);
 
   const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDePartida recibido:', payload);
-  }, []); // Dependencia correcta
+  }, []);
 
   const handleErrorDePartida = useCallback((payload: { mensaje: string }) => {
     console.error('[SOCKET] Error de partida/mesa:', payload.mensaje);
   }, []);
 
   useEffect(() => {
-    if (!socket || !isConnected) return;  // Usar isConnected del store
-    
+    if (!socket || !isConnected) return;
     const eventHandlers = {
       'servidor:teUnisteAMesa': handleTeUnisteAMesa,
       'servidor:estadoMesaActualizado': handleEstadoMesaActualizado,
@@ -486,278 +439,125 @@ export default function JuegoPage() {
       'servidor:errorDePartida': handleErrorDePartida,
     };
     registerEventHandlers(eventHandlers);
-    
-    return () => {
-      unregisterEventHandlers(Object.keys(eventHandlers));
-    };
+    return () => unregisterEventHandlers(Object.keys(eventHandlers));
   }, [
-    socket, 
-    isConnected, // Usar isConnected del store
-    registerEventHandlers,
-    unregisterEventHandlers, 
-    handleTeUnisteAMesa,
-    handleEstadoMesaActualizado,
-    handleTuMano,
-    handleTuManoActualizada,
-    handleTuTurno,
-    handleFinDeRonda,
-    handleFinDePartida,
-    handleErrorDePartida
-  ]); // Dependencias correctas
+    socket, isConnected, registerEventHandlers, unregisterEventHandlers,
+    handleTeUnisteAMesa, handleEstadoMesaActualizado, handleTuMano,
+    handleTuManoActualizada, handleTuTurno, handleFinDeRonda,
+    handleFinDePartida, handleErrorDePartida
+  ]);
 
-  // useEffect para loguear cambios en estados críticos que podrían afectar la jugabilidad
- /* useEffect(() => {
-    console.log('[DEBUG_JUEGO_PAGE_ESTADO_CRITICO]', {
-      esMiTurno: esMiTurnoFromRondaHook,
-      rondaEnProgreso: rondaEnProgresoFromRondaHook,
-      isAutoPasoForMe: isAutoPasoForMeFromRondaHook,
-      playableFichaIds: playableFichaIdsFromStore,
-      idJugadorLocal: miIdJugadorSocketFromStore,
-      currentPlayerIdRonda: estadoMesaClienteFromStore?.partidaActual?.rondaActual?.currentPlayerId,
-      numFichasManoLocal: manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketFromStore)?.fichas.length,
-    });
-  }, [esMiTurnoFromRondaHook, rondaEnProgresoFromRondaHook, isAutoPasoForMeFromRondaHook, playableFichaIdsFromStore, miIdJugadorSocketFromStore, estadoMesaClienteFromStore, manosJugadoresFromStore]);
-*/
-  // useEffect para manejar la visualización del mensaje de transición y limpieza de finRondaData
-  useEffect(() => { // Este effect depende de estadoMesaClienteFromStore
+  useEffect(() => {
     if (!estadoMesaCliente) {
-      console.log('[EFFECT_ESTADO_MESA] estadoMesaCliente is null. Cleaning up all states.');
-      // setAutoPaseInfoCliente(null); // Movido a useDominoRonda
-      // setResultadoRonda(null); // Se maneja en su propio effect
-      setFinRondaInfoVisible(false); // Asegurar que no se muestre info de fin de ronda
-      setFinRondaData(null); // Limpiar datos de fin de ronda
+      setFinRondaInfoVisible(false);
+      setFinRondaData(null);
       if (finRondaDisplayTimerRef.current) {
         clearTimeout(finRondaDisplayTimerRef.current);
         finRondaDisplayTimerRef.current = null;
       }
       return;
     }
-    
-    // Usar 'estadoMesaCliente' aquí, ya que ha sido verificado como no nulo por la guarda anterior.
     const partidaActual = estadoMesaCliente.partidaActual;
     const rondaActual = partidaActual?.rondaActual;
 
-    // Lógica de salvaguarda para finRondaInfoVisible si el estado del servidor cambia
-    if (finRondaInfoVisible) {
-      console.log('[EFFECT_ESTADO_MESA] State at snapshot capture:', {
-          // Acceder de forma segura a las propiedades de rondaActual
-          anclaFicha: rondaActual?.anclaFicha,
-          fichasIzquierdaCount: rondaActual?.fichasIzquierda?.length,
-          fichasDerechaCount: rondaActual?.fichasDerecha?.length,
-          // manosAlFinalizarRonda y puntuacionesFinRonda ya no son estados aquí.
-          // La información relevante del fin de ronda está en finRondaData.resultadoPayload
-      });
-      // Si estamos mostrando info de fin de ronda, pero el estado del servidor ya cambió
-      // (ej. la ronda ya no existe o no es la misma que la del finRondaData), ocultamos la info.
-      // Esto actúa como una salvaguarda si el timer no se disparó o si el servidor limpió antes.
-      if (!rondaActual || rondaActual.rondaId !== finRondaData?.resultadoPayload.rondaId) {
-        console.log('[EFFECT_ESTADO_MESA] Estado del servidor cambió (nueva ronda o sin ronda) mientras se mostraba info de fin de ronda. Ocultando.');
-        setFinRondaInfoVisible(false);
-        if (finRondaDisplayTimerRef.current) {
-          clearTimeout(finRondaDisplayTimerRef.current);
-          finRondaDisplayTimerRef.current = null;
-        }
+    if (finRondaInfoVisible && (!rondaActual || rondaActual.rondaId !== finRondaData?.resultadoPayload.rondaId)) {
+      setFinRondaInfoVisible(false);
+      if (finRondaDisplayTimerRef.current) {
+        clearTimeout(finRondaDisplayTimerRef.current);
+        finRondaDisplayTimerRef.current = null;
       }
     }
 
-    // Manejar el estado de transición basado en estadoMesaClienteFromStore
-    if (estadoMesaCliente.estadoGeneralMesa === 'transicionNuevaRonda') { // Usar 'estadoMesaCliente'
+    if (estadoMesaCliente.estadoGeneralMesa === 'transicionNuevaRonda') {
       if (!mensajeTransicion) setMensajeTransicion("Empezando nueva partida...");
-      if (finRondaInfoVisible) setFinRondaInfoVisible(false); // Asegurar que el modal de fin de ronda se oculte
-      if (finRondaDisplayTimerRef.current) {
-        clearTimeout(finRondaDisplayTimerRef.current); // Limpiar timer si estaba corriendo
-        finRondaDisplayTimerRef.current = null;
-      }
-      // Estados de ronda activa (timer, autoPase, etc.) se limpian en useDominoRonda
-      // setPlayableFichaIdsStore([]); // Se limpia en useDominoRonda o en el handler de finDeRonda
-    } else if (mensajeTransicion && ((estadoMesaCliente.estadoGeneralMesa === 'partidaEnProgreso' && rondaActual) || estadoMesaCliente.estadoGeneralMesa === 'esperandoJugadores')) { // Ya usa 'estadoMesaCliente' (correcto)
-      // Si estábamos en transición y ahora la partida ha comenzado o volvimos a esperar, limpiar el mensaje
-      setMensajeTransicion(null);
-    } // Dependencias correctas
-  }, [
-    estadoMesaCliente, 
-    finRondaInfoVisible, 
-    mensajeTransicion, // Añadido como dependencia
-    finRondaData, // Necesario para la lógica de salvaguarda dentro del if(finRondaInfoVisible)
-  ]);
-
-  // useEffect para limpiar el timer de display de fin de ronda al desmontar
-  useEffect(() => {
-    return () => {
+      if (finRondaInfoVisible) setFinRondaInfoVisible(false);
       if (finRondaDisplayTimerRef.current) {
         clearTimeout(finRondaDisplayTimerRef.current);
+        finRondaDisplayTimerRef.current = null;
       }
+    } else if (mensajeTransicion && ((estadoMesaCliente.estadoGeneralMesa === 'partidaEnProgreso' && rondaActual) || estadoMesaCliente.estadoGeneralMesa === 'esperandoJugadores')) {
+      setMensajeTransicion(null);
+    }
+  }, [estadoMesaCliente, finRondaInfoVisible, mensajeTransicion, finRondaData]);
+
+  useEffect(() => {
+    return () => {
+      if (finRondaDisplayTimerRef.current) clearTimeout(finRondaDisplayTimerRef.current);
     };
   }, []);
 
-  // Sincroniza el estado de las fichas jugables con el turno actual y estado de la ronda
   useEffect(() => {
-    // Si no es mi turno, o la ronda no está en progreso, o se está mostrando el modal de fin de ronda,
-    // limpiar las fichas jugables.
     const noEsMiTurnoOFinDeJuego = !esMiTurnoFromRondaHook || !rondaEnProgresoFromRondaHook || finRondaInfoVisible;
-
-    if (noEsMiTurnoOFinDeJuego) {
-      if (playableFichaIdsFromStore.length > 0) {
-        console.log(`[DEBUG_JUEGO_PAGE] Limpiando playableFichaIds. Condiciones: esMiTurno=${esMiTurnoFromRondaHook}, rondaEnProgreso=${rondaEnProgresoFromRondaHook}, finRondaVisible=${finRondaInfoVisible}`);
-        setPlayableFichaIdsStore([]); // Esta es la acción dentro del cuerpo del efecto
-      }
+    if (noEsMiTurnoOFinDeJuego && playableFichaIdsFromStore.length > 0) {
+      setPlayableFichaIdsStore([]);
     }
-    // No es necesario un 'else' aquí, ya que 'setPlayableFichaIdsStore' se llama en 'handleTuTurno'
-    // cuando SÍ es el turno del jugador y recibe nuevas fichas jugables.
-  }, [
-    esMiTurnoFromRondaHook,
-    rondaEnProgresoFromRondaHook,
-    finRondaInfoVisible,
-    playableFichaIdsFromStore, // Depender del array para re-evaluar si cambia
-    setPlayableFichaIdsStore    // La referencia a la función del store (estable)
-  ]);
+  }, [esMiTurnoFromRondaHook, rondaEnProgresoFromRondaHook, finRondaInfoVisible, playableFichaIdsFromStore, setPlayableFichaIdsStore]);
 
-  // Actualizar `resultadoRonda` para el modal basado en `finRondaData` cuando `finRondaInfoVisible`
   useEffect(() => {
-    console.log(`[EFFECT_RESULTADO_RONDA] finRondaInfoVisible: ${finRondaInfoVisible}, finRondaData exists: ${!!finRondaData}`);
     if (finRondaInfoVisible && finRondaData?.resultadoPayload) {
       const newResultado = {
         ganadorId: finRondaData.resultadoPayload.ganadorRondaId,
         nombreGanador: finRondaData.resultadoPayload.nombreGanador,
-        tipoFin: finRondaData.resultadoPayload.tipoFinRonda, // Asegúrate que tipoFinRonda exista en el payload
+        tipoFin: finRondaData.resultadoPayload.tipoFinRonda,
       };
-      // Solo actualizar si el resultado es realmente diferente para evitar bucles
-      if (
-        !resultadoRonda ||
-        resultadoRonda.ganadorId !== newResultado.ganadorId ||
-        resultadoRonda.nombreGanador !== newResultado.nombreGanador ||
-        resultadoRonda.tipoFin !== newResultado.tipoFin
-      ) {
-        console.log('[EFFECT_RESULTADO_RONDA] Setting resultadoRonda from finRondaData.');
+      if (!resultadoRonda || resultadoRonda.ganadorId !== newResultado.ganadorId || resultadoRonda.nombreGanador !== newResultado.nombreGanador || resultadoRonda.tipoFin !== newResultado.tipoFin) {
         setResultadoRonda(newResultado);
       }
-    } else if (!finRondaInfoVisible) {
-      // Only clear resultadoRonda if not showing the end-of-round info.
-      // No necesitamos 'localResultadoRonda', comparamos directamente con el estado 'resultadoRonda'
-      if (resultadoRonda !== null) { 
-        console.log('[EFFECT_RESULTADO_RONDA] Not showing end-of-round info, clearing resultadoRonda.');
-        setResultadoRonda(null);
-      }
+    } else if (!finRondaInfoVisible && resultadoRonda !== null) {
+      setResultadoRonda(null);
     }
   }, [finRondaInfoVisible, finRondaData, resultadoRonda]);
 
   // useEffect específico para actualizar manosJugadores (para la UI)
   useEffect(() => {
-    // Si estadoMesaClienteFromStore es null, no podemos continuar.
-    // La propiedad 'jugadores' no es opcional en EstadoMesaPublicoCliente,
-    // por lo que si estadoMesaClienteFromStore no es null, .jugadores existirá.
-    if (!estadoMesaClienteFromStore) {
-      if (manosJugadoresFromStore.length > 0) { // Usar el valor del store
-         setManosJugadoresStore([]); // Usar la acción del store
+    if (!estadoMesaCliente || !miIdJugadorSocketFromStore) {
+      if (manosJugadoresFromStore.length > 0) {
+         setManosJugadoresStore([]);
       }
       return;
     }
-    
-    // A partir de aquí, TypeScript sabe que estadoMesaClienteFromStore no es null.
-    const currentMesaState = estadoMesaClienteFromStore;
-    const jugadorIdLocal = miIdJugadorSocketRef.current;
 
-    setManosJugadoresStore(prevManos => { // Usar la acción del store
+    const currentMesaState = estadoMesaCliente;
+    const jugadorIdLocal = miIdJugadorSocketFromStore;
+
+    setManosJugadoresStore(prevManos => {
       const prevManosMap = new Map(prevManos.map(p => [p.idJugador, p]));
-      let hasChanged = false;
-      
-      // currentMesaState aquí es del tipo EstadoMesaPublicoCliente (no null)
-      // y por lo tanto currentMesaState.jugadores es JugadorPublicoInfoCliente[]
       const newManosArray: JugadorCliente[] = currentMesaState.jugadores.map(serverPlayerInfo => {
-        const existingPlayer = prevManosMap.get(serverPlayerInfo.id); // Usar serverPlayerInfo.id
-        // Ahora usamos currentMesaState, que TypeScript sabe que no es null aquí.
+        const existingPlayer = prevManosMap.get(serverPlayerInfo.id);
         const rondaPlayerInfo = currentMesaState.partidaActual?.rondaActual?.jugadoresRonda.find(jr => jr.id === serverPlayerInfo.id);
-        let updatedPlayer: JugadorCliente;
-        if (serverPlayerInfo.id === jugadorIdLocal) {
-          if (existingPlayer) {
-            // console.log(`[MANOS_SYNC_EFFECT_DEBUG] Local player ${jugadorIdLocal} exists in prevManos. Existing numFichas: ${existingPlayer.numFichas}, existing fichas length: ${existingPlayer.fichas?.length}`);
-            updatedPlayer = {
-              ...existingPlayer, 
-              nombre: serverPlayerInfo.nombre, 
-              estaConectado: serverPlayerInfo.estaConectado, 
-              ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual, 
-              numFichas: existingPlayer.fichas.length, 
-              seatIndex: serverPlayerInfo.seatIndex, // Sincronizar seatIndex
-            };
-          } else {
-            // console.log(`[MANOS_SYNC_EFFECT_DEBUG] Local player ${jugadorIdLocal} NOT in prevManos. Initializing.`);
-            updatedPlayer = {
-              idJugador: serverPlayerInfo.id,
-              nombre: serverPlayerInfo.nombre,
-              fichas: [],
-              numFichas: 0,
-              estaConectado: serverPlayerInfo.estaConectado,
-              ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual,
-              seatIndex: serverPlayerInfo.seatIndex, // Sincronizar seatIndex
-            };
-          };
-        } else {
-          updatedPlayer = { 
+
+        return {
             idJugador: serverPlayerInfo.id,
             nombre: serverPlayerInfo.nombre,
-            fichas: [], 
-            numFichas: rondaPlayerInfo?.numFichas ?? serverPlayerInfo.numFichas ?? 0,
+            fichas: serverPlayerInfo.id === jugadorIdLocal ? (existingPlayer?.fichas || []) : [],
+            numFichas: serverPlayerInfo.id === jugadorIdLocal ? (existingPlayer?.fichas.length || 0) : (rondaPlayerInfo?.numFichas ?? serverPlayerInfo.numFichas ?? 0),
             estaConectado: serverPlayerInfo.estaConectado,
             ordenTurno: rondaPlayerInfo?.ordenTurnoEnRondaActual,
-            seatIndex: serverPlayerInfo.seatIndex, // Sincronizar seatIndex
-          };
+            seatIndex: serverPlayerInfo.seatIndex,
+            image: serverPlayerInfo.image,
         };
-
-        if (!existingPlayer ||
-            existingPlayer.nombre !== updatedPlayer.nombre || // Comparar nombre
-            existingPlayer.estaConectado !== updatedPlayer.estaConectado ||
-            existingPlayer.ordenTurno !== updatedPlayer.ordenTurno ||
-            existingPlayer.seatIndex !== updatedPlayer.seatIndex // Comparar seatIndex
-        ) {
-          hasChanged = true;
-        }
-        if (serverPlayerInfo.id !== jugadorIdLocal && existingPlayer && existingPlayer.numFichas !== updatedPlayer.numFichas) {
-          hasChanged = true;
-        }
-        if (serverPlayerInfo.id === jugadorIdLocal && existingPlayer && 
-            (existingPlayer.fichas !== updatedPlayer.fichas || existingPlayer.numFichas !== updatedPlayer.numFichas)
-        ) {
-          hasChanged = true;
-        }
-        return updatedPlayer;
       });
 
-      if (prevManos.length !== newManosArray.length) {
-        hasChanged = true;
+      const contentChanged = prevManos.length !== newManosArray.length ||
+                             prevManos.some((prevPlayer, index) => {
+                               const newPlayer = newManosArray[index];
+                               if (!newPlayer) return true;
+                               return prevPlayer.idJugador !== newPlayer.idJugador ||
+                                      prevPlayer.nombre !== newPlayer.nombre ||
+                                      prevPlayer.estaConectado !== newPlayer.estaConectado ||
+                                      prevPlayer.ordenTurno !== newPlayer.ordenTurno ||
+                                      prevPlayer.seatIndex !== newPlayer.seatIndex ||
+                                      prevPlayer.numFichas !== newPlayer.numFichas ||
+                                      prevPlayer.image !== newPlayer.image;
+                             });
+      if (contentChanged) {
+         console.log('[MANOS_SYNC_EFFECT] Content of newManosArray before setting to store:', JSON.stringify(newManosArray.map(j => ({id: j.idJugador, nombre: j.nombre, seatIndex: j.seatIndex, image: j.image, ordenTurno: j.ordenTurno}))));
+         console.log('[MANOS_SYNC_EFFECT] Player info content changed. Updating manosJugadoresStore.');
+         return newManosArray;
       }
-
-      if (hasChanged) {
-        return newManosArray;
-      }
-      
-      return prevManos; 
+      return prevManos;
     });
-
-  }, [ // Dependencias correctas
-    estadoMesaClienteFromStore,
-    manosJugadoresFromStore, // Añadido como dependencia
-    setManosJugadoresStore 
-  ]);
-
-
-  useEffect(() => {
-    console.log('[handleResize] Actualizando viewportDims.')
-    const handleResize = () => setViewportDims({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    const handleOrientationChange = () => {
-      const isPortrait = window.matchMedia("(orientation: portrait)").matches;
-      const isMobileThreshold = window.innerWidth < 768;
-      setShowRotateMessage(isPortrait && isMobileThreshold);
-    };
-    handleOrientationChange();
-    window.addEventListener('resize', handleOrientationChange);
-    return () => window.removeEventListener('resize', handleOrientationChange);
-  }, []);
+  }, [estadoMesaCliente, miIdJugadorSocketFromStore, setManosJugadoresStore, manosJugadoresFromStore]);
 
   const handleMesaDimensionsChange = useCallback((
     width: number, height: number, scale: number, translateX: number, translateY: number
@@ -773,45 +573,40 @@ export default function JuegoPage() {
     console.log('[MESA] Ficha en mesa clickeada:', id);
   }, []);
 
-
   const combinedFichasParaMesa = useMemo(() => {
-    // Si estamos mostrando info de fin de ronda, MesaDomino usará el snapshot.
-    // Este memo es para el estado normal de juego, usando estadoMesaClienteFromStore.
     if (finRondaInfoVisible && finRondaData) {
-        console.log('[combinedFichasParaMesa] Using snapshot.');
         return finRondaData.fichasEnMesaSnapshot;
     }
-    if (!rondaActualParaUI) return []; 
+    if (!rondaActualParaUI) return [];
     return [
       ...(rondaActualParaUI.fichasIzquierda || []).slice().reverse(),
       ...(rondaActualParaUI.anclaFicha ? [rondaActualParaUI.anclaFicha] : []),
       ...(rondaActualParaUI.fichasDerecha || []),
-    ]; // Dependencias correctas
+    ];
   }, [rondaActualParaUI, finRondaInfoVisible, finRondaData]);
 
   const posicionAnclaFija = useMemo(() => {
-    // Si estamos mostrando info de fin de ronda, MesaDomino usará el snapshot.
      if (finRondaInfoVisible && finRondaData) {
-        console.log('[posicionAnclaFija] Using snapshot from finRondaData.');
         return finRondaData.posicionAnclaSnapshot;
     }
-    return rondaActualParaUI?.anclaFicha 
-      ? rondaActualParaUI.anclaFicha.posicionCuadricula 
+    return rondaActualParaUI?.anclaFicha
+      ? rondaActualParaUI.anclaFicha.posicionCuadricula
       : { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
-  } , [rondaActualParaUI?.anclaFicha, finRondaInfoVisible, finRondaData]); // Añadida finRondaInfoVisible y finRondaData
+  } , [rondaActualParaUI?.anclaFicha, finRondaInfoVisible, finRondaData]);
 
+  const isLoadingInitialData = sessionStatus === 'loading' || !isUserDataReady || !isConnected || !estadoMesaCliente || !estadoMesaCliente.jugadores || estadoMesaCliente.jugadores.length === 0;
 
-  // Lógica de carga mientras se obtiene la sesión o los datos del usuario
-  // O si el socket no está conectado o no hay estado de mesa aún.
-  if (sessionStatus === 'loading' || !isUserDataReady || !isConnected || !estadoMesaClienteFromStore) {
+  if (isLoadingInitialData) {
     return (
       <div className="min-h-screen flex flex-col bg-table-wood">
-        <Navbar /> {/* Asumiendo un Navbar */}
+        <Navbar />
         <main className="flex-grow flex items-center justify-center">
           <p className="text-white text-xl">
-            {sessionStatus === 'loading' || !isUserDataReady ? 'Cargando datos del jugador...' : 
-             !isConnected ? 'Conectando al servidor del juego...' : 
-             !estadoMesaClienteFromStore ? 'Cargando datos de la mesa...' : 'Cargando...'}
+            {sessionStatus === 'loading' || !isUserDataReady ? 'Cargando datos del jugador...' :
+             !isConnected ? 'Conectando al servidor del juego...' :
+             !estadoMesaCliente ? 'Cargando datos de la mesa...' :
+             (!estadoMesaCliente.jugadores || estadoMesaCliente.jugadores.length === 0) ? 'Esperando jugadores...' :
+             'Cargando...'}
           </p>
         </main>
       </div>
@@ -820,16 +615,11 @@ export default function JuegoPage() {
 
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">
-      
-      {/* Botón para Pantalla Completa (ejemplo de posicionamiento) */}
       <button
         onClick={toggleFullscreen}
         className="fixed top-2 right-2 z-50 p-2 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
         aria-label={isFullscreen ? "Salir de pantalla completa" : "Entrar en pantalla completa"}
       >
-        {/* Puedes usar iconos aquí */}
-        {/*isFullscreen ? 'Minimizar' : 'Maximizar'*/}
-        {/* Ejemplo con react-icons: */}
         {isFullscreen ? <FiMinimize size={20} /> : <FiMaximize size={20} />}
       </button>
 
@@ -838,53 +628,40 @@ export default function JuegoPage() {
           fichasEnMesa={finRondaInfoVisible && finRondaData ? finRondaData.fichasEnMesaSnapshot : combinedFichasParaMesa}
           ref={mesaRef}
           posicionAnclaFija={finRondaInfoVisible && finRondaData ? finRondaData.posicionAnclaSnapshot : posicionAnclaFija}
-          onFichaClick={handleMesaFichaClick} 
-          onMesaDimensionsChange={handleMesaDimensionsChange} // Esta función se mantiene en page.tsx
-          fichaAnimandose={fichaAnimandose} // Viene de useDominoRonda
-          jugadoresInfo={estadoMesaClienteFromStore.jugadores.map(j => ({id: j.id, ordenTurno: j.ordenTurnoEnRondaActual}))}
+          onFichaClick={handleMesaFichaClick}
+          onMesaDimensionsChange={handleMesaDimensionsChange}
+          fichaAnimandose={fichaAnimandose}
+          jugadoresInfo={estadoMesaCliente.jugadores.map(j => ({id: j.id, ordenTurno: j.ordenTurnoEnRondaActual}))}
           miIdJugador={miIdJugadorSocketRef.current}
         />
-        {/* <DebugInfoOverlay 
-          viewportWidth={viewportDims.width} viewportHeight={viewportDims.height}
-          mesaWidth={mesaDims.width} mesaHeight={mesaDims.height} mesaScale={mesaDims.scale}
-          dominoConstWidth={DOMINO_WIDTH_PX} dominoConstHeight={DOMINO_HEIGHT_PX}
-        /> */}
-        
 
-        {/* Renderizar la mano del jugador local */}
-        {miIdJugadorSocketRef.current && manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current) && ( // Usar manosJugadoresFromStore
-           <motion.div 
-            className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1" // Aumentado z-index
+        {miIdJugadorSocketRef.current && manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current) && (
+           <motion.div
+            className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1"
             initial={{ y: 150 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }}
           >
-            <div className="w-full"></div> {/* Espacio para info izquierda (si existiera) */}
+            <div className="w-full"></div>
             <div className="flex justify-center">
               <ManoJugadorComponent
-                // Clave simplificada: Re-montar solo si cambia el jugador o la versión de la mano (ej. nueva ronda)
-                // Los cambios en el número de fichas, selección, o fichas jugables
-                // deberían causar re-renders, no re-montajes, si las fichas internas están bien keyeadas.
                 key={`mano-local-${miIdJugadorSocketRef.current || 'no-id'}-${manoVersion}`}
-                fichas={manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas || []} // Usar manosJugadoresFromStore
-                fichaSeleccionada={selectedFichaInfo?.idFicha} 
-                onFichaClick={selectFicha} 
-               
+                fichas={manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current)?.fichas || []}
+                fichaSeleccionada={selectedFichaInfo?.idFicha}
+                onFichaClick={selectFicha}
                 layoutDirection="row"
                 isLocalPlayer={true}
-                playableFichaIds={playableFichaIdsFromStore} // Usar playableFichaIdsFromStore
+                playableFichaIds={playableFichaIdsFromStore}
                 onFichaDragEnd={handleFichaDragEnd}
               />
             </div>
-            <div className="w-full"></div> {/* Espacio para info derecha (si existiera) */}
+            <div className="w-full"></div>
           </motion.div>
         )}
-
       </main>
 
-      {/* Renderizar la información de los jugadores (incluido el local) */}
       <PlayerInfoLayout
-        manosJugadores={manosJugadoresFromStore} // Usar manosJugadoresFromStore
-        miIdJugadorSocket={miIdJugadorSocketRef.current}
-        estadoMesaCliente={estadoMesaClienteFromStore} // Usar estado del store
+        manosJugadores={manosJugadoresFromStore}
+        miIdJugadorSocket={miIdJugadorSocketFromStore}
+        estadoMesaCliente={estadoMesaCliente}
         rondaActualParaUI={rondaActualParaUI}
         tiempoTurnoRestante={tiempoTurnoRestante}
         duracionTurnoActualConfigurada={duracionTurnoActualConfigurada}
@@ -893,12 +670,11 @@ export default function JuegoPage() {
         finRondaData={finRondaData}
       />
 
-      {/* Renderizar todos los modales */}
       <DominoModals
-        showRotateMessage={showRotateMessage}
+        showRotateMessage={showRotateMessage} // Restaurado para usar el estado
         finRondaInfoVisible={finRondaInfoVisible}
         finRondaData={finRondaData ? { resultadoPayload: finRondaData.resultadoPayload } : null}
-        estadoMesaCliente={estadoMesaClienteFromStore} // Usar estado del store
+        estadoMesaCliente={estadoMesaCliente}
         mensajeTransicion={mensajeTransicion}
       />
     </div>
