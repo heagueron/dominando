@@ -1,3 +1,4 @@
+// adminActions.ts
 'use server';
 
 import prisma from '@/lib/prisma';
@@ -105,23 +106,18 @@ export async function createTransaction(
       }
     });
 
-    // Revalidar la página de detalles del usuario y la lista de usuarios para reflejar cambios
+    // Revalidar la página de detalles del usuario y la lista de transacciones para reflejar cambios
     revalidatePath(`/admin/users/${targetUserId}`);
-    revalidatePath('/admin/transactions'); // Revalidar también la lista de transacciones
-
-    // Podríamos revalidar una futura página de listado de transacciones también
-    // revalidatePath('/admin/transactions');
+    revalidatePath('/admin/transactions');
 
     return { message: `Transacción de ${type} creada exitosamente para el usuario ${targetUser.name || targetUser.email}.`, type: 'success' };
-  } catch (error: unknown) { // Cambiado de 'any' a 'unknown'
+  } catch (error: unknown) {
     console.error('Error al crear la transacción:', error);
     let errorMessage = 'Error interno del servidor al crear la transacción.';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    // Si quieres ser más específico con errores de Prisma, podrías añadir más checks aquí.
-    // Por ejemplo: if (error instanceof Prisma.PrismaClientKnownRequestError) { ... }
-
+    
     return {
       message: errorMessage,
       type: 'error',
@@ -149,43 +145,97 @@ export type TransactionListItem = {
   } | null;
 };
 
-export async function getTransactionsList(): Promise<{ transactions?: TransactionListItem[], error?: string }> {
-  const session = await getServerSession(authOptions);
+// Nuevo tipo para la respuesta paginada
+export type PaginatedTransactionsResponse = {
+  transactions?: TransactionListItem[];
+  totalCount?: number;
+  totalPages?: number;
+  currentPage?: number;
+  error?: string;
+};
 
+const DEFAULT_PAGE_SIZE = 10;
+
+export async function getTransactionsList(
+  page: number = 1,
+  pageSize: number = DEFAULT_PAGE_SIZE,
+  filters: {
+    userId?: string;
+    type?: TransactionType;
+    startDate?: string; // YYYY-MM-DD
+    endDate?: string;   // YYYY-MM-DD
+  } = {}
+): Promise<PaginatedTransactionsResponse> {
+  const session = await getServerSession(authOptions);
   if (!session || !session.user || !session.user.is_admin) {
     return { error: 'No autorizado.' };
   }
 
+  const skip = (page - 1) * pageSize;
+
   try {
-    const transactions = await prisma.transaction.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        user: { // Incluir datos del usuario asociado a la transacción
-          select: { id: true, name: true, email: true },
+    const whereClause: Prisma.TransactionWhereInput = {};
+
+    if (filters.userId) {
+      whereClause.userId = filters.userId;
+    }
+    if (filters.type) {
+      whereClause.type = filters.type;
+    }
+    if (filters.startDate || filters.endDate) {
+      whereClause.createdAt = {};
+      if (filters.startDate) {
+        whereClause.createdAt.gte = new Date(filters.startDate);
+      }
+      if (filters.endDate) {
+        // Ajustar para incluir todo el día de endDate
+        const endDate = new Date(filters.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        whereClause.createdAt.lte = endDate;
+      }
+    }
+
+    const [transactionsData, totalCount] = await prisma.$transaction([
+      prisma.transaction.findMany({
+        orderBy: {
+          createdAt: 'desc',
         },
-        creatorUser: { // CORREGIDO: Usar el nombre correcto de la relación
-          select: { id: true, name: true },
+        include: {
+          user: {
+            select: { id: true, name: true, email: true },
+          },
+          creatorUser: { 
+            select: { id: true, name: true },
+          },
         },
-      },
-      take: 50, // Limitar a las últimas 50 transacciones por ahora (implementar paginación después)
-    });
+        skip: skip,
+        take: pageSize,
+        where: whereClause, // Aplicar filtros
+      }),
+      prisma.transaction.count({ where: whereClause }), // Contar con los mismos filtros
+    ]);
+
+    const totalPages = Math.ceil(totalCount / pageSize);
 
     // Mapear los resultados al tipo TransactionListItem
-    const formattedTransactions: TransactionListItem[] = transactions.map(tx => ({
+    const formattedTransactions: TransactionListItem[] = transactionsData.map(tx => ({
       id: tx.id,
       type: tx.type,
       amount: tx.amount.toNumber(), // Convertir Decimal a número
       currency: tx.currency,
       createdAt: tx.createdAt,
       comment: tx.comment,
-      user: tx.user, // user ya tiene la estructura correcta gracias al select
-      creator: tx.creatorUser ? { id: tx.creatorUser.id, name: tx.creatorUser.name } : null, // Mapear creatorUser a creator
+      user: tx.user, 
+      creator: tx.creatorUser ? { id: tx.creatorUser.id, name: tx.creatorUser.name } : null,
     }));
 
-    return { transactions: formattedTransactions };
-  } catch (error) { // No es necesario especificar 'unknown' aquí, TypeScript lo infiere
+    return {
+      transactions: formattedTransactions,
+      totalCount,
+      totalPages,
+      currentPage: page,
+    };
+  } catch (error) { 
     console.error('Error al obtener la lista de transacciones:', error);
     return { error: 'Error interno del servidor al obtener transacciones.' };
   }

@@ -7,7 +7,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Link from "next/link";
 import { useSearchParams } from 'next/navigation';
-import { getTransactionsList, TransactionListItem } from '@/actions/adminActions'; // Importar la acción y el tipo
+import { getTransactionsList, TransactionListItem, PaginatedTransactionsResponse } from '@/actions/adminActions';
 import { Prisma } from '@prisma/client'; // Para el tipo Decimal
 
 // Helper para formatear fechas que pueden ser string o Date
@@ -39,6 +39,15 @@ function TransactionsPageContent() {
   const [transactions, setTransactions] = useState<TransactionListItem[]>([]);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const pageSize = 10; // Podría ser una constante o configurable
+
+  // Estados para los filtros
+  const [filterUserId, setFilterUserId] = useState('');
+  const [filterType, setFilterType] = useState(''); // '' para "Todos"
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
 
   useEffect(() => {
     // Redirigir si no está autenticado o no es admin, una vez que el estado de la sesión esté disponible
@@ -55,20 +64,53 @@ function TransactionsPageContent() {
       const fetchTransactions = async () => {
         setLoadingTransactions(true);
         setTransactionsError(null);
-        const result = await getTransactionsList();
+        const activeFilters = {
+          userId: filterUserId || undefined,
+          type: filterType || undefined,
+          startDate: filterStartDate || undefined,
+          endDate: filterEndDate || undefined,
+        };
+        // @ts-expect-error // El tipo de activeFilters.type (string) podría no coincidir directamente con TransactionType (enum) esperado por getTransactionsList sin una aserción.
+        const result: PaginatedTransactionsResponse = await getTransactionsList(currentPage, pageSize, activeFilters);
         if (result.error) {
           setTransactionsError(result.error);
         } else if (result.transactions) {
           setTransactions(result.transactions);
+          setTotalPages(result.totalPages || 0);
+          // Si la página actual es mayor que el total de páginas (después de filtrar), ajustar
+          if (result.currentPage && result.totalPages && result.currentPage > result.totalPages) {
+            setCurrentPage(result.totalPages > 0 ? result.totalPages : 1);
+          }
         }
         setLoadingTransactions(false);
       };
       fetchTransactions();
     }
-  }, [status, session]);
+  }, [status, session, currentPage, pageSize, filterUserId, filterType, filterStartDate, filterEndDate]);
 
   const handleDismissMessage = () => {
     setIsMessageVisible(false);
+  };
+
+  const handlePreviousPage = () => {
+    setCurrentPage((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(totalPages, prev + 1));
+  };
+
+  const handleApplyFilters = () => {
+    setCurrentPage(1); // Resetear a la primera página al aplicar filtros
+    // El useEffect se encargará de recargar los datos
+  };
+
+  const handleClearFilters = () => {
+    setFilterUserId('');
+    setFilterType('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setCurrentPage(1); // Resetear a la primera página
   };
 
   if (status === "loading") {
@@ -108,6 +150,55 @@ function TransactionsPageContent() {
           >
             Crear Nueva Transacción
           </Link>
+        </div>
+
+        {/* Sección de Filtros */}
+        <div className="mb-8 p-6 bg-gray-50 rounded-lg shadow">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Filtrar Transacciones</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label htmlFor="filterUserId" className="block text-sm font-medium text-gray-700">ID Usuario</label>
+              <input
+                type="text"
+                id="filterUserId"
+                value={filterUserId}
+                onChange={(e) => setFilterUserId(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black"
+                placeholder="ID exacto del usuario"
+              />
+            </div>
+            <div>
+              <label htmlFor="filterType" className="block text-sm font-medium text-gray-700">Tipo</label>
+              <select
+                id="filterType"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black"
+              >
+                <option value="">Todos</option>
+                <option value="DEPOSIT">Depósito</option>
+                <option value="WITHDRAWAL">Retiro</option>
+                <option value="GAME_FEE">Comisión Juego</option>
+                <option value="PRIZE_PAYOUT">Pago Premio</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="filterStartDate" className="block text-sm font-medium text-gray-700">Fecha Desde</label>
+              <input type="date" id="filterStartDate" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black" />
+            </div>
+            <div>
+              <label htmlFor="filterEndDate" className="block text-sm font-medium text-gray-700">Fecha Hasta</label>
+              <input type="date" id="filterEndDate" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black" />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end space-x-3">
+            <button onClick={handleClearFilters} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              Limpiar Filtros
+            </button>
+            <button onClick={handleApplyFilters} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              Aplicar Filtros
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
@@ -161,6 +252,28 @@ function TransactionsPageContent() {
                   ))}
                 </tbody>
               </table>
+              {/* Controles de Paginación */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex justify-between items-center">
+                  <button
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1 || loadingTransactions}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Anterior
+                  </button>
+                  <span className="text-sm text-gray-700">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages || loadingTransactions}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

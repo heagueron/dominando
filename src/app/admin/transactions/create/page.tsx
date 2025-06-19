@@ -61,7 +61,6 @@ export default function CreateTransactionPage() {
     if (currentFormData) {
       // Envolver la llamada a formAction en startTransition
       startTransition(() => {
-        // @ts-ignore // prevState es manejado internamente por useReactActionState, no es necesario aquí
         formAction(currentFormData);
       });
       // No cerramos el modal aquí, esperamos al useEffect basado en formState
@@ -76,7 +75,7 @@ export default function CreateTransactionPage() {
     // es buena idea limpiar ese mensaje para que no persista en el formulario principal
     // si el usuario decide no reenviar.
     if (formState.type === 'error' && formState.message && (!formState.errors || Object.keys(formState.errors).length === 0)) {
-        // @ts-ignore // Resetting formState, formAction will handle the new state
+        // @ts-expect-error // Resetting formState, formAction will handle the new state
         formAction(initialState);
     }
   };
