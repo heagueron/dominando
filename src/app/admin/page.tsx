@@ -48,6 +48,15 @@ export default async function AdminDashboardPage() {
             </Link>
           </div>
 
+          {/* Tarjeta de Gestión de Mensajes de Entrada */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-700 mb-4">Gestión de Mensajes de Entrada</h2>
+            <p className="text-gray-600 mb-4">Revisa y gestiona los mensajes recibidos.</p>
+            <Link href="/admin/mensajes-entrada" className="text-blue-600 hover:text-blue-800 font-medium">
+              Ver Mensajes &rarr;
+            </Link>
+          </div>
+
           {/* Tarjeta de Gestión de Transacciones */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Gestión de Transacciones</h2>

@@ -139,3 +139,21 @@ model Transaction {
   @@index([currency])
 
 }
+
+enum EMType {
+  REFRAN
+  PENSAMIENTO
+  CONSEJO
+  HUMOR
+  VARIOS
+}
+
+model EntryMessage {
+  id        String   @id @default(cuid())
+  content   String   @unique
+  type      EMType   @default(REFRAN) // El tipo de mensaje
+  source    String?  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+

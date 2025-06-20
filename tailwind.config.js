@@ -15,7 +15,22 @@ module.exports = {
       },
       boxShadow: {
         'domino': '0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-      }
+      },
+      keyframes: {
+        'fade-in-scale': {
+          'from': {
+            opacity: '0',
+            transform: 'scale(.95)',
+          },
+          'to': {
+            opacity: '1',
+            transform: 'scale(1)',
+          },
+        },
+      },
+      animation: {
+        'fade-in-scale': 'fade-in-scale 0.3s ease-out forwards',
+      },
     },
   },
   plugins: [],
