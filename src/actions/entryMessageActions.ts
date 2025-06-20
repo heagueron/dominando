@@ -63,3 +63,21 @@ export async function deleteEntryMessage(id: string) {
     return { error: "Error al eliminar el mensaje de entrada." };
   }
 }
+
+export async function getRandomEntryMessage() {
+  try {
+    const messageCount = await prisma.entryMessage.count();
+    if (messageCount === 0) {
+      return null;
+    }
+    const skip = Math.floor(Math.random() * messageCount);
+    const randomMessages = await prisma.entryMessage.findMany({
+      take: 1,
+      skip: skip,
+    });
+    return randomMessages[0];
+  } catch (error) {
+    console.error("Error fetching random entry message:", error);
+    return null;
+  }
+}
