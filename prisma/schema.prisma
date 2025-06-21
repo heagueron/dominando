@@ -81,6 +81,10 @@ model Match {
   creatorId   String
   creator     User     @relation(fields: [creatorId], references: [id]) // Corregido: Usuario -> User
   players     String[] // Players IDs
+  matchCategory MatchCategory // Nueva: Categoría de la partida (gratuita, de pago)
+  gameMode    GameMode      // Nueva: Modo de juego (ronda única, partida completa)
+  feeAmount   Decimal?      // Monto de la entrada, solo para PAID_PLAY
+  feeCurrency Currency?     // Moneda de la entrada, solo para PAID_PLAY
   state       MatchState  @default(WAITING)
   score       Json?    // Every player's score
   winnerId    String?  // Opcional: ID del usuario ganador
@@ -157,3 +161,13 @@ model EntryMessage {
   updatedAt DateTime @updatedAt
 }
 
+// Nuevos enums para la Opción 3
+enum MatchCategory {
+  FREE_PLAY // Partidas sin costo de entrada
+  PAID_PLAY // Partidas con costo de entrada
+}
+
+enum GameMode {
+  SINGLE_ROUND // Ronda Única
+  FULL_GAME    // Partida Completa
+}

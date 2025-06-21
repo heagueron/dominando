@@ -18,7 +18,7 @@ import DominoModals from '@/components/juego/DominoModals';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/layout/Navbar';
 
-import { JugadorCliente, EstadoMesaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, TipoJuegoSolicitado, EstadoRondaPublicoCliente } from '@/types/domino';
+import { JugadorCliente, EstadoMesaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, GameMode, MatchCategory, EstadoRondaPublicoCliente } from '@/types/domino';
 import { formatPlayerNameForTitle } from '@/utils/stringUtils';
 import { useDominoStore } from '@/store/dominoStore';
 import { useDominoRonda } from '@/hooks/useDominoRonda';
@@ -66,7 +66,7 @@ export default function JuegoPage() {
   const [gameNombreJugador, setGameNombreJugador] = useState<string | null>(null);
   const [gameUserImageUrl, setGameUserImageUrl] = useState<string | null>(null); // Estado para la imagen
   const [isUserDataReady, setIsUserDataReady] = useState(false);
-  const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
+  const tipoJuegoSolicitadoRef = useRef<GameMode | null>(null);
 
   const audioFichaJugadaRef = useRef<HTMLAudioElement | null>(null);
 
@@ -198,7 +198,7 @@ export default function JuegoPage() {
     setGameUserImageUrl(currentImageUrl);
     setIsUserDataReady(true);
 
-    tipoJuegoSolicitadoRef.current = sessionStorage.getItem('jmu_tipoJuegoSolicitado') as TipoJuegoSolicitado | null;
+    tipoJuegoSolicitadoRef.current = sessionStorage.getItem('jmu_tipoJuegoSolicitado') as GameMode | null;
 
   }, [mesaIdFromUrl, session, sessionStatus, router]);
 
@@ -231,10 +231,12 @@ export default function JuegoPage() {
       } else if (!initialJoinAttemptedRef.current) { // Solo intentar unirse si está conectado y no se ha intentado antes
         console.log('[JUEGO_PAGE_SOCKET_FLOW] Socket conectado e info disponible. Intentando unirse a la mesa:', mesaId);
         initialJoinAttemptedRef.current = true;
-        const currentTipoJuego = tipoJuegoSolicitadoRef.current;
+        // Al recargar la página, solo tenemos el GameMode. Asumimos FREE_PLAY.
+        // El servidor ya debería tener al jugador en la mesa y esto es solo para re-sincronizar.
         emitEvent('cliente:unirseAMesa', {
-          juegoSolicitado: currentTipoJuego,
-          mesaId: mesaId
+          gameMode: tipoJuegoSolicitadoRef.current || GameMode.SINGLE_ROUND, // Fallback a SINGLE_ROUND si no hay nada en sessionStorage
+          matchCategory: MatchCategory.FREE_PLAY, // Asumimos FREE_PLAY al recargar
+          nombreJugador: gameNombreJugador,
         });
       }
     }

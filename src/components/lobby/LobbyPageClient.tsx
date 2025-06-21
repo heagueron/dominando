@@ -1,4 +1,4 @@
-// /home/heagueron/jmu/dominando/src/components/lobby/LobbyPageClient.tsx
+// LobbyPageClient.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -7,6 +7,8 @@ import { useDominoSocket } from '@/hooks/useDominoSocket';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/layout/Navbar';
+import { MatchCategory, GameMode } from '@/types/domino'; // Importamos los nuevos enums
+
 import MensajeEntradaBanner from './MensajeEntradaBanner'; // Importamos el nuevo componente
 
 // Tipos para los payloads de Socket.IO (simplificados para el lobby)
@@ -14,8 +16,6 @@ interface TeUnisteAMesaPayloadLobby {
   mesaId: string;
   tuJugadorIdEnPartida: string;
 }
-
-export type TipoJuegoSolicitado = 'rondaUnica' | 'partidaCompleta';
 
 interface LobbyPageClientProps {
   randomMessage: {
@@ -43,12 +43,12 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
   const { data: session, status: sessionStatus } = useSession();
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [nombreJugador, setNombreJugador] = useState<string | null>(null);
+  const [nombreJugador, setNombreJugador] = useState<string | null>(null); 
   const [userImageUrl, setUserImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<TipoJuegoSolicitado | null>(null);
+  const [isLoading, setIsLoading] = useState<GameMode | null>(null); // Usar GameMode
   const [lobbyError, setLobbyError] = useState<string | null>(null);
   const [userDataInitialized, setUserDataInitialized] = useState(false);
-  const tipoJuegoSolicitadoRef = useRef<TipoJuegoSolicitado | null>(null);
+  const tipoJuegoSolicitadoRef = useRef<GameMode | null>(null); // Usar GameMode
   const isNavigatingRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -151,24 +151,24 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
     };
   }, [socket, router, userId, nombreJugador, registerEventHandlers, unregisterEventHandlers]);
 
-  const handleJoinGame = useCallback((tipoJuego: TipoJuegoSolicitado) => {
+  const handleJoinGame = useCallback((gameMode: GameMode, matchCategory: MatchCategory) => {
     if (!userDataInitialized || !nombreJugador || !userId || userImageUrl === undefined) {
       setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
       return;
     }
-    console.log(`[LOBBY_SOCKET] handleJoinGame called for ${tipoJuego}`);
-    setIsLoading(tipoJuego);
+    console.log(`[LOBBY_SOCKET] handleJoinGame called for GameMode: ${gameMode}, MatchCategory: ${matchCategory}`);
+    setIsLoading(gameMode); // isLoading sigue mostrando el modo de juego
     setLobbyError(null);
     isNavigatingRef.current = false;
-    tipoJuegoSolicitadoRef.current = tipoJuego;
+    tipoJuegoSolicitadoRef.current = gameMode; // Guardar el gameMode en la ref
 
-    console.log(`[LOBBY_SOCKET] Guardando jmu_tipoJuegoSolicitado en sessionStorage: ${tipoJuego} (desde handleJoinGame)`);
-    sessionStorage.setItem('jmu_tipoJuegoSolicitado', tipoJuego);
+    console.log(`[LOBBY_SOCKET] Guardando jmu_tipoJuegoSolicitado en sessionStorage: ${gameMode} (desde handleJoinGame)`);
+    sessionStorage.setItem('jmu_tipoJuegoSolicitado', gameMode); // Guardar el gameMode
 
     if (isConnected) {
       console.log('[LOBBY_SOCKET] Socket already connected. Emitting cliente:unirseAMesa.');
-      emitEvent('cliente:unirseAMesa', { juegoSolicitado: tipoJuego });
-    } else {
+      emitEvent('cliente:unirseAMesa', { gameMode, matchCategory, nombreJugador }); // Enviar nuevos campos
+    }  else {
       console.log('[LOBBY_SOCKET] Socket not connected. Intentando inicializar/conectar y luego unirse.');
       if (userId && nombreJugador && userImageUrl !== undefined) {
         initializeSocketIfNeeded(userId, nombreJugador, userImageUrl);
@@ -229,8 +229,8 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
         >
           <motion.div
             variants={fadeInUp}
-            className="group cursor-pointer"
-            onClick={() => !isLoading && handleJoinGame("rondaUnica")}
+            className="group cursor-pointer" 
+            onClick={() => !isLoading && handleJoinGame(GameMode.SINGLE_ROUND, MatchCategory.FREE_PLAY)}
             whileHover={{ scale: !isLoading ? 1.02 : 1 }}
             whileTap={{ scale: !isLoading ? 0.98 : 1 }}
           >
@@ -252,15 +252,16 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
                 disabled={!!isLoading}
                 className="w-full mt-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-300 shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isLoading === 'rondaUnica' ? 'Uniéndote...' : 'Jugar Ahora'}
+                {isLoading === GameMode.SINGLE_ROUND ? 'Uniéndote...' : 'Jugar Ahora'}
               </motion.button>
             </div>
           </motion.div>
 
           <motion.div
             variants={fadeInUp}
-            className="group cursor-pointer"
-            onClick={() => !(isLoading || true) && handleJoinGame("partidaCompleta")}
+            className="group cursor-pointer" 
+            // Deshabilitado temporalmente para Partida Completa, pero la llamada a handleJoinGame es correcta
+            onClick={() => !(isLoading || true) && handleJoinGame(GameMode.FULL_GAME, MatchCategory.FREE_PLAY)}
             whileHover={{ scale: !(isLoading || true) ? 1.02 : 1 }}
             whileTap={{ scale: !(isLoading || true) ? 0.98 : 1 }}
           >
@@ -282,7 +283,7 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
                 disabled={!!isLoading || true}
                 className="w-full mt-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors duration-300 shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isLoading === 'partidaCompleta' ? 'Uniéndote...' : 'Jugar Ahora'}
+                {isLoading === GameMode.FULL_GAME ? 'Uniéndote...' : 'Jugar Ahora'}
                 {true && <span className="block text-xs mt-1">(Próximamente)</span>}
               </motion.button>
             </div>

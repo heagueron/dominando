@@ -2,6 +2,25 @@
 
 import { FichaDomino, FichaEnMesaParaLogica } from '@/utils/dominoUtils';
 
+// --- Nuevos Enums para Tipos de Partida (deben coincidir con schema.prisma y game.types.ts del servidor) ---
+
+export enum MatchCategory {
+  FREE_PLAY = 'FREE_PLAY',
+  PAID_PLAY = 'PAID_PLAY',
+}
+
+export enum GameMode {
+  SINGLE_ROUND = 'SINGLE_ROUND',
+  FULL_GAME = 'FULL_GAME',
+}
+
+export enum Currency {
+  VES = 'VES',
+  USDT = 'USDT',
+}
+
+// --- Fin Nuevos Enums ---
+
 export interface JugadorCliente {
   idJugador: string;
   nombre?: string;
@@ -12,8 +31,6 @@ export interface JugadorCliente {
   image?: string; // Añadido para la URL del avatar del jugador
   seatIndex?: number; // Añadido para la posición en la mesa
 }
-
-export type TipoJuegoSolicitado = 'rondaUnica' | 'partidaCompleta';
 
 export interface JugadorPublicoInfoCliente {
   id: string;
@@ -61,7 +78,8 @@ export interface EstadoRondaPublicoCliente {
 
 export interface EstadoPartidaPublicoCliente {
   partidaId: string;
-  tipoJuego: TipoJuegoSolicitado;
+  gameMode: GameMode; // Usar el nuevo enum
+  matchCategory: MatchCategory; // Usar el nuevo enum
   jugadoresParticipantesIds: string[];
   rondaActualNumero: number;
   puntuacionesPartida: { jugadorId: string, puntos: number }[];
@@ -70,14 +88,20 @@ export interface EstadoPartidaPublicoCliente {
   rondaActual?: EstadoRondaPublicoCliente;
 }
 
+
+
 export interface EstadoMesaPublicoCliente {
   mesaId: string;
   jugadores: JugadorPublicoInfoCliente[];
-  configuracionJuego: {
-    tipoJuego: TipoJuegoSolicitado;
+  configuracionJuego: { // Actualizar para reflejar los nuevos campos
+    gameMode: GameMode;
+    matchCategory: MatchCategory;
     maxJugadores: number;
     fichasPorJugadorOriginal: number;
     duracionTurnoSegundos: number;
+    puntosParaGanarPartida?: number;
+    feeAmount?: number;
+    feeCurrency?: Currency;
   };
   partidaActualId: string | null;
   estadoGeneralMesa: 'esperandoJugadores' | 'partidaEnProgreso' | 'esperandoParaSiguientePartida' | 'configurandoNuevaPartida' | 'transicionNuevaRonda';

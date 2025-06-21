@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 // Importar tipos desde el nuevo archivo centralizado
-import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente } from '@/types/domino';
+import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, GameMode } from '@/types/domino';
 
 interface DominoModalsProps {
   showRotateMessage: boolean;
@@ -40,8 +40,8 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}>
-            <p className="text-xl sm:text-2xl font-bold text-yellow-800 mb-2">
-              {estadoMesaCliente?.partidaActual?.tipoJuego === 'rondaUnica' ? 'Partida Finalizada' : 'Ronda Finalizada'}
+            <p className="text-xl sm:text-2xl font-bold text-yellow-800 mb-2"> 
+              {estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND ? 'Partida Finalizada' : 'Ronda Finalizada'}
             </p>
             <p className="text-md sm:text-lg font-medium text-yellow-700 mb-1">
               {finRondaData.resultadoPayload.tipoFinRonda === 'trancado' ? 'Resultado: Trancado' :
