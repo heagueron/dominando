@@ -1,6 +1,7 @@
 // /home/heagueron/jmu/dominando/src/components/jugador/UserAvatar.tsx
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 
@@ -13,11 +14,17 @@ interface UserAvatarProps {
 
 export default function UserAvatar({ size = 32, className = "", src, name }: UserAvatarProps) { // Default size 32
   const { data: session } = useSession();
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   // Priorizar props, luego sesión (si src/name no se pasan, útil para Navbar), luego fallback
   const userImage = src !== undefined ? src : session?.user?.image;
   const userName = name !== undefined ? name : session?.user?.name ?? session?.user?.email ?? 'Usuario';
   
+  // Resetear el estado de error si la imagen cambia (ej. el usuario cambia o se actualiza la sesión)
+  useEffect(() => {
+    setImageLoadError(false);
+  }, [userImage]);
+
   // Generar iniciales de forma más robusta
   const getInitials = (nameInput: string | null) => { // Aceptar string | null
     if (!nameInput) return 'U'; 
@@ -29,7 +36,7 @@ export default function UserAvatar({ size = 32, className = "", src, name }: Use
 
   const initials = getInitials(userName);
 
-  if (userImage) {
+  if (userImage && !imageLoadError) {
     return (
       <Image
         src={userImage}
@@ -38,13 +45,8 @@ export default function UserAvatar({ size = 32, className = "", src, name }: Use
         height={size}
         className={`rounded-full object-cover ${className}`} // object-cover para mejor ajuste
         onError={(e) => {
-          // Opcional: manejar error si la imagen no carga,
-          // podrías cambiar a un placeholder o simplemente ocultar la imagen
-          // y dejar que el div de iniciales (si lo tuvieras como fallback) se muestre.
-          // Por ahora, si hay error, no se mostrará nada (o el alt text si el navegador lo hace).
-          // Para un fallback más visual, podrías tener un estado que cambie a mostrar iniciales.
           console.warn("Error al cargar la imagen del avatar:", e);
-          (e.target as HTMLImageElement).style.display = 'none'; // Oculta la imagen rota
+          setImageLoadError(true); // Si la imagen falla, activa el estado de error para mostrar el fallback
         }}
       />
     );

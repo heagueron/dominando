@@ -67,6 +67,7 @@ model Deposit {
   amount         Decimal
   originBank     String?     // Nombre del banco de donde vino el depósito
   reference      String?     // Referencia emitida por banco de donde vino el depósito
+  note           String?     // Nota del depósito
   status         TransferState @default(REGISTERED)
 
   revisorId      String?     // ID del administrador que revisó el depósito
@@ -109,6 +110,10 @@ model Withdrawal {
   currency       Currency    @default(VES)
   amount         Decimal
   destinyBank    String?     // Banco de destino del retiro
+  destinyAccount String?     // Cuenta de destino del retiro
+  note           String?     // Nota del retiro
+  mobilePhone    String?     // Para PAGO_MOVIL
+  cedula         String?     
   reference      String?     // La registra el admin cuando ejecute el retiro
   status         TransferState @default(REGISTERED)
 
