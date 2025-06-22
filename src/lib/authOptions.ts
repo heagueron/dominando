@@ -1,4 +1,4 @@
-// authOptions.ts
+
 import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -6,6 +6,7 @@ import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
+import { DefaultSession } from "next-auth";
 import prisma from '@/lib/prisma'; // Importar la instancia global de Prisma
 
 // Función para generar el cuerpo HTML del correo
@@ -136,25 +137,49 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/signin",
   },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        if (user.is_admin !== undefined) {
-          token.is_admin = user.is_admin;
-        }
+  callbacks: { // Definición de los callbacks
+    async jwt({ token, user }) { // Callback JWT: se ejecuta después de la autenticación
+      if (user) { // 'user' está disponible en la primera llamada después de la autenticación
+        token.id = user.id; // Copiar el ID del usuario al token
+        token.is_admin = user.is_admin; // Copiar el estado de admin al token
+        token.image = user.image; // Copiar la URL de la imagen al token
       }
       return token;
     },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id;
-        if (token.is_admin !== undefined) {
-          session.user.is_admin = token.is_admin;
-        }
+    async session({ session, token }) { // Callback de Sesión: se ejecuta cada vez que se accede a la sesión
+      if (session.user) { // Asegurarse de que session.user existe
+        session.user.id = token.id as string; // Asignar el ID del token a la sesión (asegurando el tipo)
+        session.user.is_admin = token.is_admin as boolean; // Asignar el estado de admin del token a la sesión
+        session.user.image = token.image as string | null | undefined; // Asignar la imagen del token a la sesión
       }
       return session;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
+
+// --- Extensión de tipos para NextAuth.js ---
+// Declarar módulos para extender las interfaces de NextAuth.js
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      is_admin?: boolean; // Ahora opcional
+      image?: string | null | undefined; // Hacer la imagen opcional y permitir null
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    id: string;
+    is_admin?: boolean; // Ahora opcional
+    image?: string | null | undefined; // Hacer la imagen opcional y permitir null
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    is_admin?: boolean; // Ahora opcional
+    image?: string | null | undefined; // Hacer la imagen opcional y permitir null
+  }
+}

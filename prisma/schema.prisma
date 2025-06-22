@@ -22,7 +22,10 @@ model User {
   balance_USDT  Decimal   @default(0.0) // Cambiado a Decimal
   accounts      Account[] // Corregido: Cuenta -> Account
   sessions      Session[] // Corregido: Sesion -> Session
+  profile       Profile?  // Relación uno a uno con el perfil del usuario
   matches       Match[]
+  deposits      Deposit[] // Depósitos realizados por este usuario
+  withdrawals   Withdrawal[] // Retiros solicitados por este usuario
   statistics    Statistic?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -31,6 +34,49 @@ model User {
   adminCreatedTransactions Transaction[] @relation("AdminCreatedTransactions")
   transactions             Transaction[] // Transacciones pertenecientes a este usuario
   wonMatches               Match[]       @relation("WonMatches") // Partidas ganadas por este usuario
+
+  adminCheckedDeposits     Deposit[]     @relation("AdminCheckedDeposits") // Depósitos revisados por este admin
+  adminCheckedWithdrawals  Withdrawal[]  @relation("AdminCheckedWithdrawals") // Retiros revisados por este admin
+}
+
+model Profile {
+  id          String    @id @default(cuid())
+  userId      String    @unique // Esto asegura la relación 1-a-1
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName   String?
+  lastName    String?
+  bio         String?   // Una breve biografía o estado
+  country     String?   // País de residencia
+  birthDate   DateTime? // Fecha de nacimiento para verificación de edad
+  documentId  String?   // Cédula, DNI, etc. para KYC
+  phone       String?   // Teléfono para verificación
+  address     String?   // Dirección para KYC
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Deposit {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  depositDate    DateTime?   // Fecha en que el usuario afirma haber hecho el depósito
+  type           TransferType @default(PAGO_MOVIL)
+  currency       Currency    @default(VES)
+  amount         Decimal
+  originBank     String?     // Nombre del banco de donde vino el depósito
+  reference      String?     // Referencia emitida por banco de donde vino el depósito
+  status         TransferState @default(REGISTERED)
+
+  revisorId      String?     // ID del administrador que revisó el depósito
+  revisorUser    User?       @relation("AdminCheckedDeposits", fields: [revisorId], references: [id])
+
+  rejectedReason String?
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  @@index([userId])
 }
 
 model Account {
@@ -52,6 +98,28 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+}
+
+model Withdrawal {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  processedAt    DateTime?   // La registra el admin cuando ejecute el retiro
+  type           TransferType @default(PAGO_MOVIL)
+  currency       Currency    @default(VES)
+  amount         Decimal
+  destinyBank    String?     // Banco de destino del retiro
+  reference      String?     // La registra el admin cuando ejecute el retiro
+  status         TransferState @default(REGISTERED)
+
+  revisorId      String?     // ID del administrador que revisó el retiro
+  revisorUser    User?       @relation("AdminCheckedWithdrawals", fields: [revisorId], references: [id])
+
+  rejectedReason String?
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  @@index([userId])
 }
 
 model Session {
@@ -159,6 +227,19 @@ model EntryMessage {
   source    String?  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Nuevos enums para Transferencias
+enum TransferType {
+  PAGO_MOVIL
+  BANK_TRANSFER
+  P2P
+}
+
+enum TransferState {
+  REGISTERED
+  APPROVED
+  REJECTED
 }
 
 // Nuevos enums para la Opción 3
