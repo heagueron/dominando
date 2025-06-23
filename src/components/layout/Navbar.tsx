@@ -25,7 +25,7 @@ interface NavLink {
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { status } = useSession(); // Solo 'status' es usado directamente aquí
+  const { data: session, status } = useSession(); // Ahora destructuramos 'data' como 'session'
 
   // Enlaces comunes, siempre visibles (a menos que tengan su propio hideOnPaths)
   const commonLinks: NavLink[] = [
@@ -94,7 +94,14 @@ export default function Navbar() {
     }
     return (
       <div className="flex items-center space-x-2">
-        {!isMobile && <UserAvatar size={32} className="hidden sm:block" />} {/* Mostrar avatar en desktop */}
+        {!isMobile && (
+          <UserAvatar 
+            size={32} 
+            className="hidden sm:block" 
+            src={session?.user?.image} // Pasamos la imagen de la sesión
+            name={session?.user?.name} // Pasamos el nombre de la sesión
+          />
+        )} {/* Mostrar avatar en desktop */}
         <button
           key="logout"
           onClick={() => signOut({ callbackUrl: '/' })}
@@ -106,7 +113,6 @@ export default function Navbar() {
       </div>
     );
   };
-
 
   return (
     <nav className="w-full py-5 px-6 md:px-10">

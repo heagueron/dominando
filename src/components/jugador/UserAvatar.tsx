@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useSession } from 'next-auth/react';
 
 interface UserAvatarProps {
   size?: number; // Tamaño opcional para el avatar
@@ -13,12 +12,11 @@ interface UserAvatarProps {
 }
 
 export default function UserAvatar({ size = 32, className = "", src, name }: UserAvatarProps) { // Default size 32
-  const { data: session } = useSession();
   const [imageLoadError, setImageLoadError] = useState(false);
 
-  // Priorizar props, luego sesión (si src/name no se pasan, útil para Navbar), luego fallback
-  const userImage = src !== undefined ? src : session?.user?.image;
-  const userName = name !== undefined ? name : session?.user?.name ?? session?.user?.email ?? 'Usuario';
+  // El componente ahora solo depende de las props
+  const userImage = src;
+  const userName = name ?? 'Usuario';
   
   // Resetear el estado de error si la imagen cambia (ej. el usuario cambia o se actualiza la sesión)
   useEffect(() => {
