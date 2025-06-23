@@ -50,6 +50,7 @@ export default function JuegoPage() {
     fichasEnMesaSnapshot: FichaEnMesaParaLogica[];
     posicionAnclaSnapshot: { fila: number; columna: number };
   } | null>(null);
+  const [finPartidaData, setFinPartidaData] = useState<FinDePartidaPayloadCliente | null>(null);
   const finRondaDisplayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [mensajeTransicion, setMensajeTransicion] = useState<string | null>(null);
 
@@ -420,8 +421,19 @@ export default function JuegoPage() {
     setManoVersion(prev => prev + 1);
   }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef]);
 
+  const finPartidaDisplayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDePartida recibido:', payload);
+    setFinPartidaData(payload);
+    // Clear any existing timer
+    if (finPartidaDisplayTimerRef.current) clearTimeout(finPartidaDisplayTimerRef.current);
+    // Show modal for a few seconds, then clear
+    finPartidaDisplayTimerRef.current = setTimeout(() => {
+      setFinPartidaData(null);
+      // After showing game end, if it's a full game, we might transition to lobby or wait for rematch
+      // The server will handle the state transition, client just reacts.
+    }, TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE); // Use same duration for now  
+  
   }, []);
 
   const handleErrorDePartida = useCallback((payload: { mensaje: string }) => {
@@ -676,6 +688,7 @@ export default function JuegoPage() {
         showRotateMessage={showRotateMessage} // Restaurado para usar el estado
         finRondaInfoVisible={finRondaInfoVisible}
         finRondaData={finRondaData ? { resultadoPayload: finRondaData.resultadoPayload } : null}
+        finPartidaData={finPartidaData}
         estadoMesaCliente={estadoMesaCliente}
         mensajeTransicion={mensajeTransicion}
       />

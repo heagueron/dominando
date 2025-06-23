@@ -260,10 +260,10 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
           <motion.div
             variants={fadeInUp}
             className="group cursor-pointer" 
-            // Deshabilitado temporalmente para Partida Completa, pero la llamada a handleJoinGame es correcta
-            onClick={() => !(isLoading || true) && handleJoinGame(GameMode.FULL_GAME, MatchCategory.FREE_PLAY)}
-            whileHover={{ scale: !(isLoading || true) ? 1.02 : 1 }}
-            whileTap={{ scale: !(isLoading || true) ? 0.98 : 1 }}
+            // Habilitado para Partida Completa
+            onClick={() => !isLoading && handleJoinGame(GameMode.FULL_GAME, MatchCategory.FREE_PLAY)}
+            whileHover={{ scale: !isLoading ? 1.02 : 1 }}
+            whileTap={{ scale: !isLoading ? 0.98 : 1 }}
           >
             <div className="bg-white rounded-2xl p-8 sm:p-10 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-between">
               <div>
@@ -280,11 +280,11 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
                 </p>
               </div>
               <motion.button
-                disabled={!!isLoading || true}
+                disabled={!!isLoading}
                 className="w-full mt-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors duration-300 shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isLoading === GameMode.FULL_GAME ? 'Uniéndote...' : 'Jugar Ahora'}
-                {true && <span className="block text-xs mt-1">(Próximamente)</span>}
+                {/* {true && <span className="block text-xs mt-1">(Próximamente)</span>} */}
               </motion.button>
             </div>
           </motion.div>

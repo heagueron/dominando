@@ -1,7 +1,8 @@
+// DominoModals.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
 // Importar tipos desde el nuevo archivo centralizado
-import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, GameMode } from '@/types/domino';
+import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, GameMode, FinDePartidaPayloadCliente } from '@/types/domino';
 
 interface DominoModalsProps {
   showRotateMessage: boolean;
@@ -12,6 +13,7 @@ interface DominoModalsProps {
   } | null;
   estadoMesaCliente: EstadoMesaPublicoCliente | null; // Para info de jugadores en FinDeRondaModal
   mensajeTransicion: string | null;
+  finPartidaData: FinDePartidaPayloadCliente | null; // Nuevo prop para el modal de fin de partida
 }
 
 const DominoModals: React.FC<DominoModalsProps> = ({
@@ -20,6 +22,7 @@ const DominoModals: React.FC<DominoModalsProps> = ({
   finRondaData,
   estadoMesaCliente,
   mensajeTransicion,
+  finPartidaData, // Nuevo prop
 }) => {
   return (
     <>
@@ -40,7 +43,7 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}>
-            <p className="text-xl sm:text-2xl font-bold text-yellow-800 mb-2"> 
+            <p className="text-xl sm:text-2xl font-bold text-yellow-800 mb-2">
               {estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND ? 'Partida Finalizada' : 'Ronda Finalizada'}
             </p>
             <p className="text-md sm:text-lg font-medium text-yellow-700 mb-1">
@@ -53,14 +56,15 @@ const DominoModals: React.FC<DominoModalsProps> = ({
 
             {finRondaData.resultadoPayload.tipoFinRonda === 'trancado' &&
              finRondaData.resultadoPayload.puntuaciones &&
-             finRondaData.resultadoPayload.puntuaciones.length > 0 && (
+             finRondaData.resultadoPayload.puntuaciones.length > 0 &&
+             estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND && ( // Only show round points for SINGLE_ROUND
               <div className="mt-4 pt-3 border-t border-yellow-300">
                 <h4 className="text-md sm:text-lg font-semibold text-yellow-700 mb-2">Puntos (Fichas Restantes):</h4>
                 <ul className="text-left text-sm sm:text-base text-yellow-600 space-y-1 max-h-40 overflow-y-auto px-2">
                   {finRondaData.resultadoPayload.puntuaciones?.map(score => {
                     const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === score.jugadorId);
                     return (
-                      <li key={score.jugadorId} className="flex justify-between">
+                      <li key={`round-score-${score.jugadorId}`} className="flex justify-between">
                         <span className="truncate pr-2">{jugadorInfo?.nombre || score.jugadorId}</span>
                         <span className="font-medium">{score.puntos} puntos</span>
                       </li>
@@ -69,6 +73,61 @@ const DominoModals: React.FC<DominoModalsProps> = ({
                 </ul>
               </div>
             )}
+
+            {/* Mostrar puntuaciones acumuladas de la partida completa */}
+            {estadoMesaCliente?.partidaActual?.gameMode === GameMode.FULL_GAME &&
+             estadoMesaCliente?.partidaActual?.puntuacionesPartida &&
+             estadoMesaCliente.partidaActual.puntuacionesPartida.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-yellow-300">
+                <h4 className="text-md sm:text-lg font-semibold text-yellow-700 mb-2">Puntuación Acumulada:</h4>
+                <ul className="text-left text-sm sm:text-base text-yellow-600 space-y-1 max-h-40 overflow-y-auto px-2">
+                  {estadoMesaCliente.partidaActual.puntuacionesPartida
+                    .sort((a, b) => b.puntos - a.puntos) // Sort by points descending
+                    .map(score => {
+                      const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === score.jugadorId);
+                      return (
+                        <li key={`game-score-${score.jugadorId}`} className="flex justify-between">
+                          <span className="truncate pr-2">{jugadorInfo?.nombre || score.jugadorId}</span>
+                          <span className="font-medium">{score.puntos} puntos</span>
+                        </li>
+                      );
+                    })}
+                </ul>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Modal de Fin de Partida (Game Over) */}
+      {finPartidaData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <motion.div
+            className="bg-green-50 border-2 border-green-500 p-4 sm:p-6 rounded-lg shadow-2xl text-center max-w-md w-full"
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            <p className="text-xl sm:text-2xl font-bold text-green-800 mb-2">¡Partida Terminada!</p>
+            <p className="text-lg sm:text-xl font-semibold text-green-700 mb-4">
+              Ganador de la Partida: {estadoMesaCliente?.jugadores.find(j => j.id === finPartidaData.ganadorPartidaId)?.nombre || finPartidaData.ganadorPartidaId || 'N/A'}
+            </p>
+            <div className="mt-4 pt-3 border-t border-green-300">
+              <h4 className="text-md sm:text-lg font-semibold text-green-700 mb-2">Puntuaciones Finales:</h4>
+              <ul className="text-left text-sm sm:text-base text-green-600 space-y-1 max-h-40 overflow-y-auto px-2">
+                {finPartidaData.puntuacionesFinalesPartida
+                  .sort((a, b) => b.puntos - a.puntos) // Sort by points descending
+                  .map(score => {
+                    const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === score.jugadorId);
+                    return (
+                      <li key={`final-game-score-${score.jugadorId}`} className="flex justify-between">
+                        <span className="truncate pr-2">{jugadorInfo?.nombre || score.jugadorId}</span>
+                        <span className="font-medium">{score.puntos} puntos</span>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
           </motion.div>
         </div>
       )}
