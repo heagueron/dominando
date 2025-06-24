@@ -2,14 +2,17 @@
 import React, { useMemo } from 'react';
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
 // Importar tipos desde el nuevo archivo centralizado
-import { JugadorCliente, EstadoMesaPublicoCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente } from '@/types/domino';
+import { JugadorCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, JugadorPublicoInfoCliente } from '@/types/domino';
 import { FichaEnMesaParaLogica } from '@/utils/dominoUtils'; // Importar el tipo necesario
 
 interface PlayerInfoLayoutProps {
   manosJugadores: JugadorCliente[];
   miIdJugadorSocket: string | null;
-  estadoMesaCliente: EstadoMesaPublicoCliente | null;
-  rondaActualParaUI: EstadoRondaPublicoCliente | undefined;
+  // Granular props from estadoMesaCliente
+  jugadoresMesa: JugadorPublicoInfoCliente[] | undefined;
+  partidaActualPuntuaciones: { jugadorId: string, puntos: number }[] | undefined;
+  rondaActualCurrentPlayerId: string | null | undefined;
+  // Original props
   tiempoTurnoRestante: number | null;
   duracionTurnoActualConfigurada: number;
   autoPaseInfoCliente: EstadoRondaPublicoCliente['autoPaseInfo'] | null;
@@ -21,11 +24,14 @@ interface PlayerInfoLayoutProps {
   } | null;
 }
 
-const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
+const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = React.memo(({
   manosJugadores,
   miIdJugadorSocket,
-  estadoMesaCliente,
-  rondaActualParaUI,
+  // Granular props
+  jugadoresMesa,
+  partidaActualPuntuaciones,
+  rondaActualCurrentPlayerId,
+  // Original props
   tiempoTurnoRestante,
   duracionTurnoActualConfigurada,
   autoPaseInfoCliente,
@@ -33,20 +39,22 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
   finRondaData,
 }) => {
   // Log de las props recibidas por el componente
-  console.log('[PlayerInfoLayout RENDER] Props recibidas:', { 
-    manosJugadores, 
+  /*console.log('[PlayerInfoLayout RENDER] Props recibidas:', { 
+    manosJugadoresLength: manosJugadores?.length, 
     miIdJugadorSocket, 
-    estadoMesaClienteIsEmpty: !estadoMesaCliente,
-    estadoMesaClienteJugadoresCount: estadoMesaCliente?.jugadores?.length 
-  });
+    jugadoresMesaLength: jugadoresMesa?.length,
+    partidaActualGameMode,
+    rondaActualCurrentPlayerId,
+    tiempoTurnoRestante,
+    finRondaInfoVisible,
+  });*/
 
   const posicionesVisuales = useMemo(() => {
-    console.log('[PlayerInfoLayout useMemo] Calculando posicionesVisuales. Props dentro de useMemo:', { 
-      manosJugadores, 
+  /*  console.log('[PlayerInfoLayout useMemo] Calculando posicionesVisuales. Props dentro de useMemo:', { 
+      manosJugadoresLength: manosJugadores?.length, 
       miIdJugadorSocket, 
-      estadoMesaClienteIsEmpty: !estadoMesaCliente,
-      partidaActualExists: !!estadoMesaCliente?.partidaActual // Aunque ya no es crítico para la guarda principal
-    });
+      jugadoresMesaLength: jugadoresMesa?.length,
+    });*/
 
     const posiciones: { [key: string]: JugadorCliente | undefined } = {
       abajo: undefined,
@@ -55,10 +63,12 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
       derecha: undefined,
     };
 
-    if (!miIdJugadorSocket || !estadoMesaCliente || !manosJugadores || manosJugadores.length === 0) {
+    // Use jugadoresMesa instead of estadoMesaCliente?.jugadores
+    if (!miIdJugadorSocket || !jugadoresMesa || jugadoresMesa.length === 0 || !manosJugadores || manosJugadores.length === 0) {
       console.log('[PlayerInfoLayout useMemo] Guard clause triggered. Returning empty posiciones.', {
         hasMiId: !!miIdJugadorSocket,
-        hasEstadoMesa: !!estadoMesaCliente,
+        hasJugadoresMesa: !!jugadoresMesa,
+        jugadoresMesaLength: jugadoresMesa?.length,
         manosJugadoresLength: manosJugadores?.length
       });
       return posiciones;
@@ -113,10 +123,11 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
     }
     console.log('[PlayerInfoLayout useMemo] Posiciones finales calculadas:', JSON.stringify(Object.fromEntries(Object.entries(posiciones).map(([k,v]) => [k, v ? {id:v.idJugador, nombre:v.nombre, seatIndex: v.seatIndex} : undefined]))));
     return posiciones;
-  }, [manosJugadores, miIdJugadorSocket, estadoMesaCliente]);
+  }, [manosJugadores, miIdJugadorSocket, jugadoresMesa]);
 
-  if (!estadoMesaCliente) {
-    console.log('[PlayerInfoLayout RENDER] estadoMesaCliente es null, no se renderiza nada.');
+  // Check if jugadoresMesa is null or undefined before proceeding
+  if (!jugadoresMesa) {
+    console.log('[PlayerInfoLayout RENDER] jugadoresMesa es undefined, no se renderiza nada.');
     return null; 
   }
   
@@ -163,7 +174,9 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
         if (!config) return null;
 
         const esJugadorLocalAbajo = posKey === 'abajo' && jugador.idJugador === miIdJugadorSocket;
-        const jugadorInfoDelServidor = estadoMesaCliente?.jugadores.find(j => j.id === jugador.idJugador);
+        // Use jugadoresMesa to find player info
+        const jugadorInfoDelServidor = jugadoresMesa?.find(j => j.id === jugador.idJugador);
+        const puntosPartidaActual = partidaActualPuntuaciones?.find(p => p.jugadorId === jugador.idJugador)?.puntos;
 
         // Manejo especial para el jugador local en la posición "abajo"
         if (esJugadorLocalAbajo) {
@@ -175,13 +188,14 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
                   idJugadorProp={jugador.idJugador}
                   nombreJugador={jugador.nombre}
                   avatarUrl={jugadorInfoDelServidor?.image || undefined}
-                  esTurnoActual={!!(rondaActualParaUI && jugador.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
+                  esTurnoActual={!!(rondaActualCurrentPlayerId && jugador.idJugador === rondaActualCurrentPlayerId && !finRondaInfoVisible)}
                   tiempoRestante={tiempoTurnoRestante}
                   duracionTotalTurno={duracionTurnoActualConfigurada}
                   posicion={config.infoPos}
                   autoPaseInfo={autoPaseInfoCliente}
                   numFichas={undefined} // No mostrar para el jugador local aquí
                   fichasRestantesAlFinalizar={undefined} // No aplica para el jugador local aquí
+                  puntosPartidaActual={puntosPartidaActual} // Pasamos la nueva prop
                   mostrarFichasFinales={false} // No aplica para el jugador local aquí
                   className={config.contenedorInfoClassName}
                 />
@@ -206,7 +220,7 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
                 idJugadorProp={jugador.idJugador}
                 nombreJugador={jugador.nombre}
                 avatarUrl={jugadorInfoDelServidor?.image || undefined}
-                esTurnoActual={!!(rondaActualParaUI && jugador.idJugador === rondaActualParaUI.currentPlayerId && !finRondaInfoVisible)}
+                esTurnoActual={!!(rondaActualCurrentPlayerId && jugador.idJugador === rondaActualCurrentPlayerId && !finRondaInfoVisible)}
                 tiempoRestante={tiempoTurnoRestante}
                 duracionTotalTurno={duracionTurnoActualConfigurada}
                 posicion={config.infoPos}
@@ -217,6 +231,7 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
                     ? finRondaData.resultadoPayload.manosFinales.find(m => m.jugadorId === jugador.idJugador)?.fichas
                     : undefined
                 }
+                puntosPartidaActual={puntosPartidaActual} // Pasamos la nueva prop
                 mostrarFichasFinales={finRondaInfoVisible}
                 className={config.contenedorInfoClassName}
               />
@@ -228,6 +243,8 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = ({
       })}
     </>
   );
-};
+});
+
+PlayerInfoLayout.displayName = 'PlayerInfoLayout';
 
 export default PlayerInfoLayout;

@@ -21,6 +21,7 @@ interface ContenedorInfoJugadorProps {
   idJugadorProp: string; 
   fichasRestantesAlFinalizar?: TipoFichaDomino[];
   mostrarFichasFinales?: boolean;
+  puntosPartidaActual?: number; // Nueva prop para mostrar los puntos del jugador en la partida
   className?: string;
 }
 
@@ -53,6 +54,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
   idJugadorProp,
   fichasRestantesAlFinalizar,
   mostrarFichasFinales,
+  puntosPartidaActual, // Destructuramos la nueva prop
   className = '',
 }) => {
   const mostrarBarra = esTurnoActual && typeof tiempoRestante === 'number' && typeof duracionTotalTurno === 'number' && duracionTotalTurno > 0 && 
@@ -120,6 +122,9 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
               <p className="text-xs sm:text-sm md:text-base font-semibold text-white truncate" title={nombreJugador}>
                 {nombreJugador}
               </p>
+              {typeof puntosPartidaActual === 'number' && (
+                <p className="text-xxs sm:text-xs text-gray-300">Puntos: {puntosPartidaActual}</p>
+              )}
               {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (
                 <BarraProgresoTurno tiempoRestante={tiempoRestante} duracionTotalTurno={duracionTotalTurno} />
               )}
@@ -152,6 +157,9 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
             <p className="text-xs sm:text-sm font-semibold text-white text-center truncate w-full" title={nombreJugador}>
               {nombreJugador}
             </p>
+            {typeof puntosPartidaActual === 'number' && (
+              <p className="text-xxs sm:text-xs text-gray-300">Puntos: {puntosPartidaActual}</p>
+            )}
             {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (
               <div className="w-full px-1">
                 <BarraProgresoTurno tiempoRestante={tiempoRestante} duracionTotalTurno={duracionTotalTurno} />

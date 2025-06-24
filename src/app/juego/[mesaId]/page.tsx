@@ -431,9 +431,9 @@ export default function JuegoPage() {
     finRondaDisplayTimerRef.current = setTimeout(() => {
       setFinRondaInfoVisible(false);
       // The logic to emit cliente:listoParaMano is now handled by handleEstadoMesaActualizado
-    }, TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE);
+    }, TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE); // Use same duration for now
     setManoVersion(prev => prev + 1);
-  }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef, stableEmitEvent]);
+  }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef]);
 
   const finPartidaDisplayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
@@ -699,8 +699,11 @@ export default function JuegoPage() {
       <PlayerInfoLayout
         manosJugadores={manosJugadoresFromStore}
         miIdJugadorSocket={miIdJugadorSocketFromStore}
-        estadoMesaCliente={estadoMesaCliente}
-        rondaActualParaUI={rondaActualParaUI}
+        // Pass granular props to PlayerInfoLayout
+        jugadoresMesa={estadoMesaCliente?.jugadores}
+        partidaActualPuntuaciones={estadoMesaCliente?.partidaActual?.puntuacionesPartida}
+        rondaActualCurrentPlayerId={rondaActualParaUI?.currentPlayerId}
+        // No pasar rondaActualParaUI directamente
         tiempoTurnoRestante={tiempoTurnoRestante}
         duracionTurnoActualConfigurada={duracionTurnoActualConfigurada}
         autoPaseInfoCliente={autoPaseInfoCliente}
