@@ -701,6 +701,7 @@ export default function JuegoPage() {
         miIdJugadorSocket={miIdJugadorSocketFromStore}
         // Pass granular props to PlayerInfoLayout
         jugadoresMesa={estadoMesaCliente?.jugadores}
+        gameMode={estadoMesaCliente?.partidaActual?.gameMode}
         partidaActualPuntuaciones={estadoMesaCliente?.partidaActual?.puntuacionesPartida}
         rondaActualCurrentPlayerId={rondaActualParaUI?.currentPlayerId}
         // No pasar rondaActualParaUI directamente

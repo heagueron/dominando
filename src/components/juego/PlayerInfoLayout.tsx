@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import ContenedorInfoJugador from '@/components/jugador/ContenedorInfoJugador';
 // Importar tipos desde el nuevo archivo centralizado
-import { JugadorCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, JugadorPublicoInfoCliente } from '@/types/domino';
+import { JugadorCliente, EstadoRondaPublicoCliente, FinDeRondaPayloadCliente, JugadorPublicoInfoCliente, GameMode } from '@/types/domino';
 import { FichaEnMesaParaLogica } from '@/utils/dominoUtils'; // Importar el tipo necesario
 
 interface PlayerInfoLayoutProps {
@@ -10,6 +10,7 @@ interface PlayerInfoLayoutProps {
   miIdJugadorSocket: string | null;
   // Granular props from estadoMesaCliente
   jugadoresMesa: JugadorPublicoInfoCliente[] | undefined;
+  gameMode: GameMode | null | undefined;
   partidaActualPuntuaciones: { jugadorId: string, puntos: number }[] | undefined;
   rondaActualCurrentPlayerId: string | null | undefined;
   // Original props
@@ -29,6 +30,7 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = React.memo(({
   miIdJugadorSocket,
   // Granular props
   jugadoresMesa,
+  gameMode,
   partidaActualPuntuaciones,
   rondaActualCurrentPlayerId,
   // Original props
@@ -188,6 +190,7 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = React.memo(({
                   idJugadorProp={jugador.idJugador}
                   nombreJugador={jugador.nombre}
                   avatarUrl={jugadorInfoDelServidor?.image || undefined}
+                  gameMode={gameMode || undefined}
                   esTurnoActual={!!(rondaActualCurrentPlayerId && jugador.idJugador === rondaActualCurrentPlayerId && !finRondaInfoVisible)}
                   tiempoRestante={tiempoTurnoRestante}
                   duracionTotalTurno={duracionTurnoActualConfigurada}
@@ -220,6 +223,7 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = React.memo(({
                 idJugadorProp={jugador.idJugador}
                 nombreJugador={jugador.nombre}
                 avatarUrl={jugadorInfoDelServidor?.image || undefined}
+                gameMode={gameMode || undefined}
                 esTurnoActual={!!(rondaActualCurrentPlayerId && jugador.idJugador === rondaActualCurrentPlayerId && !finRondaInfoVisible)}
                 tiempoRestante={tiempoTurnoRestante}
                 duracionTotalTurno={duracionTurnoActualConfigurada}

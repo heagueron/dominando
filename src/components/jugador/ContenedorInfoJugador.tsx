@@ -3,7 +3,7 @@
 import FichaDomino from '@/components/domino/FichaDomino'; // <--- IMPORTAR DominoFicha
 import { FichaDomino as TipoFichaDomino } from '@/utils/dominoUtils';
 import SpeechBubble, { BubbleDirection } from '@/components/jugador/SpeechBubble'; // Importar SpeechBubble
-import UserAvatar from '@/components/jugador/UserAvatar'; // Importar UserAvatar
+import UserAvatar from '@/components/jugador/UserAvatar';
 import React from 'react';
 
 interface ContenedorInfoJugadorProps {
@@ -11,6 +11,7 @@ interface ContenedorInfoJugadorProps {
   avatarUrl?: string; 
   esTurnoActual: boolean;
   tiempoRestante?: number | null;
+  gameMode?: string | null;
   duracionTotalTurno?: number;
   posicion: 'abajo' | 'arriba' | 'izquierda' | 'derecha';
   numFichas?: number; 
@@ -47,6 +48,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
   avatarUrl, // Usaremos esta prop
   esTurnoActual,
   tiempoRestante,
+  gameMode,
   duracionTotalTurno,
   posicion,
   numFichas,
@@ -122,7 +124,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
               <p className="text-xs sm:text-sm md:text-base font-semibold text-white truncate" title={nombreJugador}>
                 {nombreJugador}
               </p>
-              {typeof puntosPartidaActual === 'number' && (
+              {typeof puntosPartidaActual === 'number' && gameMode === "FULL_GAME" && (
                 <p className="text-xxs sm:text-xs text-gray-300">Puntos: {puntosPartidaActual}</p>
               )}
               {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (
@@ -157,7 +159,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
             <p className="text-xs sm:text-sm font-semibold text-white text-center truncate w-full" title={nombreJugador}>
               {nombreJugador}
             </p>
-            {typeof puntosPartidaActual === 'number' && (
+            {typeof puntosPartidaActual === 'number' && gameMode === "FULL_GAME" && (
               <p className="text-xxs sm:text-xs text-gray-300">Puntos: {puntosPartidaActual}</p>
             )}
             {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (

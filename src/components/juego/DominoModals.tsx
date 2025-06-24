@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 // Importar tipos desde el nuevo archivo centralizado
-import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, FinDePartidaPayloadCliente } from '@/types/domino';
+import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, FinDePartidaPayloadCliente, GameMode } from '@/types/domino';
 
 interface DominoModalsProps {
   showRotateMessage: boolean;
@@ -29,6 +29,9 @@ const DominoModals: React.FC<DominoModalsProps> = ({
     console.log('[DominoModals] Renderizando modal. Payload completo recibido:', JSON.stringify(finRondaData.resultadoPayload, null, 2));
   }
 
+  const isSingleRoundMode = estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
+  const isTrancado = finRondaData?.resultadoPayload.tipoFinRonda === 'trancado';
+
   return (
     <>
       {/* Modal de Rotar Dispositivo */}
@@ -48,84 +51,135 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}>
-            <h2 className="text-2xl sm:text-3xl font-bold text-yellow-800 mb-4">Fin de la Ronda</h2>
+            {/* Fila 1: Título */}
+            <h2 className="text-2xl sm:text-3xl font-bold text-yellow-800 mb-4">
+                {isSingleRoundMode ? 'Fin de la Ronda - Partida' : 'Fin de la Ronda'}
+            </h2>
 
-            {/* Fila 2: Ganador y Puntos Ganados en esta ronda */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              {/* Columna A: Ganador */}
-              <div className="flex flex-col items-center">
+            {/* Fila 2: Ganador y Puntos (Layout condicional) */}
+            {isSingleRoundMode ? (
+              // Layout para Ronda Única: Ganador centrado
+              <div className="flex flex-col items-center mb-6">
                 <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Ganador</p>
-                <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[150px] sm:max-w-[200px] truncate">
+                <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[250px] truncate">
                   <p className="text-lg sm:text-xl font-bold text-yellow-900">
                     {finRondaData.resultadoPayload.nombreGanador || finRondaData.resultadoPayload.ganadorRondaId || 'N/A'}
                   </p>
                 </div>
               </div>
-              {/* Columna B: Puntos Ganados */}
-              <div className="flex flex-col items-center">
-                <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Puntos Ganados</p>
-                <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[150px] sm:max-w-[200px] truncate">
-                  <p className="text-lg sm:text-xl font-bold text-yellow-900">
-                    {finRondaData.resultadoPayload.puntosGanadosEstaRonda !== undefined ? finRondaData.resultadoPayload.puntosGanadosEstaRonda : 'N/A'}
-                  </p>
+            ) : (
+              // Layout para Partida Completa: 2 columnas
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {/* Columna A: Ganador */}
+                <div className="flex flex-col items-center">
+                  <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Ganador</p>
+                  <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[200px] truncate">
+                    <p className="text-lg sm:text-xl font-bold text-yellow-900">
+                      {finRondaData.resultadoPayload.nombreGanador || finRondaData.resultadoPayload.ganadorRondaId || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+                {/* Columna B: Puntos */}
+                <div className="flex flex-col items-center">
+                  <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Puntos</p>
+                  <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[150px] truncate">
+                    <p className="text-lg sm:text-xl font-bold text-yellow-900">
+                      {finRondaData.resultadoPayload.puntosGanadosEstaRonda ?? 'N/A'}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Fila 3: Línea de Separación */}
-            <hr className="border-t-2 border-yellow-300 my-4" />
-
-            {/* Fila 4: Título "Puntos de la Partida" */}
-            <h3 className="text-xl sm:text-2xl font-bold text-yellow-800 mb-4">Puntos de la Partida</h3>
-
-            {/* Fila 5: Tabla de Puntos */}
-            {(finRondaData.resultadoPayload.puntuacionesPartidaActualizadas && finRondaData.resultadoPayload.puntuacionesPartidaActualizadas.length > 0) ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-yellow-100 border border-yellow-300 rounded-lg text-sm sm:text-base">
-                  <thead>
-                    <tr className="bg-yellow-200 text-yellow-800">
-                      <th className="py-2 px-3 text-left">Jugador</th>
-                      <th className="py-2 px-3 text-right">Previos</th>
-                      <th className="py-2 px-3 text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {finRondaData.resultadoPayload.puntuacionesPartidaActualizadas
-                      .sort((a, b) => b.puntos - a.puntos) // Sort by total points descending
-                      .map(currentScore => {
-                        const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === currentScore.jugadorId);
-                        const previousScore = finRondaData.resultadoPayload.puntuacionesPartidaPrevias?.find(p => p.jugadorId === currentScore.jugadorId)?.puntos ?? 0; // Usar ?? 0 para manejar null/undefined
-                        
-                        // Log para depurar los valores de cada fila
-                        console.log(`[DominoModals Table Row] Jugador: ${jugadorInfo?.nombre}, Puntos Previos: ${previousScore} (tipo: ${typeof previousScore}), Puntos Totales: ${currentScore.puntos} (tipo: ${typeof currentScore.puntos})`);
-
-                        return (
-                          <tr key={currentScore.jugadorId} className="border-t border-yellow-200">
-                            <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{jugadorInfo?.nombre || currentScore.jugadorId}</td>
-                            <td className="py-2 px-3 text-right text-gray-900">{previousScore}</td>
-                            <td className="py-2 px-3 text-right font-bold text-gray-900">{currentScore.puntos}</td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-yellow-700">No hay puntuaciones de partida disponibles.</p>
             )}
+
+            {/* Conditional display for block (tranque) */}
+            {isTrancado || !isSingleRoundMode ? ( // Show this section if trancado OR if it's FULL_GAME
+                <>
+                    {/* Fila 3: Línea de Separación */}
+                    <hr className="border-t-2 border-yellow-300 my-4" />
+
+                    {/* Fila 4: Título "Puntos de la Ronda - Partida" */}
+                    <h3 className="text-xl sm:text-2xl font-bold text-yellow-800 mb-4">
+                        {isSingleRoundMode ? 'Puntos de la Ronda - Partida' : 'Puntos de la Partida'}
+                    </h3>
+
+                    {/* Fila 5: Tabla de Puntos (condicional según el modo de juego) */}
+                    {isSingleRoundMode ? (
+                        // Table for SINGLE_ROUND (Jugador, Total)
+                        (finRondaData.resultadoPayload.puntuaciones && finRondaData.resultadoPayload.puntuaciones.length > 0) ? (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full bg-yellow-100 border border-yellow-300 rounded-lg text-sm sm:text-base">
+                                    <thead>
+                                        <tr className="bg-yellow-200 text-yellow-800">
+                                            <th className="py-2 px-3 text-left">Jugador</th>
+                                            <th className="py-2 px-3 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {finRondaData.resultadoPayload.puntuaciones
+                                            .sort((a, b) => a.puntos - b.puntos) // Sort by points ascending for block
+                                            .map(score => {
+                                                const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === score.jugadorId);
+                                                return (
+                                                    <tr key={score.jugadorId} className="border-t border-yellow-200">
+                                                        <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{jugadorInfo?.nombre || score.jugadorId}</td>
+                                                        <td className="py-2 px-3 text-right text-gray-900 font-bold">{score.puntos}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-yellow-700">No hay puntuaciones de ronda disponibles.</p>
+                        )
+                    ) : (
+                        // Table for FULL_GAME (Jugador, Previos, Total) - current implementation
+                        (finRondaData.resultadoPayload.puntuacionesPartidaActualizadas && finRondaData.resultadoPayload.puntuacionesPartidaActualizadas.length > 0) ? (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full bg-yellow-100 border border-yellow-300 rounded-lg text-sm sm:text-base">
+                                    <thead>
+                                        <tr className="bg-yellow-200 text-yellow-800">
+                                            <th className="py-2 px-3 text-left">Jugador</th>
+                                            <th className="py-2 px-3 text-right">Previos</th>
+                                            <th className="py-2 px-3 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {finRondaData.resultadoPayload.puntuacionesPartidaActualizadas
+                                            .sort((a, b) => b.puntos - a.puntos) // Sort by total points descending
+                                            .map(currentScore => {
+                                                const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === currentScore.jugadorId);
+                                                const previousScore = finRondaData.resultadoPayload.puntuacionesPartidaPrevias?.find(p => p.jugadorId === currentScore.jugadorId)?.puntos ?? 0;
+                                                return (
+                                                    <tr key={currentScore.jugadorId} className="border-t border-yellow-200">
+                                                        <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{jugadorInfo?.nombre || currentScore.jugadorId}</td>
+                                                        <td className="py-2 px-3 text-right text-gray-900">{previousScore}</td>
+                                                        <td className="py-2 px-3 text-right font-bold text-gray-900">{currentScore.puntos}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-yellow-700">No hay puntuaciones de partida disponibles.</p>
+                        )
+                    )}
+                </>
+            ) : null} {/* If not trancado AND isSingleRoundMode, don't show this section */}
 
             {/* Declaración del ganador de la partida (si aplica) */}
             {estadoMesaCliente?.partidaActual?.ganadorPartidaId && (
-              <motion.div
-                className="mt-6 p-3 bg-yellow-200 border border-yellow-500 rounded-lg shadow-md"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.3 }}
-              >
-                <p className="text-lg sm:text-xl font-bold text-yellow-900">
-                  ¡{estadoMesaCliente.jugadores.find(j => j.id === estadoMesaCliente.partidaActual?.ganadorPartidaId)?.nombre || 'Un jugador'} ha ganado la partida!
-                </p>
-              </motion.div>
+                <motion.div
+                    className="mt-6 p-3 bg-yellow-200 border border-yellow-500 rounded-lg shadow-md"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5, duration: 0.3 }}
+                >
+                    <p className="text-lg sm:text-xl font-bold text-yellow-900">
+                        ¡{estadoMesaCliente.jugadores.find(j => j.id === estadoMesaCliente.partidaActual?.ganadorPartidaId)?.nombre || 'Un jugador'} ha ganado la partida!
+                    </p>
+                </motion.div>
             )}
           </motion.div>
         </div>
