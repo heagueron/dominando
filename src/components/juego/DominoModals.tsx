@@ -75,13 +75,13 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             )}
 
             {/* Mostrar puntuaciones acumuladas de la partida completa */}
-            {estadoMesaCliente?.partidaActual?.gameMode === GameMode.FULL_GAME &&
-             estadoMesaCliente?.partidaActual?.puntuacionesPartida &&
-             estadoMesaCliente.partidaActual.puntuacionesPartida.length > 0 && (
+             {(estadoMesaCliente?.partidaActual?.gameMode === GameMode.FULL_GAME || finRondaData.resultadoPayload.puntuacionesPartidaActualizadas) &&
+             (finRondaData.resultadoPayload.puntuacionesPartidaActualizadas || estadoMesaCliente?.partidaActual?.puntuacionesPartida) &&
+             ((finRondaData.resultadoPayload.puntuacionesPartidaActualizadas?.length || 0) > 0 || (estadoMesaCliente?.partidaActual?.puntuacionesPartida?.length || 0) > 0) && (
               <div className="mt-4 pt-3 border-t border-yellow-300">
                 <h4 className="text-md sm:text-lg font-semibold text-yellow-700 mb-2">Puntuación Acumulada:</h4>
                 <ul className="text-left text-sm sm:text-base text-yellow-600 space-y-1 max-h-40 overflow-y-auto px-2">
-                  {estadoMesaCliente.partidaActual.puntuacionesPartida
+                  {(finRondaData.resultadoPayload.puntuacionesPartidaActualizadas || estadoMesaCliente!.partidaActual!.puntuacionesPartida)
                     .sort((a, b) => b.puntos - a.puntos) // Sort by points descending
                     .map(score => {
                       const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === score.jugadorId);

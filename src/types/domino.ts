@@ -144,6 +144,7 @@ export interface FinDeRondaPayloadCliente {
   fichasIzquierda?: FichaEnMesaParaLogica[];
   fichasDerecha?: FichaEnMesaParaLogica[];
   extremos?: { izquierda: number | null; derecha: number | null };
+  puntuacionesPartidaActualizadas?: { jugadorId: string, puntos: number }[]; // Accumulated scores for the full game
 }
 
 export interface FinDePartidaPayloadCliente {

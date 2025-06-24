@@ -308,9 +308,25 @@ export default function JuegoPage() {
     }
   }, [setMiIdJugadorSocketStore, setEstadoMesaClienteStore, stableEmitEvent, socket]);
 
+  const emitListoParaManoIfReady = useCallback((mesaState: EstadoMesaPublicoCliente) => {
+    const miId = miIdJugadorSocketRef.current;
+    const mesaId = authoritativeMesaIdRef.current;
+
+    if (mesaState?.partidaActual?.gameMode === GameMode.FULL_GAME &&
+        mesaState.partidaActual.estadoPartida === 'rondaTerminadaEsperandoSiguiente' &&
+        miId && mesaId) {
+      console.log('[CLIENT] Estado de partida es "rondaTerminadaEsperandoSiguiente". Señalando listo para la próxima ronda.');
+      stableEmitEvent('cliente:listoParaMano', {
+        mesaId: mesaId,
+        jugadorId: miId
+      });
+    }
+  }, [stableEmitEvent]);
+
   const handleEstadoMesaActualizado = useCallback((payload: { estadoMesa: EstadoMesaPublicoCliente }) => {
     setEstadoMesaClienteStore(payload.estadoMesa);
-  }, [setEstadoMesaClienteStore]);
+    emitListoParaManoIfReady(payload.estadoMesa); // Emit listoParaMano based on the new state
+  }, [setEstadoMesaClienteStore, emitListoParaManoIfReady]);
 
   const handleTuMano = useCallback((payload: TuManoPayloadCliente) => {
     console.log(`[SOCKET] Evento servidor:tuMano recibido. Payload:`, payload);
@@ -378,18 +394,15 @@ export default function JuegoPage() {
     let fichasEnMesaSnapshotParaFin: FichaEnMesaParaLogica[] = [];
     let posicionAnclaSnapshotParaFin: { fila: number; columna: number } = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
 
-    const anclaDelPayload = payload.anclaFicha;
-    const izquierdaDelPayload = payload.fichasIzquierda;
-    const derechaDelPayload = payload.fichasDerecha;
-
-    if (anclaDelPayload || (izquierdaDelPayload && izquierdaDelPayload.length > 0) || (derechaDelPayload && derechaDelPayload.length > 0)) {
+    // Use payload's board state for snapshot
+    if (payload.anclaFicha || (payload.fichasIzquierda && payload.fichasIzquierda.length > 0) || (payload.fichasDerecha && payload.fichasDerecha.length > 0)) {
         fichasEnMesaSnapshotParaFin = [
-            ...(izquierdaDelPayload || []).slice().reverse(),
-            ...(anclaDelPayload ? [anclaDelPayload] : []),
-            ...(derechaDelPayload || []),
+            ...(payload.fichasIzquierda || []).slice().reverse(),
+            ...(payload.anclaFicha ? [payload.anclaFicha] : []),
+            ...(payload.fichasDerecha || []),
         ];
-        if (anclaDelPayload) {
-            posicionAnclaSnapshotParaFin = anclaDelPayload.posicionCuadricula;
+        if (payload.anclaFicha) {
+            posicionAnclaSnapshotParaFin = payload.anclaFicha.posicionCuadricula;
         } else if (fichasEnMesaSnapshotParaFin.length > 0) {
             posicionAnclaSnapshotParaFin = fichasEnMesaSnapshotParaFin[0].posicionCuadricula;
         }
@@ -417,9 +430,10 @@ export default function JuegoPage() {
     if (finRondaDisplayTimerRef.current) clearTimeout(finRondaDisplayTimerRef.current);
     finRondaDisplayTimerRef.current = setTimeout(() => {
       setFinRondaInfoVisible(false);
+      // The logic to emit cliente:listoParaMano is now handled by handleEstadoMesaActualizado
     }, TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE);
     setManoVersion(prev => prev + 1);
-  }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef]);
+  }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef, stableEmitEvent]);
 
   const finPartidaDisplayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
@@ -482,14 +496,24 @@ export default function JuegoPage() {
       }
     }
 
-    if (estadoMesaCliente.estadoGeneralMesa === 'transicionNuevaRonda') {
-      if (!mensajeTransicion) setMensajeTransicion("Empezando nueva partida...");
-      if (finRondaInfoVisible) setFinRondaInfoVisible(false);
-      if (finRondaDisplayTimerRef.current) {
-        clearTimeout(finRondaDisplayTimerRef.current);
-        finRondaDisplayTimerRef.current = null;
-      }
-    } else if (mensajeTransicion && ((estadoMesaCliente.estadoGeneralMesa === 'partidaEnProgreso' && rondaActual) || estadoMesaCliente.estadoGeneralMesa === 'esperandoJugadores')) {
+    // Logic for transition messages
+    if (estadoMesaCliente.estadoGeneralMesa === 'transicionNuevaRonda') { // For SINGLE_ROUND auto-restart
+      if (!mensajeTransicion) setMensajeTransicion("Iniciando nueva partida...");
+      if (finRondaInfoVisible) setFinRondaInfoVisible(false); // Hide round end modal during transition
+      if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
+    } else if (estadoMesaCliente.partidaActual?.estadoPartida === 'rondaTerminadaEsperandoSiguiente') { // For FULL_GAME waiting for next round
+      if (!mensajeTransicion) setMensajeTransicion("Esperando jugadores para la próxima ronda...");
+      if (finRondaInfoVisible) setFinRondaInfoVisible(false); // Hide round end modal during transition
+      if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
+    } else if (estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida') { // For FULL_GAME after game over, waiting for rematch
+      if (!mensajeTransicion) setMensajeTransicion("Partida finalizada. Esperando para jugar de nuevo...");
+      if (finRondaInfoVisible) setFinRondaInfoVisible(false); // Hide round end modal
+      if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
+    }
+    // Clear transition message once game is in progress or waiting for players (initial state)
+    else if (mensajeTransicion && (
+      (estadoMesaCliente.estadoGeneralMesa === 'partidaEnProgreso' && rondaActual) ||
+      estadoMesaCliente.estadoGeneralMesa === 'esperandoJugadores')) {
       setMensajeTransicion(null);
     }
   }, [estadoMesaCliente, finRondaInfoVisible, mensajeTransicion, finRondaData]);
