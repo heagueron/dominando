@@ -7,8 +7,8 @@ import { useDominoSocket } from '@/hooks/useDominoSocket';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/layout/Navbar';
-import TermsConfirmationModal from '@/components/layout/TermsConfirmationModal';
-import { MatchCategory, GameMode } from '@/types/domino'; // Importamos los nuevos enums
+import TermsConfirmationModal from '@/components/layout/TermsConfirmationModal'; // Importamos los nuevos enums
+import { GameType } from '@prisma/client'; // Importar el tipo generado por Prisma
 
 import MensajeEntradaBanner from './MensajeEntradaBanner'; // Importamos el nuevo componente
 
@@ -46,13 +46,32 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
   const [userId, setUserId] = useState<string | null>(null);
   const [nombreJugador, setNombreJugador] = useState<string | null>(null); 
   const [userImageUrl, setUserImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<GameMode | null>(null); // Usar GameMode
+  const [isLoading, setIsLoading] = useState<string | null>(null); // Ahora guardamos el ID del GameType
   const [lobbyError, setLobbyError] = useState<string | null>(null);
   const [userDataInitialized, setUserDataInitialized] = useState(false);
-  const tipoJuegoSolicitadoRef = useRef<GameMode | null>(null); // Usar GameMode
   const isNavigatingRef = useRef<boolean>(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [gameTypes, setGameTypes] = useState<GameType[]>([]);
+  const [isFetchingTypes, setIsFetchingTypes] = useState(true);
+
+  // Efecto para cargar los tipos de juego desde la API
+  useEffect(() => {
+    async function fetchGameTypes() {
+      try {
+        const response = await fetch('/api/game-types');
+        if (!response.ok) throw new Error('No se pudo obtener la respuesta del servidor.');
+        const data = await response.json();
+        setGameTypes(data);
+      } catch (error: unknown) {
+        console.error("Error al cargar los modos de juego:", error); // Usar la variable 'error'
+        setLobbyError("No se pudieron cargar los modos de juego. Intenta recargar la página.");
+      } finally {
+        setIsFetchingTypes(false);
+      }
+    }
+    fetchGameTypes();
+  }, []);
 
   useEffect(() => {
     console.log('[LOBBY_AUTH_EFFECT] Session status:', sessionStatus);
@@ -128,7 +147,6 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
       isNavigatingRef.current = true;
       
       console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - userId (estado):', userId, 'nombreJugador (estado):', nombreJugador);
-      tipoJuegoSolicitadoRef.current = null;
       setIsLoading(null);
       setLobbyError(null);
 
@@ -144,7 +162,6 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
       console.error('[LOBBY_SOCKET] Error de partida desde el servidor:', payload.mensaje);
       setLobbyError(`Error del servidor: ${payload.mensaje}`);
       setIsLoading(null);
-      tipoJuegoSolicitadoRef.current = null;
       isNavigatingRef.current = false;
     };
 
@@ -159,28 +176,26 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
     };
   }, [socket, router, userId, nombreJugador, registerEventHandlers, unregisterEventHandlers]);
 
-  const handleJoinGame = useCallback((gameMode: GameMode, matchCategory: MatchCategory) => {
+  const handleJoinGame = useCallback((gameTypeId: string) => {
     if (showTermsModal) {
       alert("Por favor, confirma los términos para poder jugar.");
       return;
     }
-
     if (!userDataInitialized || !nombreJugador || !userId || userImageUrl === undefined) {
       setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
       return;
     }
-    console.log(`[LOBBY_SOCKET] handleJoinGame called for GameMode: ${gameMode}, MatchCategory: ${matchCategory}`);
-    setIsLoading(gameMode); // isLoading sigue mostrando el modo de juego
+    console.log(`[LOBBY_SOCKET] handleJoinGame called for GameTypeID: ${gameTypeId}`);
+    setIsLoading(gameTypeId);
     setLobbyError(null);
     isNavigatingRef.current = false;
-    tipoJuegoSolicitadoRef.current = gameMode; // Guardar el gameMode en la ref
 
-    console.log(`[LOBBY_SOCKET] Guardando jmu_tipoJuegoSolicitado en sessionStorage: ${gameMode} (desde handleJoinGame)`);
-    sessionStorage.setItem('jmu_tipoJuegoSolicitado', gameMode); // Guardar el gameMode
+    // Guardar el ID del tipo de juego para reconexiones
+    sessionStorage.setItem('jmu_gameTypeId', gameTypeId);
 
     if (isConnected) {
       console.log('[LOBBY_SOCKET] Socket already connected. Emitting cliente:unirseAMesa.');
-      emitEvent('cliente:unirseAMesa', { gameMode, matchCategory, nombreJugador }); // Enviar nuevos campos
+      emitEvent('cliente:unirseAMesa', { gameTypeId, nombreJugador });
     }  else {
       console.log('[LOBBY_SOCKET] Socket not connected. Intentando inicializar/conectar y luego unirse.');
       if (userId && nombreJugador && userImageUrl !== undefined) {
@@ -278,69 +293,39 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
           variants={staggerContainer}
           initial="initial"
           animate="animate"
-          className="grid md:grid-cols-2 gap-8 sm:gap-12 w-full max-w-5xl"
+          className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12 w-full max-w-5xl"
         >
-          <motion.div
-            variants={fadeInUp}
-            className="group cursor-pointer" 
-            onClick={() => !isLoading && handleJoinGame(GameMode.SINGLE_ROUND, MatchCategory.FREE_PLAY)}
-            whileHover={{ scale: !isLoading ? 1.02 : 1 }}
-            whileTap={{ scale: !isLoading ? 0.98 : 1 }}
-          >
-            <div className="bg-white rounded-2xl p-8 sm:p-10 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-between">
-              <div>
-                <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl sm:text-3xl font-bold text-center mb-4 text-blue-600">
-                  Ronda Única
-                </h3>
-                <p className="text-gray-600 text-center text-sm sm:text-base leading-relaxed mb-6">
-                  Partidas rápidas e intensas. Perfectas para cuando tienes poco tiempo pero quieres diversión garantizada.
-                </p>
-              </div>
-              <motion.button
-                disabled={!!isLoading}
-                className="w-full mt-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-300 shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
+          {isFetchingTypes ? (
+            <p className="text-gray-600 md:col-span-2 text-center">Cargando modos de juego...</p>
+          ) : (
+            gameTypes.map((gt) => (
+              <motion.div
+                key={gt.id}
+                variants={fadeInUp}
+                className="group cursor-pointer" 
+                onClick={() => !isLoading && handleJoinGame(gt.id)}
+                whileHover={{ scale: !isLoading ? 1.02 : 1 }}
+                whileTap={{ scale: !isLoading ? 0.98 : 1 }}
               >
-                {isLoading === GameMode.SINGLE_ROUND ? 'Uniéndote...' : 'Jugar Ahora'}
-              </motion.button>
-            </div>
-          </motion.div>
-
-          <motion.div
-            variants={fadeInUp}
-            className="group cursor-pointer" 
-            // Habilitado para Partida Completa
-            onClick={() => !isLoading && handleJoinGame(GameMode.FULL_GAME, MatchCategory.FREE_PLAY)}
-            whileHover={{ scale: !isLoading ? 1.02 : 1 }}
-            whileTap={{ scale: !isLoading ? 0.98 : 1 }}
-          >
-            <div className="bg-white rounded-2xl p-8 sm:p-10 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-between">
-              <div>
-                <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-teal-400 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                  </svg>
+                <div className="bg-white rounded-2xl p-8 sm:p-10 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-2xl sm:text-3xl font-bold text-center mb-4 text-blue-600">
+                      {gt.name}
+                    </h3>
+                    <p className="text-gray-600 text-center text-sm sm:text-base leading-relaxed mb-6">
+                      {gt.description}
+                    </p>
+                  </div>
+                  <motion.button
+                    disabled={!!isLoading}
+                    className="w-full mt-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-300 shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {isLoading === gt.id ? 'Uniéndote...' : 'Jugar Ahora'}
+                  </motion.button>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-bold text-center mb-4 text-green-600">
-                  Partida Completa
-                </h3>
-                <p className="text-gray-600 text-center text-sm sm:text-base leading-relaxed mb-6">
-                  La experiencia tradicional completa. Múltiples rondas hasta alcanzar la puntuación objetivo.
-                </p>
-              </div>
-              <motion.button
-                disabled={!!isLoading}
-                className="w-full mt-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors duration-300 shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isLoading === GameMode.FULL_GAME ? 'Uniéndote...' : 'Jugar Ahora'}
-                {/* {true && <span className="block text-xs mt-1">(Próximamente)</span>} */}
-              </motion.button>
-            </div>
-          </motion.div>
+              </motion.div>
+            ))
+          )}
         </motion.div>
 
         {/* Aquí renderizamos el banner con el mensaje aleatorio */}

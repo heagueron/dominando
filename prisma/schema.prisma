@@ -258,3 +258,21 @@ enum GameMode {
   SINGLE_ROUND // Ronda Única
   FULL_GAME    // Partida Completa
 }
+
+model GameType {
+  id                      String   @id @default(cuid())
+  name                    String   @unique // e.g., "Partida Clásica (100 Pts)"
+  description             String?
+  gameMode                GameMode
+  matchCategory           MatchCategory
+  maxJugadores            Int      @default(4)
+  fichasPorJugador         Int      @default(7)
+  puntosParaGanarPartida  Int?     // Solo para FULL_GAME
+  duracionTurnoSegundos   Int      @default(15)
+  feeAmount               Decimal? // Solo para PAID_PLAY
+  feeCurrency             Currency?// Solo para PAID_PLAY
+  isActive                Boolean  @default(true) // Para activar/desactivar en el lobby
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
