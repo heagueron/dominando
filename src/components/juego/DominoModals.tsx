@@ -14,12 +14,14 @@ interface DominoModalsProps {
   estadoMesaCliente: EstadoMesaPublicoCliente | null; // Para info de jugadores en FinDeRondaModal
   mensajeTransicion: string | null;
   finPartidaData: FinDePartidaPayloadCliente | null; // Nuevo prop para el modal de fin de partida
+  emitEvent: (eventName: string, payload: Record<string, unknown>) => void; // Añadir prop para emitir eventos
 }
 
 const DominoModals: React.FC<DominoModalsProps> = ({
   showRotateMessage,
   finRondaInfoVisible,
   finRondaData,
+  emitEvent, // Desestructurar la nueva prop
   estadoMesaCliente,
   mensajeTransicion,
   finPartidaData, // Nuevo prop
@@ -186,7 +188,7 @@ const DominoModals: React.FC<DominoModalsProps> = ({
       )}
 
       {/* Modal de Fin de Partida (Game Over) */}
-      {finPartidaData && (
+      {finPartidaData && estadoMesaCliente?.estadoGeneralMesa === 'esperandoParaSiguientePartida' && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
           <motion.div
             className="bg-green-50 border-2 border-green-500 p-4 sm:p-6 rounded-lg shadow-2xl text-center max-w-md w-full"
@@ -199,6 +201,16 @@ const DominoModals: React.FC<DominoModalsProps> = ({
               Ganador de la Partida: {estadoMesaCliente?.jugadores.find(j => j.id === finPartidaData.ganadorPartidaId)?.nombre || finPartidaData.ganadorPartidaId || 'N/A'}
             </p>
             <div className="mt-4 pt-3 border-t border-green-300">
+              {/* Botón "Jugar de Nuevo" para FULL_GAME */}
+              {estadoMesaCliente?.partidaActual?.gameMode === GameMode.FULL_GAME && (
+                <button
+                  onClick={() => {
+                    if (estadoMesaCliente?.mesaId) {
+                      emitEvent('cliente:listoParaSiguientePartida', { mesaId: estadoMesaCliente.mesaId });
+                    }
+                  }}
+                  className="mt-6 px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+                >Jugar de Nuevo</button>)}
               <h4 className="text-md sm:text-lg font-semibold text-green-700 mb-2">Puntuaciones Finales:</h4>
               <ul className="text-left text-sm sm:text-base text-green-600 space-y-1 max-h-40 overflow-y-auto px-2">
                 {finPartidaData.puntuacionesFinalesPartida

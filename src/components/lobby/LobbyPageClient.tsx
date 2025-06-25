@@ -190,7 +190,7 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
         setLobbyError("Falta información del usuario para conectar.");
       }
     }
-  }, [userDataInitialized, nombreJugador, userId, userImageUrl, isConnected, emitEvent, initializeSocketIfNeeded]);
+  }, [showTermsModal, userDataInitialized, nombreJugador, userId, userImageUrl, isConnected, emitEvent, initializeSocketIfNeeded]);
 
   useEffect(() => { if (socketError) setLobbyError(socketError); }, [socketError]);
 
