@@ -158,12 +158,27 @@ export const authOptions: NextAuthOptions = {
       // Devolver 'true' para permitir que el inicio de sesión continúe
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session: sessionUpdate }) {
+      // 1. En el inicio de sesión inicial, se pasa el objeto `user`.
       if (user) {
+        console.log('[AUTH_OPTIONS_JWT] Inicio de sesión inicial. Poblando el token.');
         token.id = user.id;
         token.is_admin = user.is_admin;
         token.image = user.image;
+        const profile = await prisma.profile.findUnique({
+          where: { userId: user.id },
+          select: { termsAcceptedAt: true },
+        });
+        token.termsAcceptedAt = profile?.termsAcceptedAt;
       }
+
+      // 2. En una actualización de sesión (desde el cliente), se pasan `trigger` y `sessionUpdate`.
+      if (trigger === "update" && sessionUpdate) {
+        console.log('[AUTH_OPTIONS_JWT] Trigger de actualización detectado. Fusionando datos en el token:', sessionUpdate);
+        token = { ...token, ...sessionUpdate };
+      }
+      
+      // 3. Devolver el token (recién poblado, actualizado o el existente).
       return token;
     },
     async session({ session, token }) {
@@ -171,35 +186,10 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.is_admin = token.is_admin as boolean;
         session.user.image = token.image as string | null | undefined;
+        session.user.termsAcceptedAt = token.termsAcceptedAt as Date | null | undefined;
       }
       return session;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
-
-// --- Extensión de tipos para NextAuth.js ---
-// Declarar módulos para extender las interfaces de NextAuth.js
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      is_admin?: boolean; // Ahora opcional
-      image?: string | null | undefined; // Hacer la imagen opcional y permitir null
-    } & DefaultSession["user"];
-  }
-
-  interface User {
-    id: string;
-    is_admin?: boolean; // Ahora opcional
-    image?: string | null | undefined; // Hacer la imagen opcional y permitir null
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    is_admin?: boolean; // Ahora opcional
-    image?: string | null | undefined; // Hacer la imagen opcional y permitir null
-  }
-}

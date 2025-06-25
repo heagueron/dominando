@@ -52,6 +52,7 @@ model Profile {
   documentId  String?   // Cédula, DNI, etc. para KYC
   phone       String?   // Teléfono para verificación
   address     String?   // Dirección para KYC
+  termsAcceptedAt DateTime? // Fecha de aceptación de términos y condiciones
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

@@ -7,6 +7,7 @@ import { useDominoSocket } from '@/hooks/useDominoSocket';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/layout/Navbar';
+import TermsConfirmationModal from '@/components/layout/TermsConfirmationModal';
 import { MatchCategory, GameMode } from '@/types/domino'; // Importamos los nuevos enums
 
 import MensajeEntradaBanner from './MensajeEntradaBanner'; // Importamos el nuevo componente
@@ -40,7 +41,7 @@ const staggerContainer = {
 
 export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps) {
   const router = useRouter();
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: session, status: sessionStatus, update: updateSession } = useSession();
 
   const [userId, setUserId] = useState<string | null>(null);
   const [nombreJugador, setNombreJugador] = useState<string | null>(null); 
@@ -50,6 +51,8 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
   const [userDataInitialized, setUserDataInitialized] = useState(false);
   const tipoJuegoSolicitadoRef = useRef<GameMode | null>(null); // Usar GameMode
   const isNavigatingRef = useRef<boolean>(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     console.log('[LOBBY_AUTH_EFFECT] Session status:', sessionStatus);
@@ -65,6 +68,11 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
 
     if (session && session.user) {
       const currentUserId = session.user.id;
+
+      // Si `termsAcceptedAt` es null o undefined, mostramos el modal
+      if (sessionStatus === 'authenticated' && !session.user.termsAcceptedAt) {
+        setShowTermsModal(true);
+      }
       const currentNombreJugador = session.user.name || session.user.email || `Jugador ${currentUserId.slice(-4)}`;
       const currentImageUrl = session.user.image || null;
       
@@ -152,6 +160,11 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
   }, [socket, router, userId, nombreJugador, registerEventHandlers, unregisterEventHandlers]);
 
   const handleJoinGame = useCallback((gameMode: GameMode, matchCategory: MatchCategory) => {
+    if (showTermsModal) {
+      alert("Por favor, confirma los términos para poder jugar.");
+      return;
+    }
+
     if (!userDataInitialized || !nombreJugador || !userId || userImageUrl === undefined) {
       setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
       return;
@@ -181,6 +194,42 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
 
   useEffect(() => { if (socketError) setLobbyError(socketError); }, [socketError]);
 
+  const handleConfirmTerms = async () => {
+    setIsConfirming(true);
+    setLobbyError(null); // Limpiar errores previos
+    try {
+      const response = await fetch('/api/user/accept-terms', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        // Actualiza la sesión en el cliente para reflejar el cambio sin recargar
+        console.log('[LOBBY_TERMS] Respuesta de la API OK. Estado:', response.status);
+        await updateSession({ termsAcceptedAt: new Date() });
+        console.log('[LOBBY_TERMS] Sesión actualizada en el cliente.');
+        setShowTermsModal(false);
+        // Este log mostrará el valor *antes* de que el re-render ocurra,
+        // pero el useEffect de abajo confirmará el cambio.
+        console.log('[LOBBY_TERMS] setShowTermsModal(false) llamado.');
+      } else {
+        // Manejar error, quizás mostrar una notificación
+        const errorData = await response.json();
+        console.error('[LOBBY_TERMS] Error de la API:', response.status, errorData);
+        setLobbyError(`Error al confirmar términos: ${errorData.message || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error de red al aceptar los términos:', error);
+      setLobbyError('Error de red. Revisa tu conexión e inténtalo de nuevo.');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  // Efecto para observar los cambios en el estado showTermsModal
+  useEffect(() => {
+    console.log('[LOBBY_STATE_OBSERVER] showTermsModal ahora es:', showTermsModal);
+  }, [showTermsModal]);
+
   if (sessionStatus === 'loading' || !userDataInitialized) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -193,9 +242,13 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-800 flex flex-col">
+    <>
+      {showTermsModal && (
+        <TermsConfirmationModal onConfirm={handleConfirmTerms} isConfirming={isConfirming} />
+      )}
+      <div className="min-h-screen bg-white text-gray-800 flex flex-col">
       <Navbar />
-      <main className="flex-grow pt-12 sm:pt-16 px-4 sm:px-6 lg:px-8 flex flex-col items-center relative">
+        <main className={`flex-grow pt-12 sm:pt-16 px-4 sm:px-6 lg:px-8 flex flex-col items-center relative transition-all duration-300 ${showTermsModal ? 'blur-sm pointer-events-none' : ''}`}>
         <motion.div
           variants={staggerContainer}
           initial="initial"
@@ -307,6 +360,7 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
           © {new Date().getFullYear()} FullDomino
         </p>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

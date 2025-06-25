@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import NextAuth, { DefaultSession, DefaultUser } from "next-auth";
+import { DefaultJWT } from "next-auth/jwt";
 // No necesitamos importar JWT y DefaultJWT aquí, ya están disponibles en el declare module "next-auth/jwt"
 
 declare module "next-auth" {
@@ -10,6 +11,7 @@ declare module "next-auth" {
     // id ya está en DefaultUser
     // name, email, image también están en DefaultUser
     is_admin?: boolean;
+    termsAcceptedAt?: Date | null;
   }
 
   /**
@@ -19,6 +21,7 @@ declare module "next-auth" {
     user: {
       id: string; // Es bueno mantener el id explícito aquí si lo usas mucho
       is_admin?: boolean;
+      termsAcceptedAt?: Date | null;
     } & DefaultSession["user"]; // Esto asegura que los campos por defecto (name, email, image) se mantengan
   }
 }
@@ -28,10 +31,11 @@ declare module "next-auth/jwt" {
    * Extendiendo el tipo JWT de NextAuth
    */
   interface JWT extends DefaultJWT {
-    // sub (subject - user id) ya está en Defagit JWT
+    // sub (subject - user id) ya está en DefaultJWT
     // name, email, picture también están en DefaultJWT
     // Añadimos los campos personalizados que queremos en el token
     id: string; // El id que asignamos en el callback jwt
     is_admin?: boolean;
+    termsAcceptedAt?: Date | null;
   }
 }
