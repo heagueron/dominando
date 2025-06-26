@@ -53,3 +53,5 @@ next-env.d.ts
 
 # Prisma seed script (contains plain text passwords for development)
 prisma/seed.ts
+# Prisma
+/prisma/migrations/*/*.sql
