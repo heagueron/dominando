@@ -18,11 +18,12 @@ import DominoModals from '@/components/juego/DominoModals';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/layout/Navbar';
 
-import { JugadorCliente, EstadoMesaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, GameMode, MatchCategory, EstadoRondaPublicoCliente } from '@/types/domino';
+import { JugadorCliente, EstadoMesaPublicoCliente, FinDeRondaPayloadCliente, TeUnisteAMesaPayloadCliente, TuManoPayloadCliente, TuTurnoPayloadCliente, FinDePartidaPayloadCliente, GameMode, EstadoRondaPublicoCliente } from '@/types/domino';
 import { formatPlayerNameForTitle } from '@/utils/stringUtils';
 import { useDominoStore } from '@/store/dominoStore';
 import { useDominoRonda } from '@/hooks/useDominoRonda';
 
+const DELAY_BEFORE_SHOWING_FIN_RONDA_MODAL_MS = 500; // Retraso para ver la última jugada
 const TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE = 10000;
 
 export default function JuegoPage() {
@@ -66,8 +67,7 @@ export default function JuegoPage() {
   const [gameUserId, setGameUserId] = useState<string | null>(null);
   const [gameNombreJugador, setGameNombreJugador] = useState<string | null>(null);
   const [gameUserImageUrl, setGameUserImageUrl] = useState<string | null>(null); // Estado para la imagen
-  const [isUserDataReady, setIsUserDataReady] = useState(false);
-  const tipoJuegoSolicitadoRef = useRef<GameMode | null>(null);
+  const [isUserDataReady, setIsUserDataReady] = useState(false); // RE-INTRODUCIR ESTA LÍNEA
 
   const audioFichaJugadaRef = useRef<HTMLAudioElement | null>(null);
 
@@ -199,8 +199,6 @@ export default function JuegoPage() {
     setGameUserImageUrl(currentImageUrl);
     setIsUserDataReady(true);
 
-    tipoJuegoSolicitadoRef.current = sessionStorage.getItem('jmu_tipoJuegoSolicitado') as GameMode | null;
-
   }, [mesaIdFromUrl, session, sessionStatus, router]);
 
   // Obtener el socket y sus funciones del store
@@ -232,11 +230,16 @@ export default function JuegoPage() {
       } else if (!initialJoinAttemptedRef.current) { // Solo intentar unirse si está conectado y no se ha intentado antes
         console.log('[JUEGO_PAGE_SOCKET_FLOW] Socket conectado e info disponible. Intentando unirse a la mesa:', mesaId);
         initialJoinAttemptedRef.current = true;
-        // Al recargar la página, solo tenemos el GameMode. Asumimos FREE_PLAY.
-        // El servidor ya debería tener al jugador en la mesa y esto es solo para re-sincronizar.
+        
+        // Obtener el gameTypeId de sessionStorage.
+        // Si no está presente (ej. primera vez que el usuario entra directamente a /juego/[mesaId] sin pasar por el lobby),
+        // se puede usar un ID de GameType por defecto (ej. el de "Ronda Única Gratuita" de tu seed).
+        // Asegúrate de que este ID por defecto exista en tu base de datos.
+        const gameTypeIdFromSession = sessionStorage.getItem('jmu_gameTypeId');
+        const defaultGameTypeId = "ID_DE_TU_GAMETYPE_POR_DEFECTO_AQUI"; // <<< IMPORTANTE: Reemplaza con un ID real de tu DB
+
         emitEvent('cliente:unirseAMesa', {
-          gameMode: tipoJuegoSolicitadoRef.current || GameMode.SINGLE_ROUND, // Fallback a SINGLE_ROUND si no hay nada en sessionStorage
-          matchCategory: MatchCategory.FREE_PLAY, // Asumimos FREE_PLAY al recargar
+          gameTypeId: gameTypeIdFromSession || defaultGameTypeId,
           nombreJugador: gameNombreJugador,
         });
       }
@@ -418,14 +421,17 @@ export default function JuegoPage() {
         }
     }
 
-    setFinRondaData({
-      resultadoPayload: payload,
-      fichasEnMesaSnapshot: fichasEnMesaSnapshotParaFin,
-      posicionAnclaSnapshot: posicionAnclaSnapshotParaFin,
-    });
-    setFinRondaInfoVisible(true);
-    clearSelection();
-    setPlayableFichaIdsStore([]);
+    // Retrasar la aparición del modal de fin de ronda para que se vea la última jugada
+    setTimeout(() => {
+      setFinRondaData({
+        resultadoPayload: payload,
+        fichasEnMesaSnapshot: fichasEnMesaSnapshotParaFin,
+        posicionAnclaSnapshot: posicionAnclaSnapshotParaFin,
+      });
+      setFinRondaInfoVisible(true);
+      clearSelection();
+      setPlayableFichaIdsStore([]);
+    }, DELAY_BEFORE_SHOWING_FIN_RONDA_MODAL_MS);
 
     if (finRondaDisplayTimerRef.current) clearTimeout(finRondaDisplayTimerRef.current);
     finRondaDisplayTimerRef.current = setTimeout(() => {
@@ -438,9 +444,31 @@ export default function JuegoPage() {
   const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDePartida recibido:', payload);
     setFinPartidaData(payload);
+    // Cuando la partida termina, ocultar el modal de fin de ronda y cualquier mensaje de transición
+    setFinRondaInfoVisible(false);
+    setFinRondaData(null); // Limpiar también los datos de la ronda
+    setMensajeTransicion(null); // Limpiar cualquier mensaje de transición
+    if (finRondaDisplayTimerRef.current) {
+      clearTimeout(finRondaDisplayTimerRef.current);
+      finRondaDisplayTimerRef.current = null;
+    }
     // Ya no usamos un temporizador. El modal se mostrará hasta que el estado de la mesa cambie.
   
   }, []);
+
+  // Nueva función para manejar el clic en "Jugar de Nuevo"
+  const handlePlayAgain = useCallback(() => {
+    console.log('[CLIENT] Botón "Jugar de Nuevo" presionado.');
+    // 1. Cerrar el modal de fin de partida
+    setFinPartidaData(null);
+    // El mensaje de transición ahora se maneja exclusivamente en el useEffect.
+    // 2. Emitir evento al servidor
+    if (socket && miIdJugadorSocketRef.current && authoritativeMesaIdRef.current) {
+      emitEvent('cliente:listoParaSiguientePartida', {
+        mesaId: authoritativeMesaIdRef.current,
+      });
+    }
+  }, [socket, emitEvent]);
 
   const handleErrorDePartida = useCallback((payload: { mensaje: string }) => {
     console.error('[SOCKET] Error de partida/mesa:', payload.mensaje);
@@ -463,52 +491,72 @@ export default function JuegoPage() {
   }, [
     socket, isConnected, registerEventHandlers, unregisterEventHandlers,
     handleTeUnisteAMesa, handleEstadoMesaActualizado, handleTuMano,
-    handleTuManoActualizada, handleTuTurno, handleFinDeRonda,
-    handleFinDePartida, handleErrorDePartida
+    handleTuManoActualizada, handleTuTurno, handleFinDeRonda, handleFinDePartida, handleErrorDePartida
   ]);
 
   useEffect(() => {
     if (!estadoMesaCliente) {
       setFinRondaInfoVisible(false);
       setFinRondaData(null);
-      if (finRondaDisplayTimerRef.current) {
-        clearTimeout(finRondaDisplayTimerRef.current);
-        finRondaDisplayTimerRef.current = null;
-      }
+      if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
+      setMensajeTransicion(null); // Limpiar mensaje si no hay estado de mesa
       return;
     }
+
     const partidaActual = estadoMesaCliente.partidaActual;
     const rondaActual = partidaActual?.rondaActual;
 
-    if (finRondaInfoVisible && (!rondaActual || rondaActual.rondaId !== finRondaData?.resultadoPayload.rondaId)) {
-      setFinRondaInfoVisible(false);
-      if (finRondaDisplayTimerRef.current) {
-        clearTimeout(finRondaDisplayTimerRef.current);
-        finRondaDisplayTimerRef.current = null;
-      }
+    // Prioridad 1: Modal de Fin de Partida (si está activo, toma el control)
+    if (finPartidaData) {
+      setFinRondaInfoVisible(false); // Ocultar modal de fin de ronda
+      setFinRondaData(null); // Limpiar datos de fin de ronda
+      setMensajeTransicion(null); // Limpiar mensaje de transición
+      if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
+      return;
     }
 
-    // Logic for transition messages
-    if (estadoMesaCliente.estadoGeneralMesa === 'transicionNuevaRonda') { // For SINGLE_ROUND auto-restart
-      if (!mensajeTransicion) setMensajeTransicion("Iniciando nueva partida...");
-      if (finRondaInfoVisible) setFinRondaInfoVisible(false); // Hide round end modal during transition
-      if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
-    } else if (estadoMesaCliente.partidaActual?.estadoPartida === 'rondaTerminadaEsperandoSiguiente') { // For FULL_GAME waiting for next round
-      if (!mensajeTransicion) setMensajeTransicion("Esperando jugadores para la próxima ronda...");
-      if (finRondaInfoVisible) setFinRondaInfoVisible(false); // Hide round end modal during transition
-      if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
-    } else if (estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida') { // For FULL_GAME after game over, waiting for rematch
-      if (!mensajeTransicion) setMensajeTransicion("Partida finalizada. Esperando para jugar de nuevo...");
-      if (finRondaInfoVisible) setFinRondaInfoVisible(false); // Hide round end modal
+    // Prioridad 2: Modal de Fin de Ronda (si está activo, toma el control sobre los mensajes de transición)
+    if (finRondaInfoVisible) {
+      // Asegurarse de que finRondaData sea consistente, de lo contrario ocultar el modal
+      if (!finRondaData || rondaActual?.rondaId !== finRondaData.resultadoPayload.rondaId) {
+        setFinRondaInfoVisible(false);
+        if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
+      }
+      setMensajeTransicion(null); // No mostrar mensaje de transición mientras el modal de fin de ronda está visible
+      return;
+    }
+
+    // Prioridad 3: Mensajes de Transición (solo si no hay modales activos)
+    let newMensajeTransicion: string | null = null;
+
+    if (estadoMesaCliente.estadoGeneralMesa === 'transicionNuevaRonda') {
+      newMensajeTransicion = "Iniciando nueva partida...";
+    } else if (estadoMesaCliente.partidaActual?.estadoPartida === 'rondaTerminadaEsperandoSiguiente') {
+      newMensajeTransicion = "Esperando jugadores para la próxima ronda...";
+    } else if (estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida') {
+      // Este estado se alcanza después de que una partida completa termina y se presiona "Jugar de Nuevo".
+      newMensajeTransicion = "Esperando a otros jugadores para iniciar una nueva partida...";
+      if (finRondaInfoVisible) setFinRondaInfoVisible(false);
       if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
     }
-    // Clear transition message once game is in progress or waiting for players (initial state)
-    else if (mensajeTransicion && (
-      (estadoMesaCliente.estadoGeneralMesa === 'partidaEnProgreso' && rondaActual) ||
-      estadoMesaCliente.estadoGeneralMesa === 'esperandoJugadores')) {
-      setMensajeTransicion(null);
+    else if (estadoMesaCliente.estadoGeneralMesa === 'esperandoJugadores') {
+      // Este es el estado inicial del lobby o si los jugadores se fueron y el juego está esperando más
+      if (estadoMesaCliente.jugadores.length < estadoMesaCliente.configuracionJuego.maxJugadores) {
+        newMensajeTransicion = "Esperando a otros jugadores para iniciar la partida...";
+      } else {
+        // Si está en estado 'esperandoJugadores' pero hay suficientes jugadores, limpiar el mensaje
+        newMensajeTransicion = null;
+      }
+    } else if (estadoMesaCliente.estadoGeneralMesa === 'partidaEnProgreso' && rondaActual) {
+      // El juego está activamente en progreso, limpiar cualquier mensaje de transición
+      newMensajeTransicion = null;
     }
-  }, [estadoMesaCliente, finRondaInfoVisible, mensajeTransicion, finRondaData]);
+
+    // Actualizar el estado solo si el mensaje ha cambiado
+    if (newMensajeTransicion !== mensajeTransicion) {
+      setMensajeTransicion(newMensajeTransicion);
+    }
+  }, [estadoMesaCliente, finRondaInfoVisible, finRondaData, finPartidaData, mensajeTransicion]);
 
   useEffect(() => {
     return () => {
@@ -710,7 +758,7 @@ export default function JuegoPage() {
         finRondaData={finRondaData ? { resultadoPayload: finRondaData.resultadoPayload } : null}
         finPartidaData={finPartidaData}
         estadoMesaCliente={estadoMesaCliente}
-        emitEvent={emitEvent} // Pasar la función emitEvent al modal
+        onPlayAgain={handlePlayAgain} // Pasar la nueva función
         mensajeTransicion={mensajeTransicion}
       />
     </div>

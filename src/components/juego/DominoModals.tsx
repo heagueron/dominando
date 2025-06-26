@@ -14,17 +14,17 @@ interface DominoModalsProps {
   estadoMesaCliente: EstadoMesaPublicoCliente | null; // Para info de jugadores en FinDeRondaModal
   mensajeTransicion: string | null;
   finPartidaData: FinDePartidaPayloadCliente | null; // Nuevo prop para el modal de fin de partida
-  emitEvent: (eventName: string, payload: Record<string, unknown>) => void; // Añadir prop para emitir eventos
+  onPlayAgain: () => void; // NUEVA PROP: Función para manejar el clic en "Jugar de Nuevo"
 }
 
 const DominoModals: React.FC<DominoModalsProps> = ({
   showRotateMessage,
   finRondaInfoVisible,
   finRondaData,
-  emitEvent, // Desestructurar la nueva prop
   estadoMesaCliente,
   mensajeTransicion,
   finPartidaData, // Nuevo prop
+  onPlayAgain, // Desestructurar la nueva prop
 }) => {
   // Añadimos un log para ver el payload completo cuando el modal se renderiza
   if (finRondaInfoVisible && finRondaData) {
@@ -46,10 +46,10 @@ const DominoModals: React.FC<DominoModalsProps> = ({
       )}
 
       {/* Modal de Fin de Ronda (Rediseñado) */}
-      {finRondaInfoVisible && finRondaData?.resultadoPayload && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 p-4">
+      {finRondaInfoVisible && finRondaData?.resultadoPayload && ( // Asegurarse de que el modal de fin de partida no esté activo
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40 p-4">
           <motion.div
-            className="bg-yellow-50 border-2 border-yellow-500 p-4 sm:p-6 rounded-lg shadow-2xl text-center max-w-lg w-full"
+            className="bg-yellow-50 border-2 border-yellow-500 p-4 sm:p-6 rounded-lg shadow-2xl text-center max-w-lg w-full bg-opacity-30"
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}>
@@ -204,13 +204,8 @@ const DominoModals: React.FC<DominoModalsProps> = ({
               {/* Botón "Jugar de Nuevo" para FULL_GAME */}
               {estadoMesaCliente?.partidaActual?.gameMode === GameMode.FULL_GAME && (
                 <button
-                  onClick={() => {
-                    if (estadoMesaCliente?.mesaId) {
-                      emitEvent('cliente:listoParaSiguientePartida', { mesaId: estadoMesaCliente.mesaId });
-                    }
-                  }}
-                  className="mt-6 px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
-                >Jugar de Nuevo</button>)}
+                  onClick={onPlayAgain} // Llama a la función pasada por prop
+                  className="mt-6 px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-md">Jugar de Nuevo</button>)}
               <h4 className="text-md sm:text-lg font-semibold text-green-700 mb-2">Puntuaciones Finales:</h4>
               <ul className="text-left text-sm sm:text-base text-green-600 space-y-1 max-h-40 overflow-y-auto px-2">
                 {finPartidaData.puntuacionesFinalesPartida
@@ -232,7 +227,7 @@ const DominoModals: React.FC<DominoModalsProps> = ({
 
       {/* Mensaje de Transición a Nueva Partida/Ronda */}
       {mensajeTransicion && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 p-4">
           <motion.div
             className="text-xl sm:text-2xl font-bold p-6 sm:p-8 bg-white shadow-xl rounded-lg text-gray-800"
             initial={{ opacity: 0, y: -20 }}
