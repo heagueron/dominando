@@ -15,6 +15,7 @@ interface DominoModalsProps {
   mensajeTransicion: string | null;
   finPartidaData: FinDePartidaPayloadCliente | null; // Nuevo prop para el modal de fin de partida
   onPlayAgain: () => void; // NUEVA PROP: Función para manejar el clic en "Jugar de Nuevo"
+  onSalirDeMesa: () => void; // NUEVA PROP: Función para manejar el clic en "Salir"
 }
 
 const DominoModals: React.FC<DominoModalsProps> = ({
@@ -25,6 +26,7 @@ const DominoModals: React.FC<DominoModalsProps> = ({
   mensajeTransicion,
   finPartidaData, // Nuevo prop
   onPlayAgain, // Desestructurar la nueva prop
+  onSalirDeMesa, // Desestructurar la nueva prop
 }) => {
   // Añadimos un log para ver el payload completo cuando el modal se renderiza
   if (finRondaInfoVisible && finRondaData) {
@@ -188,39 +190,50 @@ const DominoModals: React.FC<DominoModalsProps> = ({
       )}
 
       {/* Modal de Fin de Partida (Game Over) */}
-      {finPartidaData && estadoMesaCliente?.estadoGeneralMesa === 'esperandoParaSiguientePartida' && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+      {finPartidaData && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <motion.div
-            className="bg-green-50 border-2 border-green-500 p-4 sm:p-6 rounded-lg shadow-2xl text-center max-w-md w-full"
+            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md text-center text-gray-800"
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            <p className="text-xl sm:text-2xl font-bold text-green-800 mb-2">¡Partida Terminada!</p>
-            <p className="text-lg sm:text-xl font-semibold text-green-700 mb-4">
-              Ganador de la Partida: {estadoMesaCliente?.jugadores.find(j => j.id === finPartidaData.ganadorPartidaId)?.nombre || finPartidaData.ganadorPartidaId || 'N/A'}
+            {/* Fila 1: Título */}
+            <h2 className="text-3xl font-bold mb-2 text-gray-900">Partida Terminada</h2>
+            {/* Fila 2: Ganador */}
+            <p className="text-xl mb-4">
+              Ganador: <span className="font-semibold text-yellow-600">{estadoMesaCliente?.jugadores.find(j => j.id === finPartidaData.ganadorPartidaId)?.nombre || 'N/A'}</span>
             </p>
-            <div className="mt-4 pt-3 border-t border-green-300">
-              {/* Botón "Jugar de Nuevo" para FULL_GAME */}
-              {estadoMesaCliente?.partidaActual?.gameMode === GameMode.FULL_GAME && (
-                <button
-                  onClick={onPlayAgain} // Llama a la función pasada por prop
-                  className="mt-6 px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-md">Jugar de Nuevo</button>)}
-              <h4 className="text-md sm:text-lg font-semibold text-green-700 mb-2">Puntuaciones Finales:</h4>
-              <ul className="text-left text-sm sm:text-base text-green-600 space-y-1 max-h-40 overflow-y-auto px-2">
-                {finPartidaData.puntuacionesFinalesPartida
-                  .sort((a, b) => b.puntos - a.puntos) // Sort by points descending
-                  .map(score => {
-                    const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === score.jugadorId);
-                    return (
-                      <li key={`final-game-score-${score.jugadorId}`} className="flex justify-between">
-                        <span className="truncate pr-2">{jugadorInfo?.nombre || score.jugadorId}</span>
-                        <span className="font-medium">{score.puntos} puntos</span>
-                      </li>
-                    );
-                  })}
-              </ul>
+            {/* Fila 3: Separador */}
+            <hr className="my-4" />
+
+            {/* Fila 4: Tabla de Puntos Finales */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">Puntuaciones Finales</h3>
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b">
+                    <th className="p-2">Jugador</th>
+                    <th className="p-2 text-right">Puntos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {finPartidaData.puntuacionesFinalesPartida
+                    .sort((a, b) => b.puntos - a.puntos)
+                    .map(({ jugadorId, puntos }) => (
+                      <tr key={jugadorId} className="border-b border-gray-200">
+                        <td className="p-2 truncate">{estadoMesaCliente?.jugadores.find(j => j.id === jugadorId)?.nombre || 'Desconocido'}</td>
+                        <td className="p-2 text-right font-bold">{puntos}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
+
+            {/* Fila 5: Botón "Jugar de Nuevo" */}
+            <button onClick={onPlayAgain} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105 shadow-md mb-3">Jugar de Nuevo</button>
+            {/* Fila 6: Botón "Salir" */}
+            <button onClick={onSalirDeMesa} className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Salir al Lobby</button>
           </motion.div>
         </div>
       )}

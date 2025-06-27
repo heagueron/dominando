@@ -154,11 +154,9 @@ model Match {
   id          String   @id @default(cuid())
   creatorId   String
   creator     User     @relation(fields: [creatorId], references: [id]) // Corregido: Usuario -> User
+  gameTypeId  String   // Clave foránea para GameType
+  gameType    GameType @relation(fields: [gameTypeId], references: [id], onDelete: Restrict) // Relación
   players     String[] // Players IDs
-  matchCategory MatchCategory // Nueva: Categoría de la partida (gratuita, de pago)
-  gameMode    GameMode      // Nueva: Modo de juego (ronda única, partida completa)
-  feeAmount   Decimal?      // Monto de la entrada, solo para PAID_PLAY
-  feeCurrency Currency?     // Moneda de la entrada, solo para PAID_PLAY
   state       MatchState  @default(WAITING)
   score       Json?    // Every player's score
   winnerId    String?  // Opcional: ID del usuario ganador
@@ -275,4 +273,6 @@ model GameType {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  matches   Match[] // Relación inversa: un GameType puede tener muchas partidas (Matches)
 }

@@ -470,6 +470,19 @@ export default function JuegoPage() {
     }
   }, [socket, emitEvent]);
 
+  const handleSalirDeMesa = useCallback(() => {
+    console.log('[CLIENT] Botón "Salir" presionado.');
+    // Emitir un evento específico para que el servidor sepa que es una salida intencional
+    if (socket && authoritativeMesaIdRef.current) {
+      emitEvent('cliente:salirDeMesa', {
+        mesaId: authoritativeMesaIdRef.current,
+      });
+    }
+    // Navegar al lobby. La desconexión del socket se manejará
+    // automáticamente cuando el componente se desmonte.
+    router.push('/lobby');
+  }, [socket, emitEvent, router]);
+
   const handleErrorDePartida = useCallback((payload: { mensaje: string }) => {
     console.error('[SOCKET] Error de partida/mesa:', payload.mensaje);
   }, []);
@@ -759,6 +772,7 @@ export default function JuegoPage() {
         finPartidaData={finPartidaData}
         estadoMesaCliente={estadoMesaCliente}
         onPlayAgain={handlePlayAgain} // Pasar la nueva función
+        onSalirDeMesa={handleSalirDeMesa} // Pasar la nueva función para salir
         mensajeTransicion={mensajeTransicion}
       />
     </div>
