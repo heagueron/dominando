@@ -92,6 +92,7 @@ export interface EstadoPartidaPublicoCliente {
 
 export interface EstadoMesaPublicoCliente {
   mesaId: string;
+  nombre: string; // NUEVO: Nombre de la mesa
   jugadores: JugadorPublicoInfoCliente[];
   configuracionJuego: { // Actualizar para reflejar los nuevos campos
     gameMode: GameMode;
@@ -111,8 +112,15 @@ export interface EstadoMesaPublicoCliente {
 
 export interface TeUnisteAMesaPayloadCliente {
   mesaId: string;
+  // nombreMesa: string; // Podríamos añadirlo, pero ya viene en estadoMesa
   tuJugadorIdEnPartida: string;
   estadoMesa: EstadoMesaPublicoCliente;
+}
+
+// Payload para cliente:unirseAMesa (debe coincidir con el servidor)
+export interface UnirseAMesaPayloadCliente {
+  mesaId: string;
+  nombreJugador: string;
 }
 
 export interface TuManoPayloadCliente {

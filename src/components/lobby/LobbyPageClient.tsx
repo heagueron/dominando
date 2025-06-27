@@ -1,22 +1,17 @@
 // LobbyPageClient.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDominoSocket } from '@/hooks/useDominoSocket';
 import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/layout/Navbar';
-import TermsConfirmationModal from '@/components/layout/TermsConfirmationModal'; // Importamos los nuevos enums
-import { GameType } from '@prisma/client'; // Importar el tipo generado por Prisma
+import TermsConfirmationModal from '@/components/layout/TermsConfirmationModal';
+import { FiUsers } from 'react-icons/fi';
 
-import MensajeEntradaBanner from './MensajeEntradaBanner'; // Importamos el nuevo componente
-
-// Tipos para los payloads de Socket.IO (simplificados para el lobby)
-interface TeUnisteAMesaPayloadLobby {
-  mesaId: string;
-  tuJugadorIdEnPartida: string;
-}
+import MensajeEntradaBanner from './MensajeEntradaBanner';
+import { EstadoMesaPublicoCliente, GameMode } from '@/types/domino';
 
 interface LobbyPageClientProps {
   randomMessage: {
@@ -46,32 +41,11 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
   const [userId, setUserId] = useState<string | null>(null);
   const [nombreJugador, setNombreJugador] = useState<string | null>(null); 
   const [userImageUrl, setUserImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<string | null>(null); // Ahora guardamos el ID del GameType
   const [lobbyError, setLobbyError] = useState<string | null>(null);
   const [userDataInitialized, setUserDataInitialized] = useState(false);
-  const isNavigatingRef = useRef<boolean>(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [gameTypes, setGameTypes] = useState<GameType[]>([]);
-  const [isFetchingTypes, setIsFetchingTypes] = useState(true);
-
-  // Efecto para cargar los tipos de juego desde la API
-  useEffect(() => {
-    async function fetchGameTypes() {
-      try {
-        const response = await fetch('/api/game-types');
-        if (!response.ok) throw new Error('No se pudo obtener la respuesta del servidor.');
-        const data = await response.json();
-        setGameTypes(data);
-      } catch (error: unknown) {
-        console.error("Error al cargar los modos de juego:", error); // Usar la variable 'error'
-        setLobbyError("No se pudieron cargar los modos de juego. Intenta recargar la página.");
-      } finally {
-        setIsFetchingTypes(false);
-      }
-    }
-    fetchGameTypes();
-  }, []);
+  const [mesas, setMesas] = useState<EstadoMesaPublicoCliente[]>([]);
 
   useEffect(() => {
     console.log('[LOBBY_AUTH_EFFECT] Session status:', sessionStatus);
@@ -88,7 +62,6 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
     if (session && session.user) {
       const currentUserId = session.user.id;
 
-      // Si `termsAcceptedAt` es null o undefined, mostramos el modal
       if (sessionStatus === 'authenticated' && !session.user.termsAcceptedAt) {
         setShowTermsModal(true);
       }
@@ -139,34 +112,35 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
     }
   }, [userDataInitialized, userId, nombreJugador, userImageUrl, initializeSocketIfNeeded]);
 
+  // Efecto para solicitar y escuchar la lista de mesas
+  useEffect(() => {
+    if (isConnected) {
+      console.log('[LOBBY] Socket conectado. Solicitando lista de mesas.');
+      emitEvent('cliente:solicitarListaDeMesas', {});
+
+      const handleListaMesas = (listaMesas: EstadoMesaPublicoCliente[]) => {
+        console.log('[LOBBY] Recibida lista de mesas actualizada:', listaMesas.map(m => ({id: m.mesaId, nombre: m.nombre, jugadores: m.jugadores.length})));
+        setMesas(listaMesas);
+      };
+
+      registerEventHandlers({ 'servidor:listaDeMesasActualizada': handleListaMesas });
+
+      return () => {
+        unregisterEventHandlers(['servidor:listaDeMesasActualizada']);
+      };
+    }
+  }, [isConnected, emitEvent, registerEventHandlers, unregisterEventHandlers]);
+
+
   useEffect(() => {
     if (!socket) return;
-
-    const handleTeUnisteAMesaCallback = (payload: TeUnisteAMesaPayloadLobby) => {
-      console.log('[LOBBY_SOCKET] Evento servidor:teUnisteAMesa recibido:', payload);
-      isNavigatingRef.current = true;
-      
-      console.log('[LOBBY_SOCKET] ANTES DE NAVEGAR A JUEGO - userId (estado):', userId, 'nombreJugador (estado):', nombreJugador);
-      setIsLoading(null);
-      setLobbyError(null);
-
-      if (userId && nombreJugador) { 
-        router.push(`/juego/${payload.mesaId}`);
-      } else {
-        console.error("[LOBBY_SOCKET] No se pudo navegar: userId o nombreJugador del estado de React son nulos.");
-        setLobbyError("Error al preparar la navegación. Intenta de nuevo.");
-      }
-    };
     
     const handleErrorDePartidaCallback = (payload: { mensaje: string }) => {
       console.error('[LOBBY_SOCKET] Error de partida desde el servidor:', payload.mensaje);
       setLobbyError(`Error del servidor: ${payload.mensaje}`);
-      setIsLoading(null);
-      isNavigatingRef.current = false;
     };
 
     const eventHandlers = {
-      'servidor:teUnisteAMesa': handleTeUnisteAMesaCallback,
       'servidor:errorDePartida': handleErrorDePartidaCallback,
     };
     registerEventHandlers(eventHandlers);
@@ -174,60 +148,47 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
     return () => {
       unregisterEventHandlers(Object.keys(eventHandlers));
     };
-  }, [socket, router, userId, nombreJugador, registerEventHandlers, unregisterEventHandlers]);
+  }, [socket, registerEventHandlers, unregisterEventHandlers]);
 
-  const handleJoinGame = useCallback((gameTypeId: string) => {
+  const handleUnirseAMesa = useCallback((mesa: EstadoMesaPublicoCliente) => {
     if (showTermsModal) {
       alert("Por favor, confirma los términos para poder jugar.");
       return;
     }
-    if (!userDataInitialized || !nombreJugador || !userId || userImageUrl === undefined) {
+    if (!userDataInitialized || !nombreJugador || !userId) {
       setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
       return;
     }
-    console.log(`[LOBBY_SOCKET] handleJoinGame called for GameTypeID: ${gameTypeId}`);
-    setIsLoading(gameTypeId);
+    console.log(`[LOBBY] Intentando unirse a la mesa "${mesa.nombre}" (${mesa.mesaId})`);
     setLobbyError(null);
-    isNavigatingRef.current = false;
-
-    // Guardar el ID del tipo de juego para reconexiones
-    sessionStorage.setItem('jmu_gameTypeId', gameTypeId);
 
     if (isConnected) {
-      console.log('[LOBBY_SOCKET] Socket already connected. Emitting cliente:unirseAMesa.');
-      emitEvent('cliente:unirseAMesa', { gameTypeId, nombreJugador });
+      // No emitimos el evento aquí, la página del juego lo hará.
+      // Solo navegamos.
+      router.push(`/juego/${mesa.mesaId}`);
     }  else {
-      console.log('[LOBBY_SOCKET] Socket not connected. Intentando inicializar/conectar y luego unirse.');
-      if (userId && nombreJugador && userImageUrl !== undefined) {
-        initializeSocketIfNeeded(userId, nombreJugador, userImageUrl);
-        setLobbyError("Conectando al servidor... Por favor, inténtalo de nuevo en unos segundos si esto falla.");
-      } else {
-        setLobbyError("Falta información del usuario para conectar.");
-      }
+      setLobbyError("No estás conectado al servidor. Intentando reconectar...");
+      initializeSocketIfNeeded(userId, nombreJugador, userImageUrl || '');
     }
-  }, [showTermsModal, userDataInitialized, nombreJugador, userId, userImageUrl, isConnected, emitEvent, initializeSocketIfNeeded]);
+  }, [showTermsModal, userDataInitialized, nombreJugador, userId, userImageUrl, isConnected, initializeSocketIfNeeded, router]);
 
   useEffect(() => { if (socketError) setLobbyError(socketError); }, [socketError]);
 
   const handleConfirmTerms = async () => {
     setIsConfirming(true);
-    setLobbyError(null); // Limpiar errores previos
+    setLobbyError(null);
     try {
       const response = await fetch('/api/user/accept-terms', {
         method: 'POST',
       });
 
       if (response.ok) {
-        // Actualiza la sesión en el cliente para reflejar el cambio sin recargar
         console.log('[LOBBY_TERMS] Respuesta de la API OK. Estado:', response.status);
         await updateSession({ termsAcceptedAt: new Date() });
         console.log('[LOBBY_TERMS] Sesión actualizada en el cliente.');
         setShowTermsModal(false);
-        // Este log mostrará el valor *antes* de que el re-render ocurra,
-        // pero el useEffect de abajo confirmará el cambio.
         console.log('[LOBBY_TERMS] setShowTermsModal(false) llamado.');
       } else {
-        // Manejar error, quizás mostrar una notificación
         const errorData = await response.json();
         console.error('[LOBBY_TERMS] Error de la API:', response.status, errorData);
         setLobbyError(`Error al confirmar términos: ${errorData.message || 'Error desconocido'}`);
@@ -240,10 +201,20 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
     }
   };
 
-  // Efecto para observar los cambios en el estado showTermsModal
   useEffect(() => {
     console.log('[LOBBY_STATE_OBSERVER] showTermsModal ahora es:', showTermsModal);
   }, [showTermsModal]);
+
+  const mesasAgrupadas = useMemo(() => {
+    return mesas.reduce((acc, mesa) => {
+      const modo = mesa.configuracionJuego.gameMode;
+      if (!acc[modo]) {
+        acc[modo] = [];
+      }
+      acc[modo].push(mesa);
+      return acc;
+    }, {} as Record<GameMode, EstadoMesaPublicoCliente[]>);
+  }, [mesas]);
 
   if (sessionStatus === 'loading' || !userDataInitialized) {
     return (
@@ -289,46 +260,55 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
           </div>
         </motion.div>
 
-        <motion.div
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-          className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12 w-full max-w-5xl"
-        >
-          {isFetchingTypes ? (
-            <p className="text-gray-600 md:col-span-2 text-center">Cargando modos de juego...</p>
-          ) : (
-            gameTypes.map((gt) => (
-              <motion.div
-                key={gt.id}
-                variants={fadeInUp}
-                className="group cursor-pointer" 
-                onClick={() => !isLoading && handleJoinGame(gt.id)}
-                whileHover={{ scale: !isLoading ? 1.02 : 1 }}
-                whileTap={{ scale: !isLoading ? 0.98 : 1 }}
-              >
-                <div className="bg-white rounded-2xl p-8 sm:p-10 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-2xl sm:text-3xl font-bold text-center mb-4 text-blue-600">
-                      {gt.name}
-                    </h3>
-                    <p className="text-gray-600 text-center text-sm sm:text-base leading-relaxed mb-6">
-                      {gt.description}
-                    </p>
-                  </div>
-                  <motion.button
-                    disabled={!!isLoading}
-                    className="w-full mt-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-300 shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {isLoading === gt.id ? 'Uniéndote...' : 'Jugar Ahora'}
-                  </motion.button>
-                </div>
-              </motion.div>
-            ))
-          )}
-        </motion.div>
+        {Object.keys(mesasAgrupadas).length > 0 ? (
+          Object.entries(mesasAgrupadas).map(([modo, listaDeMesas]) => (
+            <motion.div key={modo} variants={fadeInUp} className="w-full max-w-5xl mb-12">
+              <h2 className="text-3xl font-semibold border-b-2 border-blue-200 pb-2 mb-6 text-gray-700">
+                {modo === GameMode.FULL_GAME ? 'Partidas Completas' : 'Rondas Únicas'}
+              </h2>
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-50">
+                    <tr className="text-gray-500 uppercase text-sm">
+                      <th className="py-3 px-6 font-semibold">Nombre de Mesa</th>
+                      <th className="py-3 px-6 font-semibold">Jugadores</th>
+                      <th className="py-3 px-6 font-semibold text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {listaDeMesas.map(mesa => (
+                      <tr key={mesa.mesaId} className="hover:bg-gray-50">
+                        <td className="py-4 px-6 font-medium text-gray-900">{mesa.nombre}</td>
+                        <td className="py-4 px-6 text-gray-600 flex items-center">
+                          {`${mesa.jugadores.length} / ${mesa.configuracionJuego.maxJugadores}`}
+                          <div className="ml-3 relative group">
+                            <FiUsers className="text-gray-400" />
+                            <div className="absolute bottom-full mb-2 w-48 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                              {mesa.jugadores.length > 0 ? mesa.jugadores.map(j => j.nombre).join(', ') : 'Mesa vacía'}
+                              <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-800"></div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() => handleUnirseAMesa(mesa)}
+                            disabled={mesa.jugadores.length >= mesa.configuracionJuego.maxJugadores}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                          >
+                            Unirse
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          ))
+        ) : (
+          <p className="text-center text-gray-500 mt-10">No hay mesas disponibles. El servidor podría estar iniciándose.</p>
+        )}
 
-        {/* Aquí renderizamos el banner con el mensaje aleatorio */}
         {randomMessage && (
           <MensajeEntradaBanner content={randomMessage.content} source={randomMessage.source} />
         )}

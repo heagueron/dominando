@@ -230,16 +230,9 @@ export default function JuegoPage() {
       } else if (!initialJoinAttemptedRef.current) { // Solo intentar unirse si está conectado y no se ha intentado antes
         console.log('[JUEGO_PAGE_SOCKET_FLOW] Socket conectado e info disponible. Intentando unirse a la mesa:', mesaId);
         initialJoinAttemptedRef.current = true;
-        
-        // Obtener el gameTypeId de sessionStorage.
-        // Si no está presente (ej. primera vez que el usuario entra directamente a /juego/[mesaId] sin pasar por el lobby),
-        // se puede usar un ID de GameType por defecto (ej. el de "Ronda Única Gratuita" de tu seed).
-        // Asegúrate de que este ID por defecto exista en tu base de datos.
-        const gameTypeIdFromSession = sessionStorage.getItem('jmu_gameTypeId');
-        const defaultGameTypeId = "ID_DE_TU_GAMETYPE_POR_DEFECTO_AQUI"; // <<< IMPORTANTE: Reemplaza con un ID real de tu DB
 
         emitEvent('cliente:unirseAMesa', {
-          gameTypeId: gameTypeIdFromSession || defaultGameTypeId,
+          mesaId: mesaId,
           nombreJugador: gameNombreJugador,
         });
       }
@@ -706,6 +699,11 @@ export default function JuegoPage() {
 
   return (
     <div className="min-h-screen bg-table-wood flex flex-col">
+      {/* Mostrar nombre de la mesa */}
+      <div className="fixed top-2 left-2 z-50 p-2 bg-black bg-opacity-50 text-white rounded-lg text-sm font-semibold">
+        {estadoMesaCliente?.nombre || 'Cargando...'}
+      </div>
+
       <button
         onClick={toggleFullscreen}
         className="fixed top-2 right-2 z-50 p-2 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
