@@ -178,7 +178,8 @@ export default function JuegoPage() {
 
     if (!mesaIdFromUrl || typeof mesaIdFromUrl !== 'string' || mesaIdFromUrl.trim() === '') {
       console.error('[JUEGO_PAGE_EFFECT_USER_INIT] No hay mesaId válido en la URL. Redirigiendo al lobby.');
-      router.push('/lobby');
+      // Usamos replace para no guardar en el historial una URL inválida.
+      router.replace('/lobby');
       return;
     }
 
@@ -473,7 +474,8 @@ export default function JuegoPage() {
     }
     // Navegar al lobby. La desconexión del socket se manejará
     // automáticamente cuando el componente se desmonte.
-    router.push('/lobby');
+    // Usamos router.replace para que el usuario no pueda volver a la mesa con el botón "atrás" del navegador.
+    router.replace('/lobby');
   }, [socket, emitEvent, router]);
 
   const handleErrorDePartida = useCallback((payload: { mensaje: string }) => {

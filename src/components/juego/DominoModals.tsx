@@ -242,12 +242,15 @@ const DominoModals: React.FC<DominoModalsProps> = ({
       {mensajeTransicion && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 p-4">
           <motion.div
-            className="text-xl sm:text-2xl font-bold p-6 sm:p-8 bg-white shadow-xl rounded-lg text-gray-800"
+            className="text-center p-6 sm:p-8 bg-white shadow-xl rounded-lg text-gray-800"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            {mensajeTransicion}
+            <p className="text-xl sm:text-2xl font-bold mb-6">{mensajeTransicion}</p>
+            <button onClick={onSalirDeMesa} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg">
+              Salir de la Mesa
+            </button>
           </motion.div>
         </div>
       )}
