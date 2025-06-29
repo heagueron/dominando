@@ -150,22 +150,37 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
     };
   }, [socket, registerEventHandlers, unregisterEventHandlers]);
 
-  const handleUnirseAMesa = useCallback((mesa: EstadoMesaPublicoCliente) => {
+  const handleRegresarAMesa = useCallback((mesaId: string) => {
+    router.push(`/juego/${mesaId}`);
+  }, [router]);
+
+  const handleSalirDeMesaDesdeLobby = useCallback((mesaId: string) => {
+    if (isConnected && userId) {
+      console.log(`[LOBBY] Saliendo de la mesa ${mesaId} desde el lobby.`);
+      emitEvent('cliente:salirDeMesa', { mesaId });
+      // No necesitamos navegar, el servidor enviará una actualización de la lista de mesas
+      // y la UI se refrescará sola.
+    } else {
+      setLobbyError("No se pudo comunicar la salida al servidor. Revisa tu conexión.");
+    }
+  }, [isConnected, userId, emitEvent]);
+
+  const handleUnirseAMesa = useCallback((mesaId: string) => {
     if (showTermsModal) {
       alert("Por favor, confirma los términos para poder jugar.");
       return;
     }
     if (!userDataInitialized || !nombreJugador || !userId) {
-      setLobbyError("El cliente no está listo. Por favor, espera un momento o recarga la página.");
+      setLobbyError("Tus datos de usuario no están listos. Por favor, espera o recarga.");
       return;
     }
-    console.log(`[LOBBY] Intentando unirse a la mesa "${mesa.nombre}" (${mesa.mesaId})`);
+    console.log(`[LOBBY] Navegando para unirse a la mesa ${mesaId}`);
     setLobbyError(null);
 
     if (isConnected) {
       // No emitimos el evento aquí, la página del juego lo hará.
       // Solo navegamos.
-      router.push(`/juego/${mesa.mesaId}`);
+      router.push(`/juego/${mesaId}`);
     }  else {
       setLobbyError("No estás conectado al servidor. Intentando reconectar...");
       initializeSocketIfNeeded(userId, nombreJugador, userImageUrl || '');
@@ -216,6 +231,13 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
     }, {} as Record<GameMode, EstadoMesaPublicoCliente[]>);
   }, [mesas]);
 
+  const miMesaActual = useMemo(() => {
+    if (!userId || !mesas) return null;
+    // Encuentra la mesa donde el array de jugadores incluye mi ID
+    return mesas.find(mesa => mesa.jugadores.some(j => j.id === userId));
+  }, [mesas, userId]);
+
+
   if (sessionStatus === 'loading' || !userDataInitialized) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -260,6 +282,17 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
           </div>
         </motion.div>
 
+        {miMesaActual && (
+          <motion.div
+            variants={fadeInUp}
+            className="w-full max-w-5xl mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-md text-center"
+          >
+            <p className="text-lg text-blue-800">
+              Actualmente estás en la mesa: <span className="font-bold">{miMesaActual.nombre}</span>.
+            </p>
+          </motion.div>
+        )}
+
         {Object.keys(mesasAgrupadas).length > 0 ? (
           Object.entries(mesasAgrupadas).map(([modo, listaDeMesas]) => (
             <motion.div key={modo} variants={fadeInUp} className="w-full max-w-5xl mb-12">
@@ -290,13 +323,30 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
                           </div>
                         </td>
                         <td className="py-4 px-6 text-right">
-                          <button
-                            onClick={() => handleUnirseAMesa(mesa)}
-                            disabled={mesa.jugadores.length >= mesa.configuracionJuego.maxJugadores}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Unirse
-                          </button>
+                          {miMesaActual?.mesaId === mesa.mesaId ? (
+                            <div className="flex justify-end items-center gap-2">
+                              <button
+                                onClick={() => handleSalirDeMesaDesdeLobby(mesa.mesaId)}
+                                className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition-colors"
+                              >
+                                Salir
+                              </button>
+                              <button
+                                onClick={() => handleRegresarAMesa(mesa.mesaId)}
+                                className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition-colors"
+                              >
+                                Regresar
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleUnirseAMesa(mesa.mesaId)}
+                              disabled={mesa.jugadores.length >= mesa.configuracionJuego.maxJugadores || !!miMesaActual}
+                              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                            >
+                              Unirse
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

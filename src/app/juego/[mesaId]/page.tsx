@@ -464,6 +464,11 @@ export default function JuegoPage() {
     }
   }, [socket, emitEvent]);
 
+  const handleVerLobby = useCallback(() => {
+    // Navegación simple. No reemplaza el historial para poder volver.
+    router.push('/lobby');
+  }, [router]);
+
   const handleSalirDeMesa = useCallback(() => {
     console.log('[CLIENT] Botón "Salir" presionado.');
     // Emitir un evento específico para que el servidor sepa que es una salida intencional
@@ -772,6 +777,7 @@ export default function JuegoPage() {
         finPartidaData={finPartidaData}
         estadoMesaCliente={estadoMesaCliente}
         onPlayAgain={handlePlayAgain} // Pasar la nueva función
+        onVerLobby={handleVerLobby} // Pasar la nueva función para ver el lobby
         onSalirDeMesa={handleSalirDeMesa} // Pasar la nueva función para salir
         mensajeTransicion={mensajeTransicion}
       />

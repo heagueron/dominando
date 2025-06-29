@@ -16,6 +16,7 @@ interface DominoModalsProps {
   finPartidaData: FinDePartidaPayloadCliente | null; // Nuevo prop para el modal de fin de partida
   onPlayAgain: () => void; // NUEVA PROP: Función para manejar el clic en "Jugar de Nuevo"
   onSalirDeMesa: () => void; // NUEVA PROP: Función para manejar el clic en "Salir"
+  onVerLobby: () => void; // NUEVA PROP: Función para ir al lobby sin salir de la mesa
 }
 
 const DominoModals: React.FC<DominoModalsProps> = ({
@@ -27,6 +28,7 @@ const DominoModals: React.FC<DominoModalsProps> = ({
   finPartidaData, // Nuevo prop
   onPlayAgain, // Desestructurar la nueva prop
   onSalirDeMesa, // Desestructurar la nueva prop
+  onVerLobby, // Desestructurar la nueva prop
 }) => {
   // Añadimos un log para ver el payload completo cuando el modal se renderiza
   if (finRondaInfoVisible && finRondaData) {
@@ -248,9 +250,14 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
             <p className="text-xl sm:text-2xl font-bold mb-6">{mensajeTransicion}</p>
-            <button onClick={onSalirDeMesa} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg">
-              Salir de la Mesa
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button onClick={onVerLobby} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg">
+                Ver Lobby
+              </button>
+              <button onClick={onSalirDeMesa} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg">
+                Salir de la Mesa
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
