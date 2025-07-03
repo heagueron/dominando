@@ -65,14 +65,23 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             {/* Fila 2: Ganador y Puntos (Layout condicional) */}
             {isSingleRoundMode ? (
               // Layout para Ronda Única: Ganador centrado
-              <div className="flex flex-col items-center mb-6">
-                <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Ganador</p>
-                <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[250px] truncate">
-                  <p className="text-lg sm:text-xl font-bold text-yellow-900">
-                    {finRondaData.resultadoPayload.nombreGanador || finRondaData.resultadoPayload.ganadorRondaId || 'N/A'}
-                  </p>
+              <>
+                <div className="flex flex-col items-center mb-6">
+                  <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Ganador</p>
+                  <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[250px] truncate">
+                    <p className="text-lg sm:text-xl font-bold text-yellow-900">
+                      {finRondaData.resultadoPayload.nombreGanador || finRondaData.resultadoPayload.ganadorRondaId || 'N/A'}
+                    </p>
+                  </div>
                 </div>
-              </div>
+                {/* Botones de acción para SINGLE_ROUND */}
+                <div className="mt-4">
+                  <button onClick={onPlayAgain} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105 shadow-md mb-3">Jugar de Nuevo</button>
+                  <div className="flex space-x-4">
+                    <button onClick={onSalirDeMesa} className="w-full bg-red-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Salir de la Mesa</button>
+                  </div>
+                </div>
+              </>
             ) : (
               // Layout para Partida Completa: 2 columnas
               <div className="grid grid-cols-2 gap-4 mb-6">
@@ -234,8 +243,13 @@ const DominoModals: React.FC<DominoModalsProps> = ({
 
             {/* Fila 5: Botón "Jugar de Nuevo" */}
             <button onClick={onPlayAgain} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105 shadow-md mb-3">Jugar de Nuevo</button>
-            {/* Fila 6: Botón "Salir" */}
-            <button onClick={onSalirDeMesa} className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Salir al Lobby</button>
+            
+            {/* Fila 6: Botón "Ver Lobby" y "Salir" */}
+            <div className="flex space-x-4">
+              <button onClick={onVerLobby} className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Ver Lobby</button>
+              <button onClick={onSalirDeMesa} className="w-full bg-red-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Salir de la Mesa</button>
+            </div>
+            
           </motion.div>
         </div>
       )}

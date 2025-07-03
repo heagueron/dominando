@@ -427,11 +427,18 @@ export default function JuegoPage() {
       setPlayableFichaIdsStore([]);
     }, DELAY_BEFORE_SHOWING_FIN_RONDA_MODAL_MS);
 
-    if (finRondaDisplayTimerRef.current) clearTimeout(finRondaDisplayTimerRef.current);
-    finRondaDisplayTimerRef.current = setTimeout(() => {
-      setFinRondaInfoVisible(false);
-      // The logic to emit cliente:listoParaMano is now handled by handleEstadoMesaActualizado
-    }, TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE); // Use same duration for now
+    // Solo cerrar automáticamente el modal si NO es SINGLE_ROUND
+    const isSingleRound = currentEstadoMesa?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
+    if (finRondaDisplayTimerRef.current) {
+      clearTimeout(finRondaDisplayTimerRef.current);
+      finRondaDisplayTimerRef.current = null;
+    }
+    if (!isSingleRound) {
+      finRondaDisplayTimerRef.current = setTimeout(() => {
+        setFinRondaInfoVisible(false);
+        // The logic to emit cliente:listoParaMano is now handled by handleEstadoMesaActualizado
+      }, TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE);
+    }
     setManoVersion(prev => prev + 1);
   }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef]);
 
@@ -453,16 +460,39 @@ export default function JuegoPage() {
   // Nueva función para manejar el clic en "Jugar de Nuevo"
   const handlePlayAgain = useCallback(() => {
     console.log('[CLIENT] Botón "Jugar de Nuevo" presionado.');
-    // 1. Cerrar el modal de fin de partida
-    setFinPartidaData(null);
-    // El mensaje de transición ahora se maneja exclusivamente en el useEffect.
-    // 2. Emitir evento al servidor
-    if (socket && miIdJugadorSocketRef.current && authoritativeMesaIdRef.current) {
-      emitEvent('cliente:listoParaSiguientePartida', {
-        mesaId: authoritativeMesaIdRef.current,
-      });
+    // 1. Emitir evento al servidor para indicar que el usuario está listo para la siguiente ronda/partida
+    if (socket && estadoMesaCliente?.mesaId) {
+      const mesaId = estadoMesaCliente.mesaId;
+      const miId = miIdJugadorSocketRef.current;
+      // Si estamos en modo SINGLE_ROUND y la mesa está esperando para siguiente partida, usar el evento correcto
+      if (
+        estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida' &&
+        estadoMesaCliente.partidaActual?.gameMode === GameMode.SINGLE_ROUND &&
+        miId
+      ) {
+        socket.emit('cliente:listoParaSiguientePartida', {
+          mesaId,
+          jugadorId: miId,
+        });
+      } else if (estadoMesaCliente.partidaActual?.rondaActual?.rondaId && miId) {
+        // Para otros modos o si hay ronda activa, usar el evento estándar
+        socket.emit('cliente:listoParaMano', {
+          mesaId,
+          jugadorId: miId,
+          rondaId: estadoMesaCliente.partidaActual.rondaActual.rondaId,
+        });
+      } else {
+        // Fallback mínimo
+        socket.emit('cliente:listoParaMano', {
+          mesaId,
+        });
+      }
     }
-  }, [socket, emitEvent]);
+    // 2. Cerrar el modal de fin de ronda
+    setFinRondaInfoVisible(false);
+    setFinRondaData(null);
+    // 3. Mostrar mensaje de transición (esto lo maneja el useEffect de estadoMesaCliente)
+  }, [socket, estadoMesaCliente]);
 
   const handleVerLobby = useCallback(() => {
     // Navegación simple. No reemplaza el historial para poder volver.
@@ -521,8 +551,12 @@ export default function JuegoPage() {
 
     // Prioridad 1: Modal de Fin de Partida (si está activo, toma el control)
     if (finPartidaData) {
-      setFinRondaInfoVisible(false); // Ocultar modal de fin de ronda
-      setFinRondaData(null); // Limpiar datos de fin de ronda
+      // Solo ocultar el modal de fin de ronda automáticamente si NO es SINGLE_ROUND
+      const isSingleRound = estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
+      if (!isSingleRound) {
+        setFinRondaInfoVisible(false); // Ocultar modal de fin de ronda
+        setFinRondaData(null); // Limpiar datos de fin de ronda
+      }
       setMensajeTransicion(null); // Limpiar mensaje de transición
       if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
       return;
@@ -532,10 +566,18 @@ export default function JuegoPage() {
     if (finRondaInfoVisible) {
       // Asegurarse de que finRondaData sea consistente, de lo contrario ocultar el modal
       if (!finRondaData || rondaActual?.rondaId !== finRondaData.resultadoPayload.rondaId) {
-        setFinRondaInfoVisible(false);
+        // Solo ocultar automáticamente si NO es SINGLE_ROUND
+        const isSingleRound = estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
+        if (!isSingleRound) {
+          setFinRondaInfoVisible(false);
+          setFinRondaData(null);
+        }
         if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
       }
-      setMensajeTransicion(null); // No mostrar mensaje de transición mientras el modal de fin de ronda está visible
+      // Si es SINGLE_ROUND, nunca mostrar mensaje de transición mientras el modal está visible
+      const isSingleRound = estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
+      if (isSingleRound) return;
+      setMensajeTransicion(null);
       return;
     }
 

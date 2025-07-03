@@ -303,7 +303,7 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
                 <table className="w-full text-left">
                   <thead className="bg-gray-50">
                     <tr className="text-gray-500 uppercase text-sm">
-                      <th className="py-3 px-6 font-semibold">Nombre de Mesa</th>
+                      <th className="py-3 px-6 font-semibold">Mesa</th>
                       <th className="py-3 px-6 font-semibold">Jugadores</th>
                       <th className="py-3 px-6 font-semibold text-right">Acción</th>
                     </tr>
@@ -311,7 +311,7 @@ export default function LobbyPageClient({ randomMessage }: LobbyPageClientProps)
                   <tbody className="divide-y divide-gray-200">
                     {listaDeMesas.map(mesa => (
                       <tr key={mesa.mesaId} className="hover:bg-gray-50">
-                        <td className="py-4 px-6 font-medium text-gray-900">{mesa.nombre}</td>
+                        <td className="py-4 px-6 font-medium text-gray-900">{mesa.nombre.replace(/^Mesa\s/, '')}</td>
                         <td className="py-4 px-6 text-gray-600 flex items-center">
                           {`${mesa.jugadores.length} / ${mesa.configuracionJuego.maxJugadores}`}
                           <div className="ml-3 relative group">
