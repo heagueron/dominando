@@ -42,10 +42,13 @@ const DominoModals: React.FC<DominoModalsProps> = ({
     <>
       {/* Modal de Rotar Dispositivo */}
       {showRotateMessage && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.95)', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', zIndex: 10000, padding: '20px' }}>
+        <div id="girar-mobile" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.95)', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', zIndex: 10000, padding: '20px' }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '20px' }}><path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2M10.534 16.5C11.357 19.763 13.048 22 15 22c2.761 0 5-4.477 5-10s-2.239-10-5-10c-.342 0-.677-.069-1 .2"/></svg>
           <h2 style={{ fontSize: '1.5em', marginBottom: '10px' }}>Por favor, rota tu dispositivo</h2>
           <p>Para una mejor experiencia, usa el modo horizontal.</p>
+          <span style={{ position: 'absolute', bottom: '10px', left: '10px', color: 'rgba(255, 255, 255, 0.5)', fontSize: '12px', fontFamily: 'monospace' }}>
+            girar-mobile
+          </span>
         </div>
       )}
 
@@ -53,7 +56,8 @@ const DominoModals: React.FC<DominoModalsProps> = ({
       {finRondaInfoVisible && finRondaData?.resultadoPayload && ( // Asegurarse de que el modal de fin de partida no esté activo
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40 p-4">
           <motion.div
-            className="bg-yellow-50 border-2 border-yellow-500 p-4 sm:p-6 rounded-lg shadow-2xl text-center max-w-lg w-full bg-opacity-30"
+            id="fin-ronda"
+            className="bg-yellow-50 border-2 border-yellow-500 p-4 sm:p-6 rounded-lg shadow-2xl text-center max-w-lg w-full bg-opacity-30 relative"
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}>
@@ -196,6 +200,9 @@ const DominoModals: React.FC<DominoModalsProps> = ({
                     </p>
                 </motion.div>
             )}
+            <span className="absolute bottom-2 left-2 text-xs text-yellow-800 opacity-60 font-mono">
+              fin-ronda
+            </span>
           </motion.div>
         </div>
       )}
@@ -204,7 +211,8 @@ const DominoModals: React.FC<DominoModalsProps> = ({
       {finPartidaData && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <motion.div
-            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md text-center text-gray-800"
+            id="fin-ronda-partida"
+            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md text-center text-gray-800 relative"
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
@@ -249,7 +257,9 @@ const DominoModals: React.FC<DominoModalsProps> = ({
               <button onClick={onVerLobby} className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Ver Lobby</button>
               <button onClick={onSalirDeMesa} className="w-full bg-red-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Salir de la Mesa</button>
             </div>
-            
+            <span className="absolute bottom-2 left-2 text-xs text-gray-500 font-mono">
+              fin-ronda-partida
+            </span>
           </motion.div>
         </div>
       )}
@@ -258,20 +268,21 @@ const DominoModals: React.FC<DominoModalsProps> = ({
       {mensajeTransicion && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 p-4">
           <motion.div
-            className="text-center p-6 sm:p-8 bg-white shadow-xl rounded-lg text-gray-800"
+            id="transicion"
+            className="text-center p-6 sm:p-8 bg-white shadow-xl rounded-lg text-gray-800 relative"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
             <p className="text-xl sm:text-2xl font-bold mb-6">{mensajeTransicion}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button onClick={onVerLobby} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg">
-                Ver Lobby
-              </button>
               <button onClick={onSalirDeMesa} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg">
                 Salir de la Mesa
               </button>
             </div>
+            <span className="absolute bottom-2 left-2 text-xs text-gray-500 font-mono">
+              transicion
+            </span>
           </motion.div>
         </div>
       )}
