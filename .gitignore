@@ -17,6 +17,7 @@
 .DS_Store
 *.pem
 ejemplo.png
+/src/utils/getModalToShow.ts
 
 # debug
 npm-debug.log*
