@@ -291,13 +291,13 @@ export default function JuegoPage() {
       setEstadoMesaClienteStore(payload.estadoMesa);
 
     if (socket?.connected && payload.tuJugadorIdEnPartida && authoritativeMesaIdRef.current) {
-      console.log(`[SOCKET] Cliente ${payload.tuJugadorIdEnPartida} procesó 'teUnisteAMesa'. Emitiendo 'cliente:listoParaMano' para mesa ${authoritativeMesaIdRef.current}`);
-      stableEmitEvent('cliente:listoParaMano', {
+      console.log(`[SOCKET] Cliente ${payload.tuJugadorIdEnPartida} procesó 'teUnisteAMesa'. Emitiendo 'cliente:listoParaJugar' para mesa ${authoritativeMesaIdRef.current}`);
+      stableEmitEvent('cliente:listoParaJugar', {
         mesaId: authoritativeMesaIdRef.current,
         jugadorId: payload.tuJugadorIdEnPartida
       });
     } else {
-      console.warn('[SOCKET] No se pudo emitir cliente:listoParaMano. Socket no conectado o falta información crítica.', {
+      console.warn('[SOCKET] No se pudo emitir cliente:listoParaJugar. Socket no conectado o falta información crítica.', {
         connected: socket?.connected,
         jugadorId: payload.tuJugadorIdEnPartida,
         mesaId: authoritativeMesaIdRef.current
@@ -305,25 +305,9 @@ export default function JuegoPage() {
     }
   }, [setMiIdJugadorSocketStore, setEstadoMesaClienteStore, stableEmitEvent, socket]);
 
-  const emitListoParaManoIfReady = useCallback((mesaState: EstadoMesaPublicoCliente) => {
-    const miId = miIdJugadorSocketRef.current;
-    const mesaId = authoritativeMesaIdRef.current;
-
-    if (mesaState?.partidaActual?.gameMode === GameMode.FULL_GAME &&
-        mesaState.partidaActual.estadoPartida === 'rondaTerminadaEsperandoSiguiente' &&
-        miId && mesaId) {
-      console.log('[CLIENT] Estado de partida es "rondaTerminadaEsperandoSiguiente". Señalando listo para la próxima ronda.');
-      stableEmitEvent('cliente:listoParaMano', {
-        mesaId: mesaId,
-        jugadorId: miId
-      });
-    }
-  }, [stableEmitEvent]);
-
   const handleEstadoMesaActualizado = useCallback((payload: { estadoMesa: EstadoMesaPublicoCliente }) => {
     setEstadoMesaClienteStore(payload.estadoMesa);
-    emitListoParaManoIfReady(payload.estadoMesa); // Emit listoParaMano based on the new state
-  }, [setEstadoMesaClienteStore, emitListoParaManoIfReady]);
+  }, [setEstadoMesaClienteStore]);
 
   const handleTuMano = useCallback((payload: TuManoPayloadCliente) => {
     console.log(`[SOCKET] Evento servidor:tuMano recibido. Payload:`, payload);
@@ -460,38 +444,24 @@ export default function JuegoPage() {
   // Nueva función para manejar el clic en "Jugar de Nuevo"
   const handlePlayAgain = useCallback(() => {
     console.log('[CLIENT] Botón "Jugar de Nuevo" presionado.');
-    // 1. Emitir evento al servidor para indicar que el usuario está listo para la siguiente ronda/partida
-    if (socket && estadoMesaCliente?.mesaId) {
+    if (socket && estadoMesaCliente?.mesaId && miIdJugadorSocketRef.current) {
       const mesaId = estadoMesaCliente.mesaId;
       const miId = miIdJugadorSocketRef.current;
-      // Si estamos en modo SINGLE_ROUND y la mesa está esperando para siguiente partida, usar el evento correcto
-      if (
-        estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida' &&
-        estadoMesaCliente.partidaActual?.gameMode === GameMode.SINGLE_ROUND &&
-        miId
-      ) {
-        socket.emit('cliente:listoParaSiguientePartida', {
-          mesaId,
-          jugadorId: miId,
-        });
-      } else if (estadoMesaCliente.partidaActual?.rondaActual?.rondaId && miId) {
-        // Para otros modos o si hay ronda activa, usar el evento estándar
-        socket.emit('cliente:listoParaMano', {
-          mesaId,
-          jugadorId: miId,
-          rondaId: estadoMesaCliente.partidaActual.rondaActual.rondaId,
-        });
-      } else {
-        // Fallback mínimo
-        socket.emit('cliente:listoParaMano', {
-          mesaId,
-        });
-      }
+      
+      socket.emit('cliente:listoParaJugar', {
+        mesaId,
+        jugadorId: miId,
+      });
+
+      // Ocultar modales y mostrar mensaje de transición
+      setFinRondaInfoVisible(false);
+      setFinRondaData(null);
+      setFinPartidaData(null); // También cerrar el modal de fin de partida si estuviera abierto
+      setMensajeTransicion("Esperando a los demás jugadores...");
+
+    } else {
+      console.warn('[CLIENT] No se pudo emitir listoParaJugar: falta información esencial (socket, mesaId, o jugadorId).');
     }
-    // 2. Cerrar el modal de fin de ronda
-    setFinRondaInfoVisible(false);
-    setFinRondaData(null);
-    // 3. Mostrar mensaje de transición (esto lo maneja el useEffect de estadoMesaCliente)
   }, [socket, estadoMesaCliente]);
 
   const handleVerLobby = useCallback(() => {
