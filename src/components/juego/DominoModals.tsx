@@ -1,5 +1,5 @@
 // DominoModals.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 // Importar tipos desde el nuevo archivo centralizado
 import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, FinDePartidaPayloadCliente, GameMode } from '@/types/domino';
@@ -38,6 +38,30 @@ const DominoModals: React.FC<DominoModalsProps> = ({
 
   const isSingleRoundMode = estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
   const isTrancado = finRondaData?.resultadoPayload.tipoFinRonda === 'trancado';
+
+  // Estado y efecto para la barra regresiva del modal de transición
+  const [transitionTimer, setTransitionTimer] = useState<number | null>(null);
+  const transitionTimerActive = Boolean(mensajeTransicion && estadoMesaCliente?.reinicioTimerRemainingSeconds !== undefined && estadoMesaCliente.reinicioTimerRemainingSeconds > 0);
+
+  useEffect(() => {
+    if (transitionTimerActive) {
+      const initial = typeof estadoMesaCliente?.reinicioTimerRemainingSeconds === 'number' ? estadoMesaCliente.reinicioTimerRemainingSeconds : 20;
+      setTransitionTimer(initial);
+      const interval = setInterval(() => {
+        setTransitionTimer(prev => {
+          if (prev === null) return null;
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setTransitionTimer(null);
+    }
+  }, [transitionTimerActive, estadoMesaCliente?.reinicioTimerRemainingSeconds, mensajeTransicion]);
 
   return (
     <>
@@ -278,11 +302,11 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             <p className="text-xl sm:text-2xl font-bold mb-6">
               {mensajeTransicion}
             </p>
-            {estadoMesaCliente?.reinicioTimerRemainingSeconds !== undefined && estadoMesaCliente.reinicioTimerRemainingSeconds > 0 && (
+            {transitionTimer !== null && transitionTimer > 0 && (
               <div className="w-full px-4 mb-4">
                 <ProgressTimerBar
-                  tiempoRestante={estadoMesaCliente.reinicioTimerRemainingSeconds}
-                  duracionTotal={20} // Asumimos 20 segundos como duración total del temporizador de reinicio
+                  tiempoRestante={transitionTimer}
+                  duracionTotal={20}
                 />
               </div>
             )}

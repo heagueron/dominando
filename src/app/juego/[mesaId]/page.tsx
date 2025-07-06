@@ -561,9 +561,6 @@ export default function JuegoPage() {
     } else if (estadoMesaCliente.estadoGeneralMesa === 'esperandoParaSiguientePartida') {
       // Este estado se alcanza después de que una partida completa termina y se presiona "Jugar de Nuevo".
       newMensajeTransicion = "Esperando a otros jugadores para iniciar una nueva partida...";
-      if (estadoMesaCliente.reinicioTimerRemainingSeconds !== undefined && estadoMesaCliente.reinicioTimerRemainingSeconds > 0) {
-        newMensajeTransicion += ` (${estadoMesaCliente.reinicioTimerRemainingSeconds}s)`;
-      }
       if (finRondaInfoVisible) setFinRondaInfoVisible(false);
       if (finRondaDisplayTimerRef.current) { clearTimeout(finRondaDisplayTimerRef.current); finRondaDisplayTimerRef.current = null; }
     }
@@ -571,9 +568,6 @@ export default function JuegoPage() {
       // Este es el estado inicial del lobby o si los jugadores se fueron y el juego está esperando más
       if (estadoMesaCliente.jugadores.length < estadoMesaCliente.configuracionJuego.maxJugadores) {
         newMensajeTransicion = "Esperando a otros jugadores para iniciar la partida...";
-        if (estadoMesaCliente.reinicioTimerRemainingSeconds !== undefined && estadoMesaCliente.reinicioTimerRemainingSeconds > 0) {
-          newMensajeTransicion += ` (${estadoMesaCliente.reinicioTimerRemainingSeconds}s)`;
-        }
       } else {
         // Si está en estado 'esperandoJugadores' pero hay suficientes jugadores, limpiar el mensaje
         newMensajeTransicion = null;
@@ -601,6 +595,9 @@ export default function JuegoPage() {
       setPlayableFichaIdsStore([]);
     }
   }, [esMiTurnoFromRondaHook, rondaEnProgresoFromRondaHook, finRondaInfoVisible, playableFichaIdsFromStore, setPlayableFichaIdsStore]);
+
+  // Efecto para manejar el temporizador de reinicio localmente
+  // Eliminado: ya no se usa setLocalReinicioTimer ni localReinicioTimer
 
   useEffect(() => {
     if (finRondaInfoVisible && finRondaData?.resultadoPayload) {
@@ -798,6 +795,7 @@ export default function JuegoPage() {
         onVerLobby={handleVerLobby} // Pasar la nueva función para ver el lobby
         onSalirDeMesa={handleSalirDeMesa} // Pasar la nueva función para salir
         mensajeTransicion={mensajeTransicion}
+        // reinicioTimerRemainingSeconds={localReinicioTimer} // Eliminado: no es prop de DominoModals
       />
     </div>
   );
