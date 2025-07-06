@@ -5,6 +5,7 @@ import { FichaDomino as TipoFichaDomino } from '@/utils/dominoUtils';
 import SpeechBubble, { BubbleDirection } from '@/components/jugador/SpeechBubble'; // Importar SpeechBubble
 import UserAvatar from '@/components/jugador/UserAvatar';
 import React from 'react';
+import ProgressTimerBar from '@/components/common/ProgressTimerBar';
 
 interface ContenedorInfoJugadorProps {
   nombreJugador?: string;
@@ -128,7 +129,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
                 <p className="text-xxs sm:text-xs text-gray-300">Puntos: {puntosPartidaActual}</p>
               )}
               {mostrarBarra && tiempoRestante !== null && duracionTotalTurno && (
-                <BarraProgresoTurno tiempoRestante={tiempoRestante} duracionTotalTurno={duracionTotalTurno} />
+                <ProgressTimerBar tiempoRestante={tiempoRestante} duracionTotal={duracionTotalTurno} />
               )}
             </div>
             {/* La llamada a renderFichasRestantes se elimina de aquí */}

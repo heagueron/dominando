@@ -3,6 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 // Importar tipos desde el nuevo archivo centralizado
 import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, FinDePartidaPayloadCliente, GameMode } from '@/types/domino';
+import ProgressTimerBar from '@/components/common/ProgressTimerBar';
 
 interface DominoModalsProps {
   showRotateMessage: boolean;
@@ -274,7 +275,17 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            <p className="text-xl sm:text-2xl font-bold mb-6">{mensajeTransicion}</p>
+            <p className="text-xl sm:text-2xl font-bold mb-6">
+              {mensajeTransicion}
+            </p>
+            {estadoMesaCliente?.reinicioTimerRemainingSeconds !== undefined && estadoMesaCliente.reinicioTimerRemainingSeconds > 0 && (
+              <div className="w-full px-4 mb-4">
+                <ProgressTimerBar
+                  tiempoRestante={estadoMesaCliente.reinicioTimerRemainingSeconds}
+                  duracionTotal={20} // Asumimos 20 segundos como duración total del temporizador de reinicio
+                />
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={onSalirDeMesa} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-md hover:shadow-lg">
                 Salir de la Mesa

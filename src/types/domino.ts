@@ -108,6 +108,7 @@ export interface EstadoMesaPublicoCliente {
   estadoGeneralMesa: 'esperandoJugadores' | 'partidaEnProgreso' | 'esperandoParaSiguientePartida' | 'configurandoNuevaPartida' | 'transicionNuevaRonda';
   creadorMesaId: string;
   partidaActual?: EstadoPartidaPublicoCliente;
+  reinicioTimerRemainingSeconds?: number; // Tiempo restante del temporizador de reinicio en segundos
 }
 
 export interface TeUnisteAMesaPayloadCliente {
