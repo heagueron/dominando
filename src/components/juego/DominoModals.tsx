@@ -41,7 +41,12 @@ const DominoModals: React.FC<DominoModalsProps> = ({
 
   // Estado y efecto para la barra regresiva del modal de transición
   const [transitionTimer, setTransitionTimer] = useState<number | null>(null);
-  const transitionTimerActive = Boolean(mensajeTransicion && estadoMesaCliente?.reinicioTimerRemainingSeconds !== undefined && estadoMesaCliente.reinicioTimerRemainingSeconds > 0);
+  const transitionTimerActive = Boolean(
+    mensajeTransicion &&
+    estadoMesaCliente?.reinicioTimerRemainingSeconds !== undefined &&
+    estadoMesaCliente.reinicioTimerRemainingSeconds > 0 &&
+    estadoMesaCliente?.jugadores && estadoMesaCliente.jugadores.length >= 2 // Solo mostrar barra si hay 2 o más jugadores
+  );
 
   useEffect(() => {
     if (transitionTimerActive) {
@@ -302,7 +307,7 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             <p className="text-xl sm:text-2xl font-bold mb-6">
               {mensajeTransicion}
             </p>
-            {transitionTimer !== null && transitionTimer > 0 && (
+            {transitionTimer !== null && transitionTimer > 0 && estadoMesaCliente?.jugadores && estadoMesaCliente.jugadores.length >= 2 && (
               <div className="w-full px-4 mb-4">
                 <ProgressTimerBar
                   tiempoRestante={transitionTimer}
