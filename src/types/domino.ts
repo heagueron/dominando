@@ -21,6 +21,15 @@ export enum Currency {
 
 // --- Fin Nuevos Enums ---
 
+// Estado de un jugador en la mesa (debe coincidir con el backend)
+export type EstadoJugadorEnMesa =
+  | 'ListoParaJugar'
+  | 'Jugando'
+  | 'Ausente'
+  | 'EsperandoPuesto'
+  | 'Observando'
+  | 'Desconectado';
+
 export interface JugadorCliente {
   idJugador: string;
   nombre?: string;
@@ -43,6 +52,7 @@ export interface JugadorPublicoInfoCliente {
   listoParaMano?: boolean; // Añadido para consistencia con el servidor
   image?: string; // Añadido para la URL del avatar del jugador
   seatIndex?: number; // Añadido para la posición en la mesa
+  estadoJugadorEnMesa: EstadoJugadorEnMesa; // Nuevo: estado del jugador en la mesa
 }
 
 export interface ExtremoDetalladoCliente {

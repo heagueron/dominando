@@ -487,6 +487,49 @@ export default function JuegoPage() {
     console.error('[SOCKET] Error de partida/mesa:', payload.mensaje);
   }, []);
 
+  // --- Lógica para botón "Volver" si el jugador está Ausente ---
+  const handleVolverDeAusencia = useCallback(() => {
+    if (!socket || !estadoMesaCliente || !miIdJugadorSocketFromStore) return;
+    setVolverLoading(true);
+    socket.emit('cliente:volverDeAusencia', {
+      mesaId: estadoMesaCliente.mesaId,
+      jugadorId: miIdJugadorSocketFromStore,
+    });
+  }, [socket, estadoMesaCliente, miIdJugadorSocketFromStore]);
+
+  const [volverLoading, setVolverLoading] = useState(false);
+  const isJugadorAusente = useMemo(() => {
+    if (!estadoMesaCliente || !miIdJugadorSocketFromStore) return false;
+    const jugador = estadoMesaCliente.jugadores.find(j => j.id === miIdJugadorSocketFromStore);
+    return jugador?.estadoJugadorEnMesa === 'Ausente';
+  }, [estadoMesaCliente, miIdJugadorSocketFromStore]);
+
+  useEffect(() => {
+    // Si el jugador ya no está ausente, quitar loading
+    if (!isJugadorAusente && volverLoading) setVolverLoading(false);
+  }, [isJugadorAusente, volverLoading]);
+
+  // Log cuando el jugador local es marcado como 'Ausente'
+  useEffect(() => {
+    if (isJugadorAusente) {
+      console.warn('[AUSENCIA] El jugador local ha sido marcado como "Ausente". No puede jugar hasta presionar "Volver".');
+    }
+  }, [isJugadorAusente]);
+
+  const handleJugadorExpulsadoPorAusencia = useCallback((payload: { jugadorId: string, nombre: string, seatIndex?: number, motivo: string }) => {
+    // Si el jugador local fue expulsado, no hacer nada aquí (el handler de 'expulsadoPorAusencia' se encarga)
+    if (payload.jugadorId === miIdJugadorSocketRef.current) return;
+    // Opcional: mostrar un mensaje/log en UI
+    console.warn(`[EXPULSIÓN] Jugador expulsado por ausencia: ${payload.nombre} (${payload.jugadorId})`);
+    // Aquí podrías mostrar un toast o mensaje en la UI si lo deseas
+  }, []);
+
+  const handleExpulsadoPorAusencia = useCallback(() => {
+    // El jugador local fue expulsado: navegar al lobby inmediatamente
+    console.warn('[EXPULSIÓN] Has sido expulsado de la mesa por ausencia. Navegando al lobby.');
+    router.replace('/lobby');
+  }, [router]);
+
   useEffect(() => {
     if (!socket || !isConnected) return;
     const eventHandlers = {
@@ -498,13 +541,16 @@ export default function JuegoPage() {
       'servidor:finDeRonda': handleFinDeRonda,
       'servidor:finDePartida': handleFinDePartida,
       'servidor:errorDePartida': handleErrorDePartida,
+      'servidor:jugadorExpulsadoPorAusencia': handleJugadorExpulsadoPorAusencia,
+      'servidor:expulsadoPorAusencia': handleExpulsadoPorAusencia,
     };
     registerEventHandlers(eventHandlers);
     return () => unregisterEventHandlers(Object.keys(eventHandlers));
   }, [
     socket, isConnected, registerEventHandlers, unregisterEventHandlers,
     handleTeUnisteAMesa, handleEstadoMesaActualizado, handleTuMano,
-    handleTuManoActualizada, handleTuTurno, handleFinDeRonda, handleFinDePartida, handleErrorDePartida
+    handleTuManoActualizada, handleTuTurno, handleFinDeRonda, handleFinDePartida, handleErrorDePartida,
+    handleJugadorExpulsadoPorAusencia, handleExpulsadoPorAusencia
   ]);
 
   useEffect(() => {
@@ -726,6 +772,17 @@ export default function JuegoPage() {
         {estadoMesaCliente?.nombre || 'Cargando...'}
       </div>
 
+      {/* Botón Volver si el jugador está Ausente */}
+      {isJugadorAusente && (
+        <button
+          onClick={handleVolverDeAusencia}
+          disabled={volverLoading}
+          className="fixed top-2 right-16 z-50 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg animate-pulse disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {volverLoading ? 'Reincorporando...' : 'Volver'}
+        </button>
+      )}
+
       <button
         onClick={toggleFullscreen}
         className="fixed top-2 right-2 z-50 p-2 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
@@ -746,7 +803,8 @@ export default function JuegoPage() {
           miIdJugador={miIdJugadorSocketRef.current}
         />
 
-        {miIdJugadorSocketRef.current && manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current) && (
+        {/* Solo mostrar la mano del jugador local si NO está Ausente */}
+        {miIdJugadorSocketRef.current && manosJugadoresFromStore.find(m => m.idJugador === miIdJugadorSocketRef.current) && !isJugadorAusente && (
            <motion.div
             className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-x-2 px-2 pb-1"
             initial={{ y: 150 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 260, damping: 25 }}
@@ -786,7 +844,8 @@ export default function JuegoPage() {
       />
 
       <DominoModals
-        showRotateMessage={showRotateMessage} // Restaurado para usar el estado
+        showRotateMessage={showRotateMessage // Restaurado para usar el estado
+        }
         finRondaInfoVisible={finRondaInfoVisible}
         finRondaData={finRondaData ? { resultadoPayload: finRondaData.resultadoPayload } : null}
         finPartidaData={finPartidaData}
