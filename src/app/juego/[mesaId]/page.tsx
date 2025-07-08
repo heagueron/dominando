@@ -774,13 +774,16 @@ export default function JuegoPage() {
 
       {/* Botón Volver si el jugador está Ausente */}
       {isJugadorAusente && (
-        <button
-          onClick={handleVolverDeAusencia}
-          disabled={volverLoading}
-          className="fixed top-2 right-16 z-50 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg animate-pulse disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {volverLoading ? 'Reincorporando...' : 'Volver'}
-        </button>
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-6 pointer-events-none">
+          <button
+            onClick={handleVolverDeAusencia}
+            disabled={volverLoading}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg animate-pulse disabled:opacity-60 disabled:cursor-not-allowed pointer-events-auto"
+            style={{ minWidth: 120 }}
+          >
+            {volverLoading ? 'Reincorporando...' : 'Volver'}
+          </button>
+        </div>
       )}
 
       <button
