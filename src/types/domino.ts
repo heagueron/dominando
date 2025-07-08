@@ -144,17 +144,22 @@ export interface TuTurnoPayloadCliente {
   playableFichaIds: string[];
 }
 
+// Estructura para el desglose de puntos de un jugador en la partida (debe coincidir con el backend)
+export interface PuntuacionJugadorEnPartida {
+  jugadorId: string;
+  nombre: string;
+  puntosPrevios: number;
+  puntosRonda: number;
+  puntosAcumulados: number;
+}
+
 export interface FinDeRondaPayloadCliente {
   rondaId: string;
   partidaId: string;
   ganadorRondaId?: string;
   nombreGanador?: string;
   tipoFinRonda: 'domino' | 'trancado';
-  detalleAdicional?: string;
-  puntuaciones?: {
-    jugadorId: string;
-    puntos: number;
-  }[];
+  puntuaciones: PuntuacionJugadorEnPartida[]; // Array estructurado con todas las puntuaciones
   manosFinales?: {
     jugadorId: string;
     fichas: FichaDomino[];
@@ -164,8 +169,6 @@ export interface FinDeRondaPayloadCliente {
   fichasDerecha?: FichaEnMesaParaLogica[];
   extremos?: { izquierda: number | null; derecha: number | null };
   puntosGanadosEstaRonda?: number;
-  puntuacionesPartidaActualizadas?: { jugadorId: string, puntos: number }[]; // Accumulated scores for the full game
-  puntuacionesPartidaPrevias?: { jugadorId: string, puntos: number }[]; // Accumulated scores before this round
 }
 
 export interface FinDePartidaPayloadCliente {

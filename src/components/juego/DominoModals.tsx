@@ -165,16 +165,13 @@ const DominoModals: React.FC<DominoModalsProps> = ({
                                     </thead>
                                     <tbody>
                                         {finRondaData.resultadoPayload.puntuaciones
-                                            .sort((a, b) => a.puntos - b.puntos) // Sort by points ascending for block
-                                            .map(score => {
-                                                const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === score.jugadorId);
-                                                return (
-                                                    <tr key={score.jugadorId} className="border-t border-yellow-200">
-                                                        <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{jugadorInfo?.nombre || score.jugadorId}</td>
-                                                        <td className="py-2 px-3 text-right text-gray-900 font-bold">{score.puntos}</td>
-                                                    </tr>
-                                                );
-                                            })}
+                                            .sort((a, b) => a.puntosAcumulados - b.puntosAcumulados) // Sort by points ascending for block
+                                            .map(score => (
+                                                <tr key={score.jugadorId} className="border-t border-yellow-200">
+                                                    <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{score.nombre}</td>
+                                                    <td className="py-2 px-3 text-right font-bold text-gray-900">{score.puntosAcumulados}</td>
+                                                </tr>
+                                            ))}
                                     </tbody>
                                 </table>
                             </div>
@@ -182,31 +179,29 @@ const DominoModals: React.FC<DominoModalsProps> = ({
                             <p className="text-yellow-700">No hay puntuaciones de ronda disponibles.</p>
                         )
                     ) : (
-                        // Table for FULL_GAME (Jugador, Previos, Total) - current implementation
-                        (finRondaData.resultadoPayload.puntuacionesPartidaActualizadas && finRondaData.resultadoPayload.puntuacionesPartidaActualizadas.length > 0) ? (
+                        // Table for FULL_GAME (Jugador, Previos, Ronda, Total)
+                        (finRondaData.resultadoPayload.puntuaciones && finRondaData.resultadoPayload.puntuaciones.length > 0) ? (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full bg-yellow-100 border border-yellow-300 rounded-lg text-sm sm:text-base">
                                     <thead>
                                         <tr className="bg-yellow-200 text-yellow-800">
                                             <th className="py-2 px-3 text-left">Jugador</th>
                                             <th className="py-2 px-3 text-right">Previos</th>
+                                            <th className="py-2 px-3 text-right">Ronda</th>
                                             <th className="py-2 px-3 text-right">Total</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {finRondaData.resultadoPayload.puntuacionesPartidaActualizadas
-                                            .sort((a, b) => b.puntos - a.puntos) // Sort by total points descending
-                                            .map(currentScore => {
-                                                const jugadorInfo = estadoMesaCliente?.jugadores.find(j => j.id === currentScore.jugadorId);
-                                                const previousScore = finRondaData.resultadoPayload.puntuacionesPartidaPrevias?.find(p => p.jugadorId === currentScore.jugadorId)?.puntos ?? 0;
-                                                return (
-                                                    <tr key={currentScore.jugadorId} className="border-t border-yellow-200">
-                                                        <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{jugadorInfo?.nombre || currentScore.jugadorId}</td>
-                                                        <td className="py-2 px-3 text-right text-gray-900">{previousScore}</td>
-                                                        <td className="py-2 px-3 text-right font-bold text-gray-900">{currentScore.puntos}</td>
-                                                    </tr>
-                                                );
-                                            })}
+                                        {finRondaData.resultadoPayload.puntuaciones
+                                            .sort((a, b) => b.puntosAcumulados - a.puntosAcumulados) // Sort by total points descending
+                                            .map(score => (
+                                                <tr key={score.jugadorId} className="border-t border-yellow-200">
+                                                    <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{score.nombre}</td>
+                                                    <td className="py-2 px-3 text-right text-gray-900">{score.puntosPrevios}</td>
+                                                    <td className="py-2 px-3 text-right text-gray-900">{score.puntosRonda}</td>
+                                                    <td className="py-2 px-3 text-right font-bold text-gray-900">{score.puntosAcumulados}</td>
+                                                </tr>
+                                            ))}
                                     </tbody>
                                 </table>
                             </div>
