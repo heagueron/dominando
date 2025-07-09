@@ -146,7 +146,7 @@ export const useDominoStore = create<DominoStoreState>((set, get) => ({
       // BUG_HUNT: Logging para el bug de jugada inválida
       if (eventName === 'cliente:jugarFicha') {
         const { miIdJugadorSocket, estadoMesaCliente, manosJugadores, playableFichaIds } = get();
-        const miMano = manosJugadores.find(j => j.id === miIdJugadorSocket);
+        const miMano = manosJugadores.find(j => j.idJugador === miIdJugadorSocket);
         const miEstado = estadoMesaCliente?.jugadores.find(j => j.id === miIdJugadorSocket);
 
         const logData = {

@@ -1,6 +1,7 @@
 // DominoModals.tsx
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { calcularPuntosMano } from '@/utils/dominoUtils';
 // Importar tipos desde el nuevo archivo centralizado
 import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, FinDePartidaPayloadCliente, GameMode } from '@/types/domino';
 import ProgressTimerBar from '@/components/common/ProgressTimerBar';
@@ -153,30 +154,40 @@ const DominoModals: React.FC<DominoModalsProps> = ({
 
                     {/* Fila 5: Tabla de Puntos (condicional según el modo de juego) */}
                     {isSingleRoundMode ? (
-                        // Table for SINGLE_ROUND (Jugador, Total)
-                        (finRondaData.resultadoPayload.puntuaciones && finRondaData.resultadoPayload.puntuaciones.length > 0) ? (
+                        // Table for SINGLE_ROUND (Jugador, Total) - Using manosFinales for 'trancado'
+                        (finRondaData.resultadoPayload.manosFinales && finRondaData.resultadoPayload.manosFinales.length > 0) ? (
                             <div className="overflow-x-auto">
                                 <table className="min-w-full bg-yellow-100 border border-yellow-300 rounded-lg text-sm sm:text-base">
                                     <thead>
                                         <tr className="bg-yellow-200 text-yellow-800">
                                             <th className="py-2 px-3 text-left">Jugador</th>
-                                            <th className="py-2 px-3 text-right">Total</th>
+                                            <th className="py-2 px-3 text-right">Puntos</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {finRondaData.resultadoPayload.puntuaciones
-                                            .sort((a, b) => a.puntosAcumulados - b.puntosAcumulados) // Sort by points ascending for block
+                                        {finRondaData.resultadoPayload.manosFinales
+                                            .map(mano => {
+                                                // Buscar la info del jugador en el array de puntuaciones, que sí contiene los nombres
+                                                const jugadorInfo = finRondaData.resultadoPayload.puntuaciones.find(p => p.jugadorId === mano.jugadorId);
+                                                const puntos = calcularPuntosMano(mano.fichas);
+                                                return {
+                                                    jugadorId: mano.jugadorId,
+                                                    nombre: jugadorInfo?.nombre || mano.jugadorId, // Usar el nombre encontrado o el ID como fallback
+                                                    puntos: puntos,
+                                                };
+                                            })
+                                            .sort((a, b) => a.puntos - b.puntos) // Sort by points ascending for block
                                             .map(score => (
                                                 <tr key={score.jugadorId} className="border-t border-yellow-200">
                                                     <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{score.nombre}</td>
-                                                    <td className="py-2 px-3 text-right font-bold text-gray-900">{score.puntosAcumulados}</td>
+                                                    <td className="py-2 px-3 text-right font-bold text-gray-900">{score.puntos}</td>
                                                 </tr>
                                             ))}
                                     </tbody>
                                 </table>
                             </div>
                         ) : (
-                            <p className="text-yellow-700">No hay puntuaciones de ronda disponibles.</p>
+                            <p className="text-yellow-700">No hay información de manos finales disponible.</p>
                         )
                     ) : (
                         // Table for FULL_GAME (Jugador, Previos, Ronda, Total)
