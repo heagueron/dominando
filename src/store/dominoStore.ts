@@ -143,6 +143,27 @@ export const useDominoStore = create<DominoStoreState>((set, get) => ({
   emitEvent: <T>(eventName: string, payload: T) => {
     const { socket, isConnected } = get();
     if (socket && isConnected) {
+      // BUG_HUNT: Logging para el bug de jugada inválida
+      if (eventName === 'cliente:jugarFicha') {
+        const { miIdJugadorSocket, estadoMesaCliente, manosJugadores, playableFichaIds } = get();
+        const miMano = manosJugadores.find(j => j.id === miIdJugadorSocket);
+        const miEstado = estadoMesaCliente?.jugadores.find(j => j.id === miIdJugadorSocket);
+
+        const logData = {
+          evento: 'cliente:pre-jugarFicha',
+          timestamp: new Date().toISOString(),
+          payload,
+          estadoCliente: {
+            miIdJugadorSocket,
+            turnoActual: estadoMesaCliente?.partidaActual?.rondaActual?.currentPlayerId,
+            extremosMesa: estadoMesaCliente?.partidaActual?.rondaActual?.extremos,
+            estadoJugador: miEstado?.estadoJugadorEnMesa,
+            manoLength: miMano?.numFichas,
+            playableFichaIds,
+          }
+        };
+        console.log(`BUG_HUNT_CLIENTE: ${JSON.stringify(logData)}`);
+      }
       socket.emit(eventName, payload);
     } else {
       console.error(`[DOMINO_STORE] No se puede emitir evento '${eventName}': socket no conectado o no inicializado.`);
