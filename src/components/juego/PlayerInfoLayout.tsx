@@ -79,40 +79,52 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = React.memo(({
     const jugadoresConSeatAsignado = manosJugadores.filter(j => 
       typeof j.seatIndex === 'number'
     );
-    console.log('[PlayerInfoLayout useMemo] jugadoresConSeatAsignado (filtrados de manosJugadores):', JSON.stringify(jugadoresConSeatAsignado.map(j => ({id: j.idJugador, seatIndex: j.seatIndex, nombre: j.nombre}))));
+    //console.log('[PlayerInfoLayout useMemo] jugadoresConSeatAsignado (filtrados de manosJugadores):', JSON.stringify(jugadoresConSeatAsignado.map(j => ({id: j.idJugador, seatIndex: j.seatIndex, nombre: j.nombre}))));
     
     const numTotalJugadoresEnPartida = jugadoresConSeatAsignado.length;
-    console.log('[PlayerInfoLayout useMemo] numTotalJugadoresEnPartida:', numTotalJugadoresEnPartida);
+    //console.log('[PlayerInfoLayout useMemo] numTotalJugadoresEnPartida:', numTotalJugadoresEnPartida);
 
     const miJugadorInfo = jugadoresConSeatAsignado.find(j => j.idJugador === miIdJugadorSocket);
-    console.log('[PlayerInfoLayout useMemo] miJugadorInfo (encontrado en jugadoresConSeatAsignado):', miJugadorInfo ? JSON.stringify({id: miJugadorInfo.idJugador, seatIndex: miJugadorInfo.seatIndex, nombre: miJugadorInfo.nombre}) : 'No encontrado');
+    //console.log('[PlayerInfoLayout useMemo] miJugadorInfo (encontrado en jugadoresConSeatAsignado):', miJugadorInfo ? JSON.stringify({id: miJugadorInfo.idJugador, seatIndex: miJugadorInfo.seatIndex, nombre: miJugadorInfo.nombre}) : 'No encontrado');
     
     const miSeatIndex = miJugadorInfo?.seatIndex;
-    console.log('[PlayerInfoLayout useMemo] miSeatIndex:', miSeatIndex);
+    //console.log('[PlayerInfoLayout useMemo] miSeatIndex:', miSeatIndex);
 
     if (miJugadorInfo && typeof miSeatIndex === 'number' && numTotalJugadoresEnPartida > 0) {
       posiciones.abajo = miJugadorInfo;
-      console.log('[PlayerInfoLayout useMemo] Jugador local asignado a "abajo":', JSON.stringify(miJugadorInfo));
+      //console.log('[PlayerInfoLayout useMemo] Jugador local asignado a "abajo":', JSON.stringify(miJugadorInfo));
 
       const otrosJugadores = jugadoresConSeatAsignado.filter(j => j.idJugador !== miIdJugadorSocket);
-      console.log('[PlayerInfoLayout useMemo] otrosJugadores (para posicionar):', JSON.stringify(otrosJugadores.map(j => ({id: j.idJugador, seatIndex: j.seatIndex, nombre: j.nombre}))));
+      //console.log('[PlayerInfoLayout useMemo] otrosJugadores (para posicionar):', JSON.stringify(otrosJugadores.map(j => ({id: j.idJugador, seatIndex: j.seatIndex, nombre: j.nombre}))));
 
       otrosJugadores.sort((a, b) => (a.seatIndex ?? Infinity) - (b.seatIndex ?? Infinity));
 
       otrosJugadores.forEach(jugador => {
         if (typeof jugador.seatIndex === 'number') {
           const diff = (jugador.seatIndex - miSeatIndex + numTotalJugadoresEnPartida) % numTotalJugadoresEnPartida;
-          console.log(`[PlayerInfoLayout useMemo] Procesando otro jugador: ${jugador.nombre}, seatIndex: ${jugador.seatIndex}, diff con miSeatIndex (${miSeatIndex}): ${diff}`);
+          //console.log(`[PlayerInfoLayout useMemo] Procesando otro jugador: ${jugador.nombre}, seatIndex: ${jugador.seatIndex}, diff con miSeatIndex (${miSeatIndex}): ${diff}`);
           
           if (numTotalJugadoresEnPartida === 2) {
-            if (diff === 1) { posiciones.arriba = jugador; console.log(`  Asignado a "arriba"`); }
+            if (diff === 1) { posiciones.arriba = jugador; //console.log(`  Asignado a "arriba"`); 
+
+            }
           } else if (numTotalJugadoresEnPartida === 3) {
-            if (diff === 1) { posiciones.izquierda = jugador; console.log(`  Asignado a "izquierda"`); }
-            else if (diff === 2) { posiciones.derecha = jugador; console.log(`  Asignado a "derecha"`); }
+            if (diff === 1) { posiciones.izquierda = jugador; //console.log(`  Asignado a "izquierda"`); 
+
+            }
+            else if (diff === 2) { posiciones.derecha = jugador; //console.log(`  Asignado a "derecha"`); 
+
+            }
           } else if (numTotalJugadoresEnPartida === 4) {
-            if (diff === 1) { posiciones.izquierda = jugador; console.log(`  Asignado a "izquierda"`); }
-            else if (diff === 2) { posiciones.arriba = jugador; console.log(`  Asignado a "arriba"`); }
-            else if (diff === 3) { posiciones.derecha = jugador; console.log(`  Asignado a "derecha"`); }
+            if (diff === 1) { posiciones.izquierda = jugador; //console.log(`  Asignado a "izquierda"`); 
+
+            }
+            else if (diff === 2) { posiciones.arriba = jugador; //console.log(`  Asignado a "arriba"`); 
+
+            }
+            else if (diff === 3) { posiciones.derecha = jugador; //console.log(`  Asignado a "derecha"`); 
+
+            }
           }
         }
       });
@@ -123,13 +135,13 @@ const PlayerInfoLayout: React.FC<PlayerInfoLayoutProps> = React.memo(({
         numTotalJugadoresEnPartida
       });
     }
-    console.log('[PlayerInfoLayout useMemo] Posiciones finales calculadas:', JSON.stringify(Object.fromEntries(Object.entries(posiciones).map(([k,v]) => [k, v ? {id:v.idJugador, nombre:v.nombre, seatIndex: v.seatIndex} : undefined]))));
+    //console.log('[PlayerInfoLayout useMemo] Posiciones finales calculadas:', JSON.stringify(Object.fromEntries(Object.entries(posiciones).map(([k,v]) => [k, v ? {id:v.idJugador, nombre:v.nombre, seatIndex: v.seatIndex} : undefined]))));
     return posiciones;
   }, [manosJugadores, miIdJugadorSocket, jugadoresMesa]);
 
   // Check if jugadoresMesa is null or undefined before proceeding
   if (!jugadoresMesa) {
-    console.log('[PlayerInfoLayout RENDER] jugadoresMesa es undefined, no se renderiza nada.');
+    //console.log('[PlayerInfoLayout RENDER] jugadoresMesa es undefined, no se renderiza nada.');
     return null; 
   }
   

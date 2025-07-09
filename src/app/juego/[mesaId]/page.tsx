@@ -160,7 +160,6 @@ export default function JuegoPage() {
   useEffect(() => {
     audioFichaJugadaRef.current = new Audio('/sounds/ficha_jugada.mp3');
     audioFichaJugadaRef.current.load();
-    console.log('[AUDIO_EFFECT] Audio player for ficha_colocada initialized.');
   }, []);
 
   useEffect(() => {

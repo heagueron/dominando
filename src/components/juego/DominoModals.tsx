@@ -33,9 +33,9 @@ const DominoModals: React.FC<DominoModalsProps> = ({
   onVerLobby, // Desestructurar la nueva prop
 }) => {
   // Añadimos un log para ver el payload completo cuando el modal se renderiza
-  if (finRondaInfoVisible && finRondaData) {
+  /*if (finRondaInfoVisible && finRondaData) {
     console.log('[DominoModals] Renderizando modal. Payload completo recibido:', JSON.stringify(finRondaData.resultadoPayload, null, 2));
-  }
+  }*/
 
   const isSingleRoundMode = estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
   const isTrancado = finRondaData?.resultadoPayload.tipoFinRonda === 'trancado';
