@@ -278,6 +278,14 @@ export default function JuegoPage() {
     currentPlayableFichaIds: playableFichaIdsFromStore,
   });
 
+  // Efecto para limpiar la selección si el turno del jugador termina abruptamente
+  useEffect(() => {
+    if (!esMiTurnoFromRondaHook && selectedFichaInfo) {
+      console.log('[CLEANUP_EFFECT] El turno ha cambiado o terminado. Limpiando ficha seleccionada para evitar fichas flotantes.');
+      clearSelection();
+    }
+  }, [esMiTurnoFromRondaHook, selectedFichaInfo, clearSelection]);
+
   const stableEmitEvent = useCallback(emitEvent, [emitEvent]);
 
   const handleTeUnisteAMesa = useCallback((payload: TeUnisteAMesaPayloadCliente) => {
