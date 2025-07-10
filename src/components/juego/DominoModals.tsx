@@ -1,24 +1,23 @@
 // DominoModals.tsx
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { calcularPuntosMano } from '@/utils/dominoUtils';
-// Importar tipos desde el nuevo archivo centralizado
 import { FinDeRondaPayloadCliente, EstadoMesaPublicoCliente, FinDePartidaPayloadCliente, GameMode } from '@/types/domino';
 import ProgressTimerBar from '@/components/common/ProgressTimerBar';
+import SingleRoundEndModal from './SingleRoundEndModal';
+import FullGameEndModal from './FullGameEndModal';
 
 interface DominoModalsProps {
   showRotateMessage: boolean;
   finRondaInfoVisible: boolean;
   finRondaData: {
     resultadoPayload: FinDeRondaPayloadCliente;
-    // No necesitamos fichasEnMesaSnapshot ni posicionAnclaSnapshot aquí, ya que el modal no los usa directamente.
   } | null;
-  estadoMesaCliente: EstadoMesaPublicoCliente | null; // Para info de jugadores en FinDeRondaModal
+  estadoMesaCliente: EstadoMesaPublicoCliente | null;
   mensajeTransicion: string | null;
-  finPartidaData: FinDePartidaPayloadCliente | null; // Nuevo prop para el modal de fin de partida
-  onPlayAgain: () => void; // NUEVA PROP: Función para manejar el clic en "Jugar de Nuevo"
-  onSalirDeMesa: () => void; // NUEVA PROP: Función para manejar el clic en "Salir"
-  onVerLobby: () => void; // NUEVA PROP: Función para ir al lobby sin salir de la mesa
+  finPartidaData: FinDePartidaPayloadCliente | null;
+  onPlayAgain: () => void;
+  onSalirDeMesa: () => void;
+  onVerLobby: () => void;
 }
 
 const DominoModals: React.FC<DominoModalsProps> = ({
@@ -27,26 +26,17 @@ const DominoModals: React.FC<DominoModalsProps> = ({
   finRondaData,
   estadoMesaCliente,
   mensajeTransicion,
-  finPartidaData, // Nuevo prop
-  onPlayAgain, // Desestructurar la nueva prop
-  onSalirDeMesa, // Desestructurar la nueva prop
-  onVerLobby, // Desestructurar la nueva prop
+  finPartidaData,
+  onPlayAgain,
+  onSalirDeMesa,
+  onVerLobby,
 }) => {
-  // Añadimos un log para ver el payload completo cuando el modal se renderiza
-  /*if (finRondaInfoVisible && finRondaData) {
-    console.log('[DominoModals] Renderizando modal. Payload completo recibido:', JSON.stringify(finRondaData.resultadoPayload, null, 2));
-  }*/
-
-  const isSingleRoundMode = estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
-  const isTrancado = finRondaData?.resultadoPayload.tipoFinRonda === 'trancado';
-
-  // Estado y efecto para la barra regresiva del modal de transición
   const [transitionTimer, setTransitionTimer] = useState<number | null>(null);
   const transitionTimerActive = Boolean(
     mensajeTransicion &&
     estadoMesaCliente?.reinicioTimerRemainingSeconds !== undefined &&
     estadoMesaCliente.reinicioTimerRemainingSeconds > 0 &&
-    estadoMesaCliente?.jugadores && estadoMesaCliente.jugadores.length >= 2 // Solo mostrar barra si hay 2 o más jugadores
+    estadoMesaCliente?.jugadores && estadoMesaCliente.jugadores.length >= 2
   );
 
   useEffect(() => {
@@ -69,6 +59,8 @@ const DominoModals: React.FC<DominoModalsProps> = ({
     }
   }, [transitionTimerActive, estadoMesaCliente?.reinicioTimerRemainingSeconds, mensajeTransicion]);
 
+  const isSingleRoundMode = estadoMesaCliente?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
+
   return (
     <>
       {/* Modal de Rotar Dispositivo */}
@@ -83,164 +75,20 @@ const DominoModals: React.FC<DominoModalsProps> = ({
         </div>
       )}
 
-      {/* Modal de Fin de Ronda (Rediseñado) */}
-      {finRondaInfoVisible && finRondaData?.resultadoPayload && ( // Asegurarse de que el modal de fin de partida no esté activo
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-40 p-4">
-          <motion.div
-            id="fin-ronda"
-            className="bg-yellow-50 border-2 border-yellow-500 p-4 sm:p-6 rounded-lg shadow-2xl text-center max-w-lg w-full bg-opacity-30 relative"
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}>
-            {/* Fila 1: Título */}
-            <h2 className="text-2xl sm:text-3xl font-bold text-yellow-800 mb-4">
-                {isSingleRoundMode ? 'Fin de la Ronda - Partida' : 'Fin de la Ronda'}
-            </h2>
-
-            {/* Fila 2: Ganador y Puntos (Layout condicional) */}
-            {isSingleRoundMode ? (
-              // Layout para Ronda Única: Ganador centrado
-              <>
-                <div className="flex flex-col items-center mb-6">
-                  <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Ganador</p>
-                  <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[250px] truncate">
-                    <p className="text-lg sm:text-xl font-bold text-yellow-900">
-                      {finRondaData.resultadoPayload.nombreGanador || finRondaData.resultadoPayload.ganadorRondaId || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-                {/* Botones de acción para SINGLE_ROUND */}
-                <div className="mt-4">
-                  <button onClick={onPlayAgain} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105 shadow-md mb-3">Jugar de Nuevo</button>
-                  <div className="flex space-x-4">
-                    <button onClick={onSalirDeMesa} className="w-full bg-red-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Salir de la Mesa</button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              // Layout para Partida Completa: 2 columnas
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                {/* Columna A: Ganador */}
-                <div className="flex flex-col items-center">
-                  <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Ganador</p>
-                  <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[200px] truncate">
-                    <p className="text-lg sm:text-xl font-bold text-yellow-900">
-                      {finRondaData.resultadoPayload.nombreGanador || finRondaData.resultadoPayload.ganadorRondaId || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-                {/* Columna B: Puntos */}
-                <div className="flex flex-col items-center">
-                  <p className="text-md sm:text-lg font-semibold text-yellow-700 mb-1">Puntos</p>
-                  <div className="bg-yellow-100 border border-yellow-400 rounded-md p-2 w-full max-w-[150px] truncate">
-                    <p className="text-lg sm:text-xl font-bold text-yellow-900">
-                      {finRondaData.resultadoPayload.puntosGanadosEstaRonda ?? 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Conditional display for block (tranque) */}
-            {isTrancado || !isSingleRoundMode ? ( // Show this section if trancado OR if it's FULL_GAME
-                <>
-                    {/* Fila 3: Línea de Separación */}
-                    <hr className="border-t-2 border-yellow-300 my-4" />
-
-                    {/* Fila 4: Título "Puntos de la Ronda - Partida" */}
-                    <h3 className="text-xl sm:text-2xl font-bold text-yellow-800 mb-4">
-                        {isSingleRoundMode ? 'Puntos de la Ronda - Partida' : 'Puntos de la Partida'}
-                    </h3>
-
-                    {/* Fila 5: Tabla de Puntos (condicional según el modo de juego) */}
-                    {isSingleRoundMode ? (
-                        // Table for SINGLE_ROUND (Jugador, Total) - Using manosFinales for 'trancado'
-                        (finRondaData.resultadoPayload.manosFinales && finRondaData.resultadoPayload.manosFinales.length > 0) ? (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full bg-yellow-100 border border-yellow-300 rounded-lg text-sm sm:text-base">
-                                    <thead>
-                                        <tr className="bg-yellow-200 text-yellow-800">
-                                            <th className="py-2 px-3 text-left">Jugador</th>
-                                            <th className="py-2 px-3 text-right">Puntos</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {finRondaData.resultadoPayload.manosFinales
-                                            .map(mano => {
-                                                // Buscar la info del jugador en el array de puntuaciones, que sí contiene los nombres
-                                                const jugadorInfo = finRondaData.resultadoPayload.puntuaciones.find(p => p.jugadorId === mano.jugadorId);
-                                                const puntos = calcularPuntosMano(mano.fichas);
-                                                return {
-                                                    jugadorId: mano.jugadorId,
-                                                    nombre: jugadorInfo?.nombre || mano.jugadorId, // Usar el nombre encontrado o el ID como fallback
-                                                    puntos: puntos,
-                                                };
-                                            })
-                                            .sort((a, b) => a.puntos - b.puntos) // Sort by points ascending for block
-                                            .map(score => (
-                                                <tr key={score.jugadorId} className="border-t border-yellow-200">
-                                                    <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{score.nombre}</td>
-                                                    <td className="py-2 px-3 text-right font-bold text-gray-900">{score.puntos}</td>
-                                                </tr>
-                                            ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="text-yellow-700">No hay información de manos finales disponible.</p>
-                        )
-                    ) : (
-                        // Table for FULL_GAME (Jugador, Previos, Ronda, Total)
-                        (finRondaData.resultadoPayload.puntuaciones && finRondaData.resultadoPayload.puntuaciones.length > 0) ? (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full bg-yellow-100 border border-yellow-300 rounded-lg text-sm sm:text-base">
-                                    <thead>
-                                        <tr className="bg-yellow-200 text-yellow-800">
-                                            <th className="py-2 px-3 text-left">Jugador</th>
-                                            <th className="py-2 px-3 text-right">Previos</th>
-                                            <th className="py-2 px-3 text-right">Ronda</th>
-                                            <th className="py-2 px-3 text-right">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {finRondaData.resultadoPayload.puntuaciones
-                                            .sort((a, b) => b.puntosAcumulados - a.puntosAcumulados) // Sort by total points descending
-                                            .map(score => (
-                                                <tr key={score.jugadorId} className="border-t border-yellow-200">
-                                                    <td className="py-2 px-3 text-left font-medium text-yellow-900 truncate">{score.nombre}</td>
-                                                    <td className="py-2 px-3 text-right text-gray-900">{score.puntosPrevios}</td>
-                                                    <td className="py-2 px-3 text-right text-gray-900">{score.puntosRonda}</td>
-                                                    <td className="py-2 px-3 text-right font-bold text-gray-900">{score.puntosAcumulados}</td>
-                                                </tr>
-                                            ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="text-yellow-700">No hay puntuaciones de partida disponibles.</p>
-                        )
-                    )}
-                </>
-            ) : null} {/* If not trancado AND isSingleRoundMode, don't show this section */}
-
-            {/* Declaración del ganador de la partida (si aplica) */}
-            {estadoMesaCliente?.partidaActual?.ganadorPartidaId && (
-                <motion.div
-                    className="mt-6 p-3 bg-yellow-200 border border-yellow-500 rounded-lg shadow-md"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5, duration: 0.3 }}
-                >
-                    <p className="text-lg sm:text-xl font-bold text-yellow-900">
-                        ¡{estadoMesaCliente.jugadores.find(j => j.id === estadoMesaCliente.partidaActual?.ganadorPartidaId)?.nombre || 'Un jugador'} ha ganado la partida!
-                    </p>
-                </motion.div>
-            )}
-            <span className="absolute bottom-2 left-2 text-xs text-yellow-800 opacity-60 font-mono">
-              fin-ronda
-            </span>
-          </motion.div>
-        </div>
+      {/* Modales de Fin de Ronda */}
+      {finRondaInfoVisible && finRondaData?.resultadoPayload && (
+        isSingleRoundMode ? (
+          <SingleRoundEndModal 
+            finRondaData={finRondaData}
+            onPlayAgain={onPlayAgain}
+            onSalirDeMesa={onSalirDeMesa}
+          />
+        ) : (
+          <FullGameEndModal 
+            finRondaData={finRondaData}
+            estadoMesaCliente={estadoMesaCliente}
+          />
+        )
       )}
 
       {/* Modal de Fin de Partida (Game Over) */}
@@ -253,16 +101,11 @@ const DominoModals: React.FC<DominoModalsProps> = ({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            {/* Fila 1: Título */}
             <h2 className="text-3xl font-bold mb-2 text-gray-900">Partida Terminada</h2>
-            {/* Fila 2: Ganador */}
             <p className="text-xl mb-4">
               Ganador: <span className="font-semibold text-yellow-600">{estadoMesaCliente?.jugadores.find(j => j.id === finPartidaData.ganadorPartidaId)?.nombre || 'N/A'}</span>
             </p>
-            {/* Fila 3: Separador */}
             <hr className="my-4" />
-
-            {/* Fila 4: Tabla de Puntos Finales */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Puntuaciones Finales</h3>
               <table className="w-full text-left">
@@ -280,15 +123,12 @@ const DominoModals: React.FC<DominoModalsProps> = ({
                         <td className="p-2 truncate">{estadoMesaCliente?.jugadores.find(j => j.id === jugadorId)?.nombre || 'Desconocido'}</td>
                         <td className="p-2 text-right font-bold">{puntos}</td>
                       </tr>
-                    ))}
+                    ))
+                  }
                 </tbody>
               </table>
             </div>
-
-            {/* Fila 5: Botón "Jugar de Nuevo" */}
             <button onClick={onPlayAgain} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105 shadow-md mb-3">Jugar de Nuevo</button>
-            
-            {/* Fila 6: Botón "Ver Lobby" y "Salir" */}
             <div className="flex space-x-4">
               <button onClick={onVerLobby} className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Ver Lobby</button>
               <button onClick={onSalirDeMesa} className="w-full bg-red-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors">Salir de la Mesa</button>
@@ -337,3 +177,4 @@ const DominoModals: React.FC<DominoModalsProps> = ({
 };
 
 export default DominoModals;
+
