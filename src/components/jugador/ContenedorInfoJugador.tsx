@@ -7,6 +7,8 @@ import UserAvatar from '@/components/jugador/UserAvatar';
 import React from 'react';
 import ProgressTimerBar from '@/components/common/ProgressTimerBar';
 
+import { EstadoJugadorEnMesa } from '@/types/domino';
+
 interface ContenedorInfoJugadorProps {
   nombreJugador?: string;
   avatarUrl?: string; 
@@ -24,6 +26,7 @@ interface ContenedorInfoJugadorProps {
   fichasRestantesAlFinalizar?: TipoFichaDomino[];
   mostrarFichasFinales?: boolean;
   puntosPartidaActual?: number; // Nueva prop para mostrar los puntos del jugador en la partida
+  estadoJugadorEnMesa?: EstadoJugadorEnMesa;
   className?: string;
 }
 
@@ -58,6 +61,7 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
   fichasRestantesAlFinalizar,
   mostrarFichasFinales,
   puntosPartidaActual, // Destructuramos la nueva prop
+  estadoJugadorEnMesa,
   className = '',
 }) => {
   const mostrarBarra = esTurnoActual && typeof tiempoRestante === 'number' && typeof duracionTotalTurno === 'number' && duracionTotalTurno > 0 && 
@@ -114,6 +118,11 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
                 size={posicion === 'arriba' || posicion === 'abajo' ? (window.innerWidth < 1024 ? 48 : 64) : (window.innerWidth < 1024 ? 48 : 56)} // Tamaños dinámicos
                 className="w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16" // Clases para mantener el layout si es necesario
               />
+              {estadoJugadorEnMesa === 'EsperandoPuesto' && (
+                <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xxs font-bold px-1.5 py-0.5 rounded-full shadow-lg">
+                  Esperando
+                </div>
+              )}
               {/* El SpeechBubble se renderizará fuera de este flujo, posicionado absolutamente */}
               {typeof numFichas === 'number' && !mostrarFichasFinales && (
                 <FichaCountEar count={numFichas} side="left" />
@@ -143,18 +152,23 @@ const ContenedorInfoJugador: React.FC<ContenedorInfoJugadorProps> = ({
         <div className={`flex flex-col items-center gap-1 p-2 bg-black bg-opacity-20 rounded-lg shadow-md`}>
           <div className="relative flex-shrink-0">
             <UserAvatar 
-              src={avatarUrl} 
-              name={nombreJugador} 
-              size={window.innerWidth < 1024 ? 48 : 56} // Tamaños dinámicos
-              className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" // Clases para mantener el layout si es necesario
-            />
-            {/* El SpeechBubble se renderizará fuera de este flujo, posicionado absolutamente */}
-            {posicion === 'derecha' && typeof numFichas === 'number' && !mostrarFichasFinales && (
-              <FichaCountEar count={numFichas} side="left" />
-            )}
-            {posicion === 'izquierda' && typeof numFichas === 'number' && !mostrarFichasFinales && (
-              <FichaCountEar count={numFichas} side="right" />
-            )}
+                src={avatarUrl} 
+                name={nombreJugador} 
+                size={window.innerWidth < 1024 ? 48 : 56} // Tamaños dinámicos
+                className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" // Clases para mantener el layout si es necesario
+              />
+              {estadoJugadorEnMesa === 'EsperandoPuesto' && (
+                <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xxs font-bold px-1.5 py-0.5 rounded-full shadow-lg">
+                  Esperando
+                </div>
+              )}
+              {/* El SpeechBubble se renderizará fuera de este flujo, posicionado absolutamente */}
+              {posicion === 'derecha' && typeof numFichas === 'number' && !mostrarFichasFinales && (
+                <FichaCountEar count={numFichas} side="left" />
+              )}
+              {posicion === 'izquierda' && typeof numFichas === 'number' && !mostrarFichasFinales && (
+                <FichaCountEar count={numFichas} side="right" />
+              )}
           </div>
           <div className="flex flex-col items-center overflow-hidden w-full">
             <p className="text-xs sm:text-sm font-semibold text-white text-center truncate w-full" title={nombreJugador}>

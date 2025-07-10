@@ -382,6 +382,9 @@ export default function JuegoPage() {
     let fichasEnMesaSnapshotParaFin: FichaEnMesaParaLogica[] = [];
     let posicionAnclaSnapshotParaFin: { fila: number; columna: number } = { fila: FILA_ANCLA_INICIAL, columna: COLUMNA_ANCLA_INICIAL };
 
+    // Determinar si el jugador local participó en esta ronda
+    const jugadorLocalParticipoEnRonda = miIdJugadorSocketFromStore && payload.puntuaciones.some(p => p.jugadorId === miIdJugadorSocketFromStore);
+
     // Use payload's board state for snapshot
     if (payload.anclaFicha || (payload.fichasIzquierda && payload.fichasIzquierda.length > 0) || (payload.fichasDerecha && payload.fichasDerecha.length > 0)) {
         fichasEnMesaSnapshotParaFin = [
@@ -407,16 +410,24 @@ export default function JuegoPage() {
     }
 
     // Retrasar la aparición del modal de fin de ronda para que se vea la última jugada
-    setTimeout(() => {
-      setFinRondaData({
-        resultadoPayload: payload,
-        fichasEnMesaSnapshot: fichasEnMesaSnapshotParaFin,
-        posicionAnclaSnapshot: posicionAnclaSnapshotParaFin,
-      });
-      setFinRondaInfoVisible(true);
-      clearSelection();
-      setPlayableFichaIdsStore([]);
-    }, DELAY_BEFORE_SHOWING_FIN_RONDA_MODAL_MS);
+    // Solo mostrar el modal si el jugador local participó en la ronda
+    if (jugadorLocalParticipoEnRonda) {
+      setTimeout(() => {
+        setFinRondaData({
+          resultadoPayload: payload,
+          fichasEnMesaSnapshot: fichasEnMesaSnapshotParaFin,
+          posicionAnclaSnapshot: posicionAnclaSnapshotParaFin,
+        });
+        setFinRondaInfoVisible(true);
+        clearSelection();
+        setPlayableFichaIdsStore([]);
+      }, DELAY_BEFORE_SHOWING_FIN_RONDA_MODAL_MS);
+    } else {
+      console.log('[FIN_RONDA_CLIENTE] Jugador local no participó en esta ronda. No se muestra modal de fin de ronda.');
+      // Asegurarse de que el modal esté oculto si no participó
+      setFinRondaInfoVisible(false);
+      setFinRondaData(null);
+    }
 
     // Solo cerrar automáticamente el modal si NO es SINGLE_ROUND
     const isSingleRound = currentEstadoMesa?.partidaActual?.gameMode === GameMode.SINGLE_ROUND;
@@ -431,11 +442,17 @@ export default function JuegoPage() {
       }, TIEMPO_VISUALIZACION_FIN_RONDA_MS_CLIENTE);
     }
     setManoVersion(prev => prev + 1);
-  }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef]);
+  }, [clearSelection, setPlayableFichaIdsStore, estadoMesaClienteRef, miIdJugadorSocketFromStore]);
 
   const handleFinDePartida = useCallback((payload: FinDePartidaPayloadCliente) => {
     console.log('[SOCKET] Evento servidor:finDePartida recibido:', payload);
-    setFinPartidaData(payload);
+    // Solo mostrar el modal de fin de partida si el jugador local participó en la partida que terminó.
+    // Los jugadores en estado 'EsperandoPuesto' no deben ver este modal.
+    if (miIdJugadorSocketFromStore && payload.puntuacionesFinalesPartida.some(p => p.jugadorId === miIdJugadorSocketFromStore)) {
+      setFinPartidaData(payload);
+    } else {
+      console.log('[FIN_PARTIDA_CLIENTE] Jugador local no participó en la partida finalizada. No se muestra modal de fin de partida.');
+    }
     // Cuando la partida termina, ocultar el modal de fin de ronda y cualquier mensaje de transición
     setFinRondaInfoVisible(false);
     setFinRondaData(null); // Limpiar también los datos de la ronda
@@ -446,7 +463,7 @@ export default function JuegoPage() {
     }
     // Ya no usamos un temporizador. El modal se mostrará hasta que el estado de la mesa cambie.
   
-  }, []);
+  }, [miIdJugadorSocketFromStore]);
 
   // Nueva función para manejar el clic en "Jugar de Nuevo"
   const handlePlayAgain = useCallback(() => {
@@ -667,6 +684,11 @@ export default function JuegoPage() {
     }
   }, [finRondaInfoVisible, finRondaData, resultadoRonda]);
 
+  const miJugadorEnMesa = useMemo(() => {
+    if (!estadoMesaCliente || !miIdJugadorSocketFromStore) return null;
+    return estadoMesaCliente.jugadores.find(j => j.id === miIdJugadorSocketFromStore);
+  }, [estadoMesaCliente, miIdJugadorSocketFromStore]);
+
   // useEffect específico para actualizar manosJugadores (para la UI)
   useEffect(() => {
     if (!estadoMesaCliente || !miIdJugadorSocketFromStore) {
@@ -830,6 +852,7 @@ export default function JuegoPage() {
                 isLocalPlayer={true}
                 playableFichaIds={playableFichaIdsFromStore}
                 onFichaDragEnd={handleFichaDragEnd}
+                estadoJugador={miJugadorEnMesa?.estadoJugadorEnMesa}
               />
             </div>
             <div className="w-full"></div>
@@ -838,7 +861,6 @@ export default function JuegoPage() {
       </main>
 
       <PlayerInfoLayout
-        manosJugadores={manosJugadoresFromStore}
         miIdJugadorSocket={miIdJugadorSocketFromStore}
         // Pass granular props to PlayerInfoLayout
         jugadoresMesa={estadoMesaCliente?.jugadores}

@@ -2,6 +2,8 @@
 import { motion, PanInfo } from 'framer-motion'; // Importar PanInfo
 import FichaDomino from './FichaDomino';
 
+import { EstadoJugadorEnMesa } from '@/types/domino';
+
 interface FichaEnMano {
   id: string;
   valorSuperior: number;
@@ -18,6 +20,7 @@ interface ManoJugadorProps {
   numFichas?: number;
   isLocalPlayer?: boolean; // New prop to indicate if this is the local player's hand
   onFichaDragEnd?: (fichaId: string, event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void; // Nueva prop para drag & drop
+  estadoJugador?: EstadoJugadorEnMesa;
 }
 
 interface FichaEnManoViewProps {
@@ -93,7 +96,16 @@ const ManoJugador: React.FC<ManoJugadorProps> = ({
   layoutDirection = 'row', // Default to row
   isLocalPlayer = false, // Default to false
   onFichaDragEnd, // Nueva prop
+  estadoJugador,
 }) => {
+  
+  if (estadoJugador === 'EsperandoPuesto') {
+    return (
+      <div className="flex items-center justify-center h-24 px-4 bg-black bg-opacity-20 rounded-lg">
+        <p className="text-white text-center font-semibold">Te unirás en la siguiente partida.</p>
+      </div>
+    );
+  }
   
 
   const fichaSizeClass = isLocalPlayer // Use isLocalPlayer here
